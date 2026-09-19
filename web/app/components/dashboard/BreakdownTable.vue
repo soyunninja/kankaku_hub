@@ -1,0 +1,73 @@
+<script setup lang="ts">
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import type { GroupTotals } from '@/lib/aggregate'
+import { formatCost, formatDuration, formatPercent } from '@/lib/format'
+
+const { t } = useI18n()
+
+defineProps<{
+  rows: (GroupTotals & { label: string })[]
+  nameHeader: string
+}>()
+
+type SortKey = 'cost' | 'workMs' | 'count'
+const sortKey = ref<SortKey>('cost')
+const sortDir = ref<'asc' | 'desc'>('desc')
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value === key) sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  else { sortKey.value = key; sortDir.value = 'desc' }
+}
+
+function sorted(rows: (GroupTotals & { label: string })[]) {
+  const copy = [...rows]
+  copy.sort((a, b) => (a[sortKey.value] - b[sortKey.value]) * (sortDir.value === 'asc' ? 1 : -1))
+  return copy
+}
+</script>
+
+<template>
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>{{ nameHeader }}</TableHead>
+        <TableHead class="cursor-pointer text-right" @click="toggleSort('workMs')">
+          {{ t('common.work') }}
+        </TableHead>
+        <TableHead class="cursor-pointer text-right" @click="toggleSort('cost')">
+          {{ t('common.cost') }}
+        </TableHead>
+        <TableHead class="text-right">
+          {{ t('dashboard.share') }}
+        </TableHead>
+        <TableHead class="cursor-pointer text-right" @click="toggleSort('count')">
+          {{ t('common.count') }}
+        </TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      <TableRow v-for="row in sorted(rows)" :key="row.key">
+        <TableCell class="font-medium">
+          {{ row.label }}
+        </TableCell>
+        <TableCell class="text-right tabular-nums">
+          {{ formatDuration(row.workMs) }}
+        </TableCell>
+        <TableCell class="text-right tabular-nums">
+          {{ formatCost(row.cost) }}
+        </TableCell>
+        <TableCell class="text-right tabular-nums text-muted-foreground">
+          {{ formatPercent(row.costShare) }}
+        </TableCell>
+        <TableCell class="text-right tabular-nums text-muted-foreground">
+          {{ row.count }}
+        </TableCell>
+      </TableRow>
+      <TableRow v-if="rows.length === 0">
+        <TableCell colspan="5" class="text-center text-muted-foreground">
+          —
+        </TableCell>
+      </TableRow>
+    </TableBody>
+  </Table>
+</template>
