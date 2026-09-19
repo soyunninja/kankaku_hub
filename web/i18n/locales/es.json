@@ -1,0 +1,196 @@
+{
+  "app": {
+    "name": "kankaku hub"
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "clients": "Clientes",
+    "projects": "Proyectos",
+    "tasks": "Tareas",
+    "unassigned": "Sin determinar",
+    "entries": "Registros",
+    "settings": "Ajustes",
+    "logout": "Cerrar sesión"
+  },
+  "theme": {
+    "label": "Tema",
+    "dark": "Oscuro",
+    "light": "Claro",
+    "system": "Sistema"
+  },
+  "palette": {
+    "trigger": "Buscar",
+    "title": "Paleta de comandos",
+    "placeholder": "Buscar clientes, proyectos, tareas…",
+    "empty": "Sin resultados"
+  },
+  "login": {
+    "subtitle": "Tiempo y coste de IA por proyecto",
+    "email": "Correo",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "error": "Correo o contraseña incorrectos"
+  },
+  "common": {
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "archive": "Archivar",
+    "unarchive": "Reactivar",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "actions": "Acciones",
+    "name": "Nombre",
+    "code": "Código",
+    "client": "Cliente",
+    "project": "Proyecto",
+    "task": "Tarea",
+    "status": "Estado",
+    "all": "Todos",
+    "none": "Ninguno",
+    "search": "Buscar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "saved": "Guardado",
+    "error": "Ha ocurrido un error",
+    "back": "Volver",
+    "select": "Selecciona…",
+    "work": "Trabajo",
+    "cost": "Coste",
+    "count": "Nº",
+    "model": "Modelo",
+    "prompt": "Prompt",
+    "started": "Inicio",
+    "externalRef": "Referencia externa",
+    "description": "Descripción",
+    "userMenu": "Menú de usuario"
+  },
+  "dashboard": {
+    "title": "Panel",
+    "period": "Periodo",
+    "presets": {
+      "today": "Hoy",
+      "7d": "7 días",
+      "30d": "30 días",
+      "thisMonth": "Este mes",
+      "lastMonth": "Mes pasado",
+      "custom": "Personalizado"
+    },
+    "includeUnassigned": "Incluir Sin determinar",
+    "kpi": {
+      "workTime": "Tiempo de trabajo",
+      "wallTime": "Tiempo total",
+      "waitingTime": "Tiempo de espera",
+      "cost": "Coste",
+      "tokensIn": "Tokens entrada",
+      "tokensOut": "Tokens salida",
+      "tokensCache": "Tokens caché",
+      "tasks": "Tareas",
+      "avgCostPerTask": "Coste medio/tarea"
+    },
+    "vsPrevious": "vs. periodo anterior",
+    "chart": {
+      "title": "Serie temporal",
+      "metric": "Métrica",
+      "work": "Tiempo de trabajo",
+      "cost": "Coste",
+      "stackBy": "Agrupar por",
+      "none": "Sin agrupar",
+      "client": "Cliente",
+      "project": "Proyecto"
+    },
+    "byClient": "Por cliente",
+    "byProject": "Por proyecto",
+    "topExpensive": "Entradas más costosas",
+    "share": "Cuota",
+    "noData": "No hay datos en este periodo",
+    "liveUpdate": "Actualizado en vivo"
+  },
+  "clients": {
+    "title": "Clientes",
+    "new": "Nuevo cliente",
+    "edit": "Editar cliente",
+    "protected": "Cliente protegido: no se puede renombrar, archivar ni eliminar.",
+    "unassignedHint": "Destino de los registros históricos sin cliente asignado.",
+    "totalCost": "Coste total",
+    "totalTime": "Tiempo de trabajo",
+    "empty": "Todavía no hay clientes.",
+    "codeHint": "Identificador corto y único, p. ej. \"cajamar\"."
+  },
+  "projects": {
+    "title": "Proyectos",
+    "new": "Nuevo proyecto",
+    "edit": "Editar proyecto",
+    "filterByClient": "Filtrar por cliente",
+    "repoPaths": "Rutas de repositorio",
+    "repoPathsHint": "Rutas absolutas del repo en tus máquinas. kankaku las usa para seleccionar el proyecto automáticamente al iniciar sesión en ese directorio.",
+    "addPath": "Añadir ruta",
+    "empty": "Todavía no hay proyectos.",
+    "detail": {
+      "trend": "Tendencia",
+      "tasksTitle": "Tareas",
+      "entriesTitle": "Registros",
+      "topPrompts": "Prompts más costosos",
+      "byModel": "Por modelo"
+    }
+  },
+  "tasks": {
+    "title": "Tareas",
+    "new": "Nueva tarea",
+    "edit": "Editar tarea",
+    "board": "Tablero",
+    "list": "Lista",
+    "status": {
+      "open": "Abierta",
+      "doing": "En curso",
+      "done": "Hecha"
+    },
+    "empty": "No hay tareas.",
+    "cost": "Coste IA",
+    "time": "Tiempo IA",
+    "moveTo": "Mover a"
+  },
+  "unassigned": {
+    "title": "Sin determinar",
+    "subtitle": "Registros históricos esperando un cliente y proyecto reales.",
+    "group": "Grupo",
+    "legacyLabel": "Etiqueta original",
+    "repoProject": "Proyecto local",
+    "entries": "Registros",
+    "selectAll": "Seleccionar todo",
+    "assignSelected": "Asignar selección",
+    "assignGroup": "Asignar grupo",
+    "assignTo": "Asignar a",
+    "empty": "No hay registros pendientes de asignar.",
+    "progress": "Asignando {done} de {total}…",
+    "done": "Hecho: {succeeded} asignados, {failed} fallidos.",
+    "selected": "{count} seleccionados"
+  },
+  "entries": {
+    "title": "Registros",
+    "filters": "Filtros",
+    "searchPrompt": "Buscar en el prompt…",
+    "empty": "No hay registros con estos filtros.",
+    "detail": {
+      "title": "Detalle del registro",
+      "assignment": "Asignación",
+      "workRecords": "Registros de trabajo (work_records)",
+      "workRecordsWarning": "Detalle bruto — nunca se suman. Los totales siempre vienen de task_entries.",
+      "segments": "Segmentos",
+      "noWorkRecords": "Sin work_records asociados."
+    }
+  },
+  "settings": {
+    "title": "Ajustes",
+    "appearance": "Apariencia",
+    "language": "Idioma",
+    "connection": "Conexión",
+    "hubUrl": "URL del hub",
+    "signedInAs": "Sesión iniciada como",
+    "schema": "Resumen del esquema",
+    "version": "Versión"
+  }
+}

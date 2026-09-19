@@ -1,0 +1,196 @@
+{
+  "app": {
+    "name": "kankaku hub"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "projects": "Projects",
+    "tasks": "Tasks",
+    "unassigned": "Unassigned",
+    "entries": "Entries",
+    "settings": "Settings",
+    "logout": "Log out"
+  },
+  "theme": {
+    "label": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "system": "System"
+  },
+  "palette": {
+    "trigger": "Search",
+    "title": "Command palette",
+    "placeholder": "Search clients, projects, tasks…",
+    "empty": "No results"
+  },
+  "login": {
+    "subtitle": "AI time and cost per project",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "error": "Wrong email or password"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "active": "Active",
+    "inactive": "Inactive",
+    "actions": "Actions",
+    "name": "Name",
+    "code": "Code",
+    "client": "Client",
+    "project": "Project",
+    "task": "Task",
+    "status": "Status",
+    "all": "All",
+    "none": "None",
+    "search": "Search",
+    "close": "Close",
+    "confirm": "Confirm",
+    "saved": "Saved",
+    "error": "Something went wrong",
+    "back": "Back",
+    "select": "Select…",
+    "work": "Work",
+    "cost": "Cost",
+    "count": "#",
+    "model": "Model",
+    "prompt": "Prompt",
+    "started": "Started",
+    "externalRef": "External ref",
+    "description": "Description",
+    "userMenu": "User menu"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "period": "Period",
+    "presets": {
+      "today": "Today",
+      "7d": "7 days",
+      "30d": "30 days",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "custom": "Custom"
+    },
+    "includeUnassigned": "Include Sin determinar",
+    "kpi": {
+      "workTime": "Work time",
+      "wallTime": "Wall time",
+      "waitingTime": "Waiting time",
+      "cost": "Cost",
+      "tokensIn": "Tokens in",
+      "tokensOut": "Tokens out",
+      "tokensCache": "Cache tokens",
+      "tasks": "Tasks",
+      "avgCostPerTask": "Avg cost/task"
+    },
+    "vsPrevious": "vs. previous period",
+    "chart": {
+      "title": "Time series",
+      "metric": "Metric",
+      "work": "Work time",
+      "cost": "Cost",
+      "stackBy": "Stack by",
+      "none": "No grouping",
+      "client": "Client",
+      "project": "Project"
+    },
+    "byClient": "By client",
+    "byProject": "By project",
+    "topExpensive": "Most expensive entries",
+    "share": "Share",
+    "noData": "No data in this period",
+    "liveUpdate": "Live updated"
+  },
+  "clients": {
+    "title": "Clients",
+    "new": "New client",
+    "edit": "Edit client",
+    "protected": "Protected client: cannot be renamed, archived or deleted.",
+    "unassignedHint": "Destination for historical records with no assigned client.",
+    "totalCost": "Total cost",
+    "totalTime": "Work time",
+    "empty": "No clients yet.",
+    "codeHint": "Short, unique identifier, e.g. \"cajamar\"."
+  },
+  "projects": {
+    "title": "Projects",
+    "new": "New project",
+    "edit": "Edit project",
+    "filterByClient": "Filter by client",
+    "repoPaths": "Repository paths",
+    "repoPathsHint": "Absolute repo paths on your machines. kankaku uses these to auto-select the project when you start a session in that directory.",
+    "addPath": "Add path",
+    "empty": "No projects yet.",
+    "detail": {
+      "trend": "Trend",
+      "tasksTitle": "Tasks",
+      "entriesTitle": "Entries",
+      "topPrompts": "Most expensive prompts",
+      "byModel": "By model"
+    }
+  },
+  "tasks": {
+    "title": "Tasks",
+    "new": "New task",
+    "edit": "Edit task",
+    "board": "Board",
+    "list": "List",
+    "status": {
+      "open": "Open",
+      "doing": "Doing",
+      "done": "Done"
+    },
+    "empty": "No tasks.",
+    "cost": "AI cost",
+    "time": "AI time",
+    "moveTo": "Move to"
+  },
+  "unassigned": {
+    "title": "Sin determinar",
+    "subtitle": "Historical entries waiting for a real client and project.",
+    "group": "Group",
+    "legacyLabel": "Legacy label",
+    "repoProject": "Local project",
+    "entries": "Entries",
+    "selectAll": "Select all",
+    "assignSelected": "Assign selection",
+    "assignGroup": "Assign group",
+    "assignTo": "Assign to",
+    "empty": "No entries waiting to be assigned.",
+    "progress": "Assigning {done} of {total}…",
+    "done": "Done: {succeeded} assigned, {failed} failed.",
+    "selected": "{count} selected"
+  },
+  "entries": {
+    "title": "Entries",
+    "filters": "Filters",
+    "searchPrompt": "Search in prompt…",
+    "empty": "No entries match these filters.",
+    "detail": {
+      "title": "Entry detail",
+      "assignment": "Assignment",
+      "workRecords": "Work records (work_records)",
+      "workRecordsWarning": "Raw detail — never summed. Totals always come from task_entries.",
+      "segments": "Segments",
+      "noWorkRecords": "No work_records for this entry."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "language": "Language",
+    "connection": "Connection",
+    "hubUrl": "Hub URL",
+    "signedInAs": "Signed in as",
+    "schema": "Schema summary",
+    "version": "Version"
+  }
+}
