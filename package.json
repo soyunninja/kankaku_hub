@@ -7,6 +7,12 @@
     "pb:download": "scripts/pb-download.sh",
     "dev": "scripts/dev.sh",
     "pb:accounts": "scripts/create-dev-accounts.sh",
-    "pb:seed": "node pocketbase/seed/seed.js"
+    "pb:seed": "node pocketbase/seed/seed.js",
+    "web:install": "pnpm --dir web install",
+    "web:dev": "pnpm --dir web dev",
+    "web:build": "pnpm --dir web generate",
+    "web:test": "pnpm --dir web test",
+    "web:lint": "pnpm --dir web lint",
+    "web:typecheck": "pnpm --dir web typecheck"
   }
 }
