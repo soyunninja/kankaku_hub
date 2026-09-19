@@ -1,0 +1,10 @@
+pocketbase/bin/
+pocketbase/pb_data/
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+.nuxt
+.output
+dist

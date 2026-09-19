@@ -1,0 +1,12 @@
+{
+  "name": "kankaku-hub",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PocketBase backend for kankaku: canonical clients/projects/tasks and synced task_entries/work_records.",
+  "scripts": {
+    "pb:download": "scripts/pb-download.sh",
+    "dev": "scripts/dev.sh",
+    "pb:accounts": "scripts/create-dev-accounts.sh",
+    "pb:seed": "node pocketbase/seed/seed.js"
+  }
+}
