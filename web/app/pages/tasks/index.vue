@@ -171,7 +171,7 @@ async function onDelete(task: TaskRecord) {
       </div>
     </div>
 
-    <div v-if="view === 'board'" class="grid gap-4 md:grid-cols-3">
+    <div v-if="view === 'board'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div
         v-for="status in statuses" :key="status" class="flex flex-col gap-2 rounded-lg p-1 transition-colors"
         :class="dragOverStatus === status ? 'bg-accent/40 ring-2 ring-primary/40' : ''"
@@ -189,7 +189,7 @@ async function onDelete(task: TaskRecord) {
           <Card
             v-for="task in byStatus(status)" :key="task.id"
             draggable="true"
-            class="cursor-grab touch-none active:cursor-grabbing"
+            class="cursor-grab gap-0 py-0 touch-none active:cursor-grabbing"
             :class="draggingTaskId === task.id ? 'opacity-50' : ''"
             role="button"
             tabindex="0"
