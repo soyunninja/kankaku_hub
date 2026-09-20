@@ -96,6 +96,23 @@ full evidence and design rationale.
     task rows to recover a cross-worktree parent/child union; a
     consolidated row is only ever produced by local reunification
     (`SUBAGENT-REQ-007` through `SUBAGENT-REQ-009`) before sync runs.
+19. `SUBAGENT-REQ-019` — A registry entry SHALL identify a process
+    INSTANCE, not a pid: it SHALL carry the process's OS start time, and an
+    ancestor SHALL be matched only when the entry's recorded start time and
+    a fresh reading for the live pid agree within a small tolerance. A
+    pid-only match is never sufficient: the OS reuses pids, and a stale
+    entry whose pid was later reused by the user's shell would mark every
+    genuine session launched from it as uncertain, silently dropping
+    billable work. When the start time cannot be obtained the match is NOT
+    proven and the process falls back to the pre-registry behaviour. (Added
+    2026-09-20 after the 6a review found this defect in the first
+    implementation; see ADR 0023 "Consequences".)
+20. `SUBAGENT-REQ-020` — Every process SHALL remove its own registry entry
+    on exit (verifying pid and identity first, never another process's
+    file), and the sweep SHALL also discard entries that are dead,
+    stale-by-reuse (pid alive, identity mismatch), unverifiable (no
+    recorded identity, e.g. written by an older build) or over a maximum
+    age. `/kankaku doctor` SHALL report how many were discarded and why.
 
 ## Scenarios
 
@@ -291,3 +308,5 @@ full evidence and design rationale.
 | `SUBAGENT-REQ-016` | `kankaku/tests/work-record.test.ts` (planned extension) | not covered |
 | `SUBAGENT-REQ-017` | `kankaku/tests/kankaku-command.test.ts` (planned extension) | not covered |
 | `SUBAGENT-REQ-018` | not applicable to a kankaku-repo test (hub-side behaviour: absence of a summing code path) | not covered |
+| `SUBAGENT-REQ-019` | `kankaku/tests/ancestry-match.test.ts`, `kankaku/tests/ancestry.test.ts` | covered |
+| `SUBAGENT-REQ-020` | `kankaku/tests/registry-health.test.ts`, `kankaku/tests/machine-process-registry.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |

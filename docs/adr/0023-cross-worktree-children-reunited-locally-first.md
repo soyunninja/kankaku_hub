@@ -68,6 +68,18 @@ explicitly deferred, not built in `phase-6`'s first pass.
 - If reunification's TTL turns out to lose real links in practice, the
   deferred `linked_task_id` fallback (cosmetic grouping only, never
   summed) is the next thing to build — not a relaxation of this decision.
+- **A pid is not an identity (learned in the 6a review, 2026-09-20).** The
+  first implementation matched ancestors by pid alone and never removed an
+  entry on exit. Because the OS reuses pids, a leftover entry could end up
+  naming the user's interactive shell, and every genuine session launched
+  from it would be classed as uncertain and dropped — the exact silent
+  undercount this work exists to prevent. Entries now carry a
+  `processStartId` (OS start time taken from the same single startup
+  snapshot: `ps -eo pid,ppid,etime` on macOS/BSD — `etimes` is GNU-only —
+  and `/proc/<pid>/stat` + `/proc/uptime` on Linux), a match requires
+  identity agreement within 2000 ms, entries are removed on exit, and the
+  sweep discards dead, stale-by-reuse, unverifiable and over-age (7 days)
+  entries. See `SUBAGENT-REQ-019`/`-020`. Windows remains a graceful no-op.
 
 ## Alternatives considered
 
