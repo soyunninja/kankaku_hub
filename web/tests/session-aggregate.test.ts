@@ -121,6 +121,23 @@ describe('groupBySession', () => {
     expect(summary!.repoProject).toBeUndefined()
   })
 
+  it('falls back to the first entry with a session_dir when it disagrees mid-session', () => {
+    const entries = [
+      entry({ id: 'e1', session_id: 's1', started_at: '2026-01-01T00:00:00.000Z', session_dir: '/home/dev/.pi/sessions/a' }),
+      entry({ id: 'e2', session_id: 's1', started_at: '2026-01-01T00:01:00.000Z', session_dir: '/home/dev/.pi/sessions/b' }),
+    ]
+    const [summary] = groupBySession(entries)
+    expect(summary!.sessionDir).toBe('/home/dev/.pi/sessions/a')
+  })
+
+  it('leaves sessionDir undefined when no entry in the session has one', () => {
+    const entries = [
+      entry({ id: 'e1', session_id: 's1', started_at: '2026-01-01T00:00:00.000Z', session_dir: undefined }),
+    ]
+    const [summary] = groupBySession(entries)
+    expect(summary!.sessionDir).toBeUndefined()
+  })
+
   it('drops rows without a session_id rather than grouping them together', () => {
     const entries = [
       entry({ id: 'e1', session_id: '', started_at: '2026-01-01T00:00:00.000Z' }),

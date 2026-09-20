@@ -209,6 +209,7 @@ Write access: owner only. The sync client only *reads* this collection
 | `prompt` | text | subject to `KANKAKU_SYNC_PROMPT` (proposal §8) |
 | `legacy_client_label` | text | only set for rows routed to "Sin determinar" |
 | `repo_project` | text | kankaku's local project path |
+| `session_dir` | text (≤1000) | pi's non-default session directory, when it used one (`pi --session-dir <dir> --session <id>`); optional, sent on create **and** update like `repo_project`. Same category as `repo_project` for privacy purposes — an absolute local path, so it can expose the machine's username/disk layout the same way `repo_project` already can |
 | `schema` | number (int) | |
 | `agent` | text (≤40) | which coding agent ran the work, lowercase slug: `pi`, `opencode`, … See "Agent and measurement quality" below |
 | `agent_version` | text (≤60) | that agent's own version, free text |

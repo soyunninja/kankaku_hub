@@ -21,6 +21,7 @@ export interface SessionEntryLike {
   machine?: string
   agent?: string
   repo_project?: string
+  session_dir?: string
   wall_ms?: number
   waiting_ms?: number
   work_ms?: number
@@ -51,6 +52,8 @@ export interface SessionSummary {
   agent: string
   /** Unanimous `repo_project`, or a best-effort value when it disagrees — see `pickRepoProject`. */
   repoProject: string | undefined
+  /** Unanimous `session_dir`, or a best-effort value when it disagrees — same pick strategy as `repoProject` (see `pickSessionDir`). */
+  sessionDir: string | undefined
   /** ids of every `task_entries` row in this session — the unit the bulk-reassign queue updates. */
   entryIds: string[]
 }
@@ -105,6 +108,17 @@ function pickRepoProject(entries: SessionEntryLike[]): string | undefined {
   return first || undefined
 }
 
+/**
+ * Picks the `session_dir` used to build the resume command. Same
+ * best-effort-first-value strategy as `pickRepoProject`, for the same
+ * reason: resume needs exactly one directory, and a session practically
+ * never moves session directories mid-run.
+ */
+function pickSessionDir(entries: SessionEntryLike[]): string | undefined {
+  const first = entries.find(e => e.session_dir)?.session_dir
+  return first || undefined
+}
+
 function minMaxStarted(entries: SessionEntryLike[]): { first: string, last: string } {
   let first = entries[0]!.started_at
   let last = entries[0]!.started_at
@@ -151,6 +165,7 @@ export function groupBySession(entries: SessionEntryLike[]): SessionSummary[] {
       machine: rows[0]!.machine ?? '',
       agent: uniformOrMixed(rows.map(e => e.agent)),
       repoProject: pickRepoProject(rows),
+      sessionDir: pickSessionDir(rows),
       entryIds: rows.map(e => e.id).filter((id): id is string => Boolean(id)),
     })
   }

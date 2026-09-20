@@ -9,6 +9,8 @@ export interface SessionResumeInput {
   sessionId: string
   /** Absolute repo path on the machine that ran the session; empty/undefined when unknown. */
   repoProject?: string
+  /** pi's non-default session directory, when it used one; empty/undefined for pi's default location. */
+  sessionDir?: string
   /** Lowercase agent slug (e.g. `"pi"`); empty/undefined on legacy rows that predate the `agent` field. */
   agent?: string
 }
@@ -31,7 +33,7 @@ function shellQuoteSingle(value: string): string {
   return `'${value.replace(/'/g, '\'\\\'\'')}'`
 }
 
-type ResumeBuilder = (input: { sessionId: string, repoProject?: string }) => SessionResumeResult
+type ResumeBuilder = (input: { sessionId: string, repoProject?: string, sessionDir?: string }) => SessionResumeResult
 
 /**
  * Per-agent resume command builders. A later agent (not `"pi"`/empty)
@@ -40,11 +42,16 @@ type ResumeBuilder = (input: { sessionId: string, repoProject?: string }) => Ses
  * chain per agent.
  */
 const RESUME_BUILDERS: Record<string, ResumeBuilder> = {
-  pi: ({ sessionId, repoProject }) => {
+  // pi's own resume hint is `pi [--session-dir <dir>] --session <id>`:
+  // `--session-dir` is a flag on the `pi` invocation itself (only added
+  // when pi used a non-default directory), separate from and additional
+  // to `repoProject`'s unrelated `cd <repo> &&` prefix (which just puts
+  // the shell in the right working directory first).
+  pi: ({ sessionId, repoProject, sessionDir }) => {
     const quotedSession = shellQuoteSingle(sessionId)
-    const command = repoProject
-      ? `cd ${shellQuoteSingle(repoProject)} && pi --session ${quotedSession}`
-      : `pi --session ${quotedSession}`
+    const cdPrefix = repoProject ? `cd ${shellQuoteSingle(repoProject)} && ` : ''
+    const sessionDirFlag = sessionDir ? `--session-dir ${shellQuoteSingle(sessionDir)} ` : ''
+    const command = `${cdPrefix}pi ${sessionDirFlag}--session ${quotedSession}`
     return { ok: true, command }
   },
 }
@@ -64,5 +71,5 @@ export function buildResumeCommand(input: SessionResumeInput): SessionResumeResu
   const builder = RESUME_BUILDERS[agentKey]
   if (!builder) return { ok: false, reason: 'unsupported-agent' }
 
-  return builder({ sessionId: input.sessionId, repoProject: input.repoProject })
+  return builder({ sessionId: input.sessionId, repoProject: input.repoProject, sessionDir: input.sessionDir })
 }

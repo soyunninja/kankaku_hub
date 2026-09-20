@@ -61,6 +61,7 @@ const sessionRows = computed(() => props.sessions.map((session) => {
   const resume = buildResumeCommand({
     sessionId: session.sessionId,
     repoProject: session.repoProject,
+    sessionDir: session.sessionDir,
     agent: session.agent === MIXED ? undefined : (session.agent || undefined),
   })
   return {

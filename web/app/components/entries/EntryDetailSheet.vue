@@ -97,6 +97,7 @@ const costApproxHint = computed(() => quality.value.costIsApprox === 'estimated'
 const resumeCommand = computed(() => buildResumeCommand({
   sessionId: props.entry.session_id,
   repoProject: props.entry.repo_project || undefined,
+  sessionDir: props.entry.session_dir || undefined,
   agent: props.entry.agent || undefined,
 }))
 

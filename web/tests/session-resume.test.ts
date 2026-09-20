@@ -27,6 +27,37 @@ describe('buildResumeCommand — normal paths', () => {
   })
 })
 
+describe('buildResumeCommand — sessionDir', () => {
+  it('includes a shell-quoted --session-dir flag when sessionDir is set', () => {
+    const result = buildResumeCommand({ sessionId: 'sess-1', sessionDir: '/home/dev/.pi/sessions/foo', agent: 'pi' })
+    expect(result).toEqual({
+      ok: true,
+      command: 'pi --session-dir \'/home/dev/.pi/sessions/foo\' --session \'sess-1\'',
+    })
+  })
+
+  it('is unchanged from prior behavior when sessionDir is absent (regression)', () => {
+    const result = buildResumeCommand({ sessionId: 'sess-1', repoProject: '/home/dev/repos/app', agent: 'pi' })
+    expect(result).toEqual({
+      ok: true,
+      command: 'cd \'/home/dev/repos/app\' && pi --session \'sess-1\'',
+    })
+  })
+
+  it('combines repoProject (cd prefix) and sessionDir (--session-dir flag) correctly when both are present', () => {
+    const result = buildResumeCommand({
+      sessionId: 'sess-1',
+      repoProject: '/home/dev/repos/app',
+      sessionDir: '/home/dev/.pi/sessions/foo',
+      agent: 'pi',
+    })
+    expect(result).toEqual({
+      ok: true,
+      command: 'cd \'/home/dev/repos/app\' && pi --session-dir \'/home/dev/.pi/sessions/foo\' --session \'sess-1\'',
+    })
+  })
+})
+
 describe('buildResumeCommand — failure paths', () => {
   it('reports no-session for an empty sessionId', () => {
     expect(buildResumeCommand({ sessionId: '', repoProject: '/repo', agent: 'pi' }))
@@ -52,7 +83,7 @@ describe('buildResumeCommand — hostile quoting', () => {
    * unescaped `'` that broke out of the quoted segment would show up as
    * extra/garbled shell syntax or a mismatched captured argument.
    */
-  function runResumeCommand(command: string): { cdArg: string | undefined, sessionArg: string | undefined } {
+  function runResumeCommand(command: string): { cdArg: string | undefined, sessionDirArg: string | undefined, sessionArg: string | undefined } {
     // Index-based extraction, not line-splitting: a hostile value may
     // itself contain embedded newlines, which line-splitting would
     // shred. Markers are fixed prefixes this harness controls, so a
@@ -76,7 +107,16 @@ describe('buildResumeCommand — hostile quoting', () => {
       cdArg = stdout.slice('CD:'.length, cdEnd === -1 ? undefined : cdEnd)
     }
 
-    return { cdArg, sessionArg }
+    const dirMarker = 'ARG:--session-dir\nARG:'
+    const dirStart = stdout.indexOf(dirMarker)
+    let sessionDirArg: string | undefined
+    if (dirStart !== -1) {
+      const dirValueStart = dirStart + dirMarker.length
+      const dirEnd = stdout.indexOf('\nARG:--session\n', dirValueStart)
+      sessionDirArg = stdout.slice(dirValueStart, dirEnd === -1 ? undefined : dirEnd)
+    }
+
+    return { cdArg, sessionDirArg, sessionArg }
   }
 
   const hostileValues = [
@@ -105,6 +145,15 @@ describe('buildResumeCommand — hostile quoting', () => {
       if (!result.ok) return
       const { sessionArg } = runResumeCommand(result.command)
       expect(sessionArg).toBe(hostile)
+    })
+
+    it(`quotes a hostile sessionDir safely: ${JSON.stringify(hostile)}`, () => {
+      const result = buildResumeCommand({ sessionId: 'sess-1', sessionDir: hostile, agent: 'pi' })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      const { sessionDirArg, sessionArg } = runResumeCommand(result.command)
+      expect(sessionDirArg).toBe(hostile)
+      expect(sessionArg).toBe('sess-1')
     })
   }
 

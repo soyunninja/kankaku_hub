@@ -97,6 +97,8 @@ export interface TaskEntryRecord {
   prompt: string
   legacy_client_label: string
   repo_project: string
+  /** pi's non-default session directory, when it used one (`pi --session-dir <dir> --session <id>`). Empty/undefined when pi used its default location. */
+  session_dir?: string
   schema: number
   /** Lowercase slug (≤40 chars), e.g. `"pi"`, `"opencode"`. Empty/undefined on rows written before the migration. */
   agent?: string
