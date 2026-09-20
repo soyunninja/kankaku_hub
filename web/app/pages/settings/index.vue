@@ -9,15 +9,16 @@ const colorMode = useColorMode()
 const { user } = useAuth()
 const config = useRuntimeConfig()
 
-const hubUrl = computed(() => config.public.pbUrl || window.location.origin)
+const hubUrl = useHubUrl()
 </script>
 
 <template>
-  <div class="flex max-w-2xl flex-col gap-4">
+  <div class="flex max-w-5xl flex-col gap-4">
     <h1 class="text-xl font-semibold tracking-tight">
       {{ t('settings.title') }}
     </h1>
 
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
     <Card>
       <CardHeader>
         <CardTitle class="text-sm font-medium text-foreground">
@@ -79,10 +80,6 @@ const hubUrl = computed(() => config.public.pbUrl || window.location.origin)
       </CardContent>
     </Card>
 
-    <p class="text-xs text-muted-foreground">
-      {{ t('settings.currencyNote') }}
-    </p>
-
     <Card>
       <CardHeader>
         <CardTitle class="text-sm font-medium text-foreground">
@@ -96,5 +93,10 @@ const hubUrl = computed(() => config.public.pbUrl || window.location.origin)
         <p>No money fields beyond `cost` (measured provider token cost, USD) — D8.</p>
       </CardContent>
     </Card>
+    </div>
+
+    <p class="text-xs text-muted-foreground">
+      {{ t('settings.currencyNote') }}
+    </p>
   </div>
 </template>
