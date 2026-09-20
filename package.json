@@ -6,6 +6,7 @@
   "scripts": {
     "pb:download": "scripts/pb-download.sh",
     "dev": "scripts/dev.sh",
+    "dev:all": "scripts/dev-all.sh",
     "pb:accounts": "scripts/create-dev-accounts.sh",
     "pb:seed": "node pocketbase/seed/seed.js",
     "web:install": "pnpm --dir web install",

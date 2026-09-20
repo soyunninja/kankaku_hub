@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Starts PocketBase for local development on 127.0.0.1:8090, applying
-# pb_migrations automatically. --publicDir is prepared for the future Nuxt
-# static build (phase 3, not built yet).
+# pb_migrations automatically. --publicDir serves the static web build
+# (`npm run web:build`), so this one process serves both API and web.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
