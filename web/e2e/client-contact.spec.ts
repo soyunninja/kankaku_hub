@@ -1,42 +1,22 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { login, OWNER_EMAIL, OWNER_PASSWORD, setTheme } from './helpers'
+import { apiLogin, deleteClientsByCode, login, setTheme } from './helpers'
 
-// Talks directly to PocketBase (never through the app's own baseURL — see
-// the note below) purely to clean up the disposable clients this spec
-// creates, so a leftover long generated name/code never inflates the
-// clients table's columns across test runs.
-const PB_URL = process.env.PB_URL || process.env.NUXT_PUBLIC_PB_URL || 'http://127.0.0.1:8092'
+// Cleans up the disposable clients this spec creates, so a leftover long
+// generated name/code never inflates the clients table's columns across
+// test runs. Talks directly to PocketBase (never through the app's own
+// baseURL — see the note in helpers.ts) via the centralized `pbUrl()` /
+// `deleteClientsByCode()` helpers, never a locally hardcoded origin —
+// this spec used to default to its own `PB_URL` (a different port than
+// helpers.ts's `pbOrigin()`), which is exactly the kind of scatter that
+// has caused accidental writes to the owner's live database before.
 const createdClientCodes: string[] = []
 
-async function deleteClientsByCode(codes: string[]) {
+test.afterEach(async ({ request }) => {
+  const codes = createdClientCodes.splice(0, createdClientCodes.length)
   if (codes.length === 0) return
-  const authRes = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identity: OWNER_EMAIL, password: OWNER_PASSWORD }),
-  })
-  if (!authRes.ok) return
-  const { token } = await authRes.json() as { token: string }
-
-  for (const code of codes) {
-    const filter = encodeURIComponent(`code="${code}"`)
-    const listRes = await fetch(`${PB_URL}/api/collections/clients/records?filter=${filter}`, {
-      headers: { Authorization: token },
-    })
-    if (!listRes.ok) continue
-    const { items } = await listRes.json() as { items: { id: string }[] }
-    for (const item of items) {
-      await fetch(`${PB_URL}/api/collections/clients/records/${item.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: token },
-      })
-    }
-  }
-}
-
-test.afterEach(async () => {
-  await deleteClientsByCode(createdClientCodes.splice(0, createdClientCodes.length))
+  const token = await apiLogin(request)
+  await deleteClientsByCode(request, token, codes)
 })
 
 /**

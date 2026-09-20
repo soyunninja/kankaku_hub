@@ -1,15 +1,17 @@
 import type { APIRequestContext } from '@playwright/test'
+import http from 'node:http'
 import { expect, test } from '@playwright/test'
-import { apiLogin, login, pbUrl } from './helpers'
+import { apiLogin, assertPbWritesAllowed, createClientRecord, deleteClientRecord, login, pbUrl } from './helpers'
 
 /**
  * Client favicon avatars: the ClientAvatar/ClientName components, the
  * owner-only refresh-icon flow, and the client detail sheet's header
  * layout/focus fixes. Runs against an isolated PocketBase instance
  * started with `KANKAKU_FAVICON_ALLOW_PRIVATE=1` (see ESTADO.md /
- * docs/specs/client-favicons.md) plus a tiny local HTTP fixture server
- * (started separately — see the task's own verification notes) so the
- * refresh route's outcomes are fully deterministic:
+ * docs/specs/client-favicons.md) plus a tiny in-process HTTP fixture
+ * server (started by this spec's own `beforeAll`, see
+ * `startFixtureServer()` below — no external process ever required) so
+ * the refresh route's outcomes are fully deterministic:
  *
  * - `E2E Fixture Client` — `website` points at the fixture server's `/`,
  *   which serves a real, tiny, valid PNG favicon -> `{ ok: true }`.
@@ -21,26 +23,60 @@ import { apiLogin, login, pbUrl } from './helpers'
  * never depend on — or pollute — the demo clients.
  */
 
-const FIXTURE_ORIGIN = process.env.E2E_FAVICON_FIXTURE_ORIGIN || 'http://127.0.0.1:8099'
+// A real, tiny, valid 1x1 transparent PNG — its magic bytes and declared
+// `Content-Type: image/png` both pass `pocketbase/pb_hooks/lib/favicon-
+// sniff.js`'s sniffing, and the fixture server below serves it for every
+// path, so it satisfies both the page-root fetch and the `/favicon.ico`
+// fallback the refresh route tries next (see favicon.pb.js).
+const FIXTURE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+)
+
 const UNREACHABLE_ORIGIN = process.env.E2E_FAVICON_UNREACHABLE_ORIGIN || 'http://127.0.0.1:8098'
+
+let fixtureServer: http.Server | undefined
+
+/**
+ * Starts a tiny in-process HTTP server (Node's built-in `http`, no new
+ * dependency) that answers every request with the same valid PNG favicon,
+ * bound to an OS-assigned ephemeral port so it can never collide with
+ * anything else running locally. Self-contained: no external fixture
+ * process needs to be started separately, so `beforeAll` can never
+ * hard-fail the whole suite because something wasn't already running.
+ *
+ * Honors `E2E_FAVICON_FIXTURE_ORIGIN` if explicitly set, so a caller can
+ * still point at an external fixture server on purpose.
+ */
+async function startFixtureServer(): Promise<string> {
+  if (process.env.E2E_FAVICON_FIXTURE_ORIGIN) return process.env.E2E_FAVICON_FIXTURE_ORIGIN
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'image/png' })
+    res.end(FIXTURE_PNG)
+  })
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => resolve())
+  })
+  fixtureServer = server
+  const address = server.address()
+  if (!address || typeof address === 'string') throw new Error('favicon fixture server failed to bind to a port')
+  return `http://127.0.0.1:${address.port}`
+}
+
+async function stopFixtureServer(): Promise<void> {
+  if (!fixtureServer) return
+  await new Promise<void>(resolve => fixtureServer!.close(() => resolve()))
+  fixtureServer = undefined
+}
 
 interface CreatedClient { id: string, name: string, code: string }
 
-async function createClient(request: APIRequestContext, token: string, data: { name: string, code: string, website: string }): Promise<CreatedClient> {
-  const res = await request.post(pbUrl('/api/collections/clients/records'), {
-    headers: { Authorization: token },
-    data: { ...data, active: true, unassigned: false },
-  })
-  expect(res.ok(), await res.text()).toBeTruthy()
-  const body = await res.json()
-  return { id: body.id, name: body.name, code: body.code }
-}
-
-async function deleteClient(request: APIRequestContext, token: string, id: string) {
-  await request.delete(pbUrl(`/api/collections/clients/records/${id}`), { headers: { Authorization: token } })
-}
-
 async function refreshFaviconViaApi(request: APIRequestContext, token: string, id: string) {
+  // This mutates the client record's favicon fields via the hub's own
+  // refresh route, not the generic clients CRUD endpoint, but it is still
+  // a real write against PocketBase — guard it the same way.
+  assertPbWritesAllowed()
   const res = await request.post(pbUrl(`/api/kankaku/clients/${id}/favicon/refresh`), { headers: { Authorization: token } })
   expect(res.ok(), await res.text()).toBeTruthy()
   return res.json() as Promise<{ ok: boolean, reason?: string }>
@@ -52,19 +88,21 @@ let unreachableClient: CreatedClient
 let fixtureClientWithFavicon: CreatedClient
 
 test.beforeAll(async ({ request }) => {
+  const fixtureOrigin = await startFixtureServer()
   token = await apiLogin(request)
   const suffix = Date.now()
-  fixtureClient = await createClient(request, token, { name: `E2E Avatar Fixture ${suffix}`, code: `e2e-avatar-fixture-${suffix}`, website: `${FIXTURE_ORIGIN}/` })
-  unreachableClient = await createClient(request, token, { name: `E2E Avatar Unreachable ${suffix}`, code: `e2e-avatar-unreachable-${suffix}`, website: `${UNREACHABLE_ORIGIN}/` })
-  fixtureClientWithFavicon = await createClient(request, token, { name: `E2E Avatar Broken Image ${suffix}`, code: `e2e-avatar-broken-${suffix}`, website: `${FIXTURE_ORIGIN}/` })
+  fixtureClient = await createClientRecord(request, token, { name: `E2E Avatar Fixture ${suffix}`, code: `e2e-avatar-fixture-${suffix}`, website: `${fixtureOrigin}/` })
+  unreachableClient = await createClientRecord(request, token, { name: `E2E Avatar Unreachable ${suffix}`, code: `e2e-avatar-unreachable-${suffix}`, website: `${UNREACHABLE_ORIGIN}/` })
+  fixtureClientWithFavicon = await createClientRecord(request, token, { name: `E2E Avatar Broken Image ${suffix}`, code: `e2e-avatar-broken-${suffix}`, website: `${fixtureOrigin}/` })
   const result = await refreshFaviconViaApi(request, token, fixtureClientWithFavicon.id)
   expect(result.ok, 'the fixture server must yield a real favicon for the broken-image test to be meaningful').toBe(true)
 })
 
 test.afterAll(async ({ request }) => {
   for (const c of [fixtureClient, unreachableClient, fixtureClientWithFavicon]) {
-    if (c) await deleteClient(request, token, c.id)
+    if (c) await deleteClientRecord(request, token, c.id)
   }
+  await stopFixtureServer()
 })
 
 test.describe('client avatars render across the app', () => {
@@ -261,8 +299,16 @@ test.describe('client detail sheet focus', () => {
     await page.waitForLoadState('networkidle')
     await openClientRow(page, 'Cajamar')
 
-    const focusedTestId = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))
-    expect(focusedTestId).toBe('detail-client-name')
+    // Reading `document.activeElement` right after the sheet opens is
+    // timing-sensitive (paint/animation-frame scheduling, not a product
+    // race — the FocusScope-vs-manual-focus handshake itself is
+    // synchronous, see app/pages/clients/index.vue's
+    // onDetailOpenAutoFocus) — retry like the combobox-focus assertion
+    // above rather than asserting once against a fixed wait.
+    await expect(async () => {
+      const focusedTestId = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))
+      expect(focusedTestId).toBe('detail-client-name')
+    }).toPass({ timeout: 10_000 })
 
     // The focused element's own box must be the (truncated) title's box,
     // not a full-width box spanning the sheet — this is the regression
@@ -273,8 +319,12 @@ test.describe('client detail sheet focus', () => {
     expect(nameBox!.width, 'the focused title must not span the full sheet width').toBeLessThan(sheetBox!.width * 0.9)
 
     // The website link itself is inline-flex, so its own box hugs the
-    // link text rather than stretching full width.
-    const link = page.locator('[data-slot="sheet-content"] a', { hasText: 'cajamar.es' })
+    // link text rather than stretching full width. Cajamar's seeded
+    // contact_email (proyectos@cajamar.es) also contains "cajamar.es", so
+    // this must take the FIRST match (the website link, rendered before
+    // the contact email in the sheet) rather than leaving the locator
+    // ambiguous — a real strict-mode violation observed running this spec.
+    const link = page.locator('[data-slot="sheet-content"] a', { hasText: 'cajamar.es' }).first()
     const linkBox = await link.boundingBox()
     expect(linkBox).toBeTruthy()
     expect(linkBox!.width, 'the website link must hug its text, not span the sheet').toBeLessThan(sheetBox!.width * 0.9)

@@ -47,6 +47,83 @@ export async function apiLogin(request: APIRequestContext): Promise<string> {
   return body.token as string
 }
 
+/** The env var a spec must explicitly opt into before any e2e helper may
+ * create/update/delete a real PocketBase record — see
+ * `assertPbWritesAllowed()`. */
+export const PB_WRITES_ENV_VAR = 'E2E_ALLOW_PB_WRITES'
+
+/**
+ * Write guard for every e2e helper that creates, updates, or deletes a
+ * PocketBase record. MUST be the first thing such a helper does.
+ *
+ * PocketBase writes performed by these specs are real: without this gate
+ * a stray `pnpm test:e2e` invocation (or a copy-pasted spec that forgot
+ * to point `NUXT_PUBLIC_PB_URL` somewhere else) would silently create and
+ * delete records against whatever PB origin `pbOrigin()` resolves to —
+ * including the owner's live instance at the default 127.0.0.1:8090, an
+ * accident that has already happened twice against this codebase.
+ *
+ * Always requires the explicit opt-in, regardless of the resolved URL
+ * (belt and suspenders) — not only when that URL happens to be 8090 —
+ * because a non-8090 URL is only as safe as whoever set it, and the
+ * opt-in is one extra env var to set, which is cheap in CI/local scripts.
+ */
+export function assertPbWritesAllowed(): void {
+  const url = pbOrigin()
+  if (process.env[PB_WRITES_ENV_VAR] === '1') return
+  throw new Error(
+    `Refusing to write to PocketBase at ${url}: this e2e helper creates, `
+    + `updates, or deletes real records. Set ${PB_WRITES_ENV_VAR}=1 to `
+    + 'explicitly opt in — only ever against an isolated PocketBase '
+    + 'instance you started yourself, never against the owner\'s live '
+    + 'instance (the default http://127.0.0.1:8090).',
+  )
+}
+
+/** Creates a disposable client record for a spec's own fixtures. Guarded
+ * by `assertPbWritesAllowed()` — see its docs. */
+export async function createClientRecord(
+  request: APIRequestContext,
+  token: string,
+  data: { name: string, code: string, website?: string, [key: string]: unknown },
+): Promise<{ id: string, name: string, code: string }> {
+  assertPbWritesAllowed()
+  const res = await request.post(pbUrl('/api/collections/clients/records'), {
+    headers: { Authorization: token },
+    data: { active: true, unassigned: false, ...data },
+  })
+  expect(res.ok(), await res.text()).toBeTruthy()
+  const body = await res.json()
+  return { id: body.id, name: body.name, code: body.code }
+}
+
+/** Deletes a client record by id. Guarded by `assertPbWritesAllowed()` —
+ * see its docs. */
+export async function deleteClientRecord(request: APIRequestContext, token: string, id: string): Promise<void> {
+  assertPbWritesAllowed()
+  await request.delete(pbUrl(`/api/collections/clients/records/${id}`), { headers: { Authorization: token } })
+}
+
+/** Deletes every client record matching any of the given `code`s — used
+ * by specs to clean up disposable fixtures they created during a test.
+ * Guarded by `assertPbWritesAllowed()` — see its docs. */
+export async function deleteClientsByCode(request: APIRequestContext, token: string, codes: string[]): Promise<void> {
+  if (codes.length === 0) return
+  assertPbWritesAllowed()
+  for (const code of codes) {
+    const filter = encodeURIComponent(`code="${code}"`)
+    const listRes = await request.get(pbUrl(`/api/collections/clients/records?filter=${filter}`), {
+      headers: { Authorization: token },
+    })
+    if (!listRes.ok()) continue
+    const body = await listRes.json()
+    const items = body.items as { id: string }[]
+    for (const item of items) {
+      await request.delete(pbUrl(`/api/collections/clients/records/${item.id}`), { headers: { Authorization: token } })
+    }
+  }
+}
+
 export interface ApiClientRecord { id: string, name: string, unassigned: boolean, active: boolean }
 
 /** Finds the protected "Sin determinar" client and one active, assignable
