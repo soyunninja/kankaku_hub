@@ -269,6 +269,7 @@
       "connectBody": "Copia y ejecuta esto en la terminal donde uses pi, sustituyendo la contraseña por la de la cuenta de servicio real — nunca la cuenta del propietario — pídesela a quien administre este hub.",
       "loadInPiTitle": "Cargar el build de esta rama en pi",
       "loadInPiBody": "Para probar este build sin publicarlo ni instalarlo:",
+      "loadInPiNote": "Si ya tienes instalada la versión publicada (pi install npm:kankaku), desinstálala antes: si no, kankaku se carga dos veces y cada prompt se registra por duplicado. Con -e la extensión no llega a los subagentes; para eso instala la copia local con pi install y la ruta absoluta.",
       "serviceAccountNote": "Usa siempre la cuenta de servicio («role: \"service\"»), nunca la cuenta del propietario — es la única con permiso para escribir «task_entries»/«work_records»."
     },
     "items": {

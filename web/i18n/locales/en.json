@@ -269,6 +269,7 @@
       "connectBody": "Copy and run this in the terminal where you use pi, replacing the password with the real service account's — never the owner account — ask whoever administers this hub for it.",
       "loadInPiTitle": "Load this branch's build in pi",
       "loadInPiBody": "To try this build without publishing or installing it:",
+      "loadInPiNote": "If the published version is already installed (pi install npm:kankaku), uninstall it first: otherwise kankaku loads twice and every prompt is recorded in duplicate. With -e the extension does not reach subagents; for that, install the local checkout with pi install and its absolute path.",
       "serviceAccountNote": "Always use the service account (\"role: \\\"service\\\"\"), never the owner account — it's the only one allowed to write \"task_entries\"/\"work_records\"."
     },
     "items": {

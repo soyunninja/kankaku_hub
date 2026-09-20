@@ -233,6 +233,9 @@ const LOAD_IN_PI_SNIPPET = 'pi -e /absolute/path/to/kankaku'
           <pre class="min-w-0 flex-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-words text-foreground">{{ LOAD_IN_PI_SNIPPET }}</pre>
           <CopyButton :text="LOAD_IN_PI_SNIPPET" />
         </CardContent>
+        <CardContent class="pt-0 text-xs text-muted-foreground">
+          {{ t('commands.config.loadInPiNote') }}
+        </CardContent>
       </Card>
     </section>
   </div>
