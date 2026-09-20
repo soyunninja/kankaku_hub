@@ -16,6 +16,7 @@ section.
 | [5 — Task creation from pi](phase-5-task-creation-from-pi.md) | `/kankaku task new` | **planned**, conditional on phase 4 | none |
 | [Deployment to VPS](phase-deployment-to-vps.md) | Run the hub on a real server over HTTPS | **planned**, operational | none |
 | [Publish kankaku release](phase-publish-kankaku-release.md) | Merge branch, version bump, npm publish | **planned**, operational | none |
+| [6 — Generic subagent support](phase-6-generic-subagent-support.md) | Recognise subagent processes beyond gentle-pi's `subagent_run`, with gentle-pi first-class; fix phantom-orchestrator double count and gentle-pi cross-worktree orphan | **planned** | none |
 
 ## Related
 

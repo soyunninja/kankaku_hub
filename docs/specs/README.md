@@ -27,6 +27,8 @@ configuration, edge cases, out-of-scope, and a traceability table to tests.
 | Web commands reference | kankaku-hub | phase-3 | implemented | [web-commands-reference.md](web-commands-reference.md) |
 | Security and privacy | kankaku, kankaku-hub | phase-2 | implemented | [security-and-privacy.md](security-and-privacy.md) |
 
+| Subagent detection | kankaku | phase-6 | planned | [subagent-detection.md](subagent-detection.md) |
+
 Planned capabilities (no implementation yet — tracked as phases, not specs
 until built): task linkage from kankaku
 ([phase-4](../phases/phase-4-task-linkage.md)), task creation from kankaku
@@ -34,3 +36,8 @@ until built): task linkage from kankaku
 ([phase-deployment-to-vps](../phases/phase-deployment-to-vps.md)), and
 publishing a kankaku release
 ([phase-publish-kankaku-release](../phases/phase-publish-kankaku-release.md)).
+Generic subagent detection
+([phase-6](../phases/phase-6-generic-subagent-support.md)) has a spec
+already written (`subagent-detection.md`, status `planned`) since it is a
+design-level proposal awaiting implementation, unlike the other planned
+phases above which have no spec yet.

@@ -98,3 +98,39 @@ establecido. Ver [`vision.md`](vision.md#the-billing-boundary).
   (`SYNC_TOKENS = ["all", "status"]`) — documentado como no confirmado en
   [`specs/sync-push.md`](specs/sync-push.md). Hoy ese caso se resuelve
   con `/kankaku sync all`, que reevalúa todo el historial.
+
+## Propuesta: detección genérica de subagentes (2026-09-20)
+
+Hoy kankaku solo reconoce un mecanismo de subagente: la herramienta
+`subagent_run` de gentle-pi, marcada por la variable de entorno
+`GENTLE_PI_AGENTS_CHILD`. Cualquier otro mecanismo (el ejemplo propio de
+pi, el paquete `pi-subagents`, cualquier otro paquete de terceros) se
+etiqueta por defecto como `"orchestrator"` — es decir, **se cuenta dos
+veces**: una dentro de la llamada a herramienta que lo lanzó, y otra como
+tarea propia. Esto es un sobrecoste de facturación silencioso, y es el bug
+más grave porque no se puede detectar ni corregir después.
+
+Además se confirmó algo peor de lo esperado: cuando un subagente de
+gentle-pi corre en un *worktree* de git distinto al del orquestador
+(algo que gentle-pi permite), su registro nunca llega al hub — ni por
+sincronización automática ni manual — porque cada proceso escribe en el
+`.kankaku/` de su propio directorio y kankaku solo sincroniza tareas
+ancladas a un registro "orchestrator".
+
+**Qué se propone** (documento completo:
+[`proposals/2026-09-20-generic-subagent-detection.md`](proposals/2026-09-20-generic-subagent-detection.md),
+sin implementar aún): un sistema de "perfiles" de subagente (gentle-pi
+primero, con soporte más rico que ningún otro), un registro compartido de
+procesos en la máquina para reunir localmente al padre y al hijo aunque
+estén en repos distintos, y — el cambio más importante — que un proceso
+que no se puede probar como de nivel superior **ya nunca se cuente por
+defecto como `"orchestrator"`**. gentle-pi/gentle-ai sigue siendo, a
+propósito, el camino más completo y confiable.
+
+**Qué debe decidir el dueño**: (1) si aprueba esta propuesta para pasar a
+especificación/tareas; (2) si vale la pena pedir a gentle-pi que el hijo
+reciba su propio `taskId` (mejoraría la fiabilidad del cruce entre
+worktrees, pero depende de ese proyecto, no de kankaku); (3) si añadir
+soporte nativo para `pi-background-tasks`/`@d3ara1n/pi-subagent` en una
+fase posterior, dado que ambos ya exponen señales más ricas que las que se
+construyen primero.

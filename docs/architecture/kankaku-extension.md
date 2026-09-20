@@ -124,6 +124,17 @@ it to a unique tombstone (atomic `renameSync`) before deleting it, so only
 one racer's recovery can succeed and no one clobbers a fresher lock. See
 [`../specs/auto-sync-and-locking.md`](../specs/auto-sync-and-locking.md).
 
+## Planned change
+
+A [proposal](../proposals/2026-09-20-generic-subagent-detection.md) would
+add a `domain/subagent-profile.ts` (pure, profile matching for gentle-pi,
+pi's reference example, `pi-subagents`, and a configured profile) plus two
+new adapters — a machine-wide process registry and an OS-specific
+ancestor-chain lookup — so subagent recognition stops being a single
+hardcoded tool name and env-var check. See
+[ADR 0020](../adr/0020-subagent-profiles-gentle-pi-first-class.md) and
+[`specs/subagent-detection.md`](../specs/subagent-detection.md).
+
 ## Related
 
 - [`overview.md`](overview.md) — system-wide data flow.

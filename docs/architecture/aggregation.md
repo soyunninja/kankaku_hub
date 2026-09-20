@@ -90,6 +90,16 @@ contract from each side, not a single shared fixture file — see
 [`../specs/web-dashboard.md`](../specs/web-dashboard.md) for the exact
 traceability.
 
+## Planned change
+
+A [proposal](../proposals/2026-09-20-generic-subagent-detection.md) would
+extend `matchChildren` with a second, registry-corroborated pass so a
+gentle-pi subagent running in a different git worktree can be reunited
+with its orchestrator **locally, before `buildTasks` runs** — this page's
+"exactly once, in kankaku" rule stays intact; the hub is explicitly
+designed to never sum two independently-unioned rows to recover a missing
+join. See [ADR 0023](../adr/0023-cross-worktree-children-reunited-locally-first.md).
+
 ## Related
 
 - [ADR 0006 — the aggregation rule lives exactly once, in kankaku](../adr/0006-aggregation-rule-lives-once-in-kankaku.md)

@@ -53,7 +53,7 @@ Keep this list current when adding a new spec (see
 
 `CRED`, `CATALOG`, `TARGET`, `RECID`, `SYNC`, `BACKFILL`, `AUTOSYNC`, `CMD`,
 `SCHEMA`, `WEBAUTH`, `DASH`, `CATMGMT`, `TASKS`, `UNASSIGNED`, `ENTRIES`,
-`THEME`, `SEC`, `FAVICON`.
+`THEME`, `SEC`, `FAVICON`, `SUBAGENT`.
 
 ## Verifying the docs
 

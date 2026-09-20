@@ -26,6 +26,10 @@ during implementation that the proposal does not number explicitly.
 | [0017](0017-prompt-upload-defaults-to-none.md) | Prompt upload defaults to `none` | accepted | 2026-09-20 |
 | [0018](0018-billing-boundary-enforced-in-schema.md) | Billing boundary enforced in schema (confirms 0008) | accepted | 2026-09-20 |
 | [0019](0019-hub-fetches-and-stores-client-favicons.md) | The hub fetches and stores client favicons server-side, once, on an explicit owner action | accepted | 2026-09-20 |
+| [0020](0020-subagent-profiles-gentle-pi-first-class.md) | Subagent detection is profile-based, with gentle-pi first-class | proposed | 2026-09-20 |
+| [0021](0021-join-by-explicit-id-then-ancestry.md) | Join by explicit id, then pid ancestry; project is a hint, never a filter; time alone never joins | proposed | 2026-09-20 |
+| [0022](0022-uncertain-children-never-become-orchestrators.md) | An unproven process never defaults to orchestrator (the safe default, inverted) | proposed | 2026-09-20 |
+| [0023](0023-cross-worktree-children-reunited-locally-first.md) | Cross-worktree/cross-repo children are reunited locally first, via a machine-wide registry; the hub never sums two independent unions | proposed | 2026-09-20 |
 
 See [`../templates/adr-template.md`](../templates/adr-template.md) for the
 format, and [`../contributing-to-docs.md`](../contributing-to-docs.md) for
