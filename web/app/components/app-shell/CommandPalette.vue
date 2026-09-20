@@ -120,7 +120,7 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <Dialog v-model:open="open">
-    <DialogContent class="max-w-md gap-3 p-3">
+    <DialogContent :show-close-button="false" class="max-w-md gap-3 p-3">
       <DialogTitle class="sr-only">
         {{ t('palette.title') }}
       </DialogTitle>

@@ -82,3 +82,16 @@ test('the palette input has no background of its own', async ({ page }) => {
   const bg = await page.getByRole('dialog').getByRole('combobox').evaluate(el => getComputedStyle(el).backgroundColor)
   expect(bg).toBe('rgba(0, 0, 0, 0)')
 })
+
+test('modal overlays blur the page behind them', async ({ page }) => {
+  await login(page)
+  await expect(async () => {
+    if (!(await page.getByRole('dialog').isVisible())) await page.keyboard.press('ControlOrMeta+k')
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 1000 })
+  }).toPass({ timeout: 10000 })
+  const overlay = await page.evaluate(() => {
+    const el = [...document.querySelectorAll<HTMLElement>('.fixed.inset-0')].find(e => getComputedStyle(e).backdropFilter !== 'none')
+    return el ? { filter: getComputedStyle(el).backdropFilter, bg: getComputedStyle(el).backgroundColor } : null
+  })
+  expect(overlay?.filter).toContain('blur')
+})
