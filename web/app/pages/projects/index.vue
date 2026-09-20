@@ -125,10 +125,10 @@ async function toggleArchive(project: ProjectRecord) {
               <TableHead>{{ t('common.client') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
               <TableHead class="text-right">
-                Work
+                {{ t('common.work') }}
               </TableHead>
               <TableHead class="text-right">
-                Cost
+                {{ t('common.cost') }}
               </TableHead>
               <TableHead class="text-right">
                 {{ t('common.actions') }}

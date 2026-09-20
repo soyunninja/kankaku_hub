@@ -167,13 +167,24 @@
     "empty": "No hay registros pendientes de asignar.",
     "progress": "Asignando {done} de {total}…",
     "done": "Hecho: {succeeded} asignados, {failed} fallidos.",
-    "selected": "{count} seleccionados"
+    "selected": "{count} seleccionados",
+    "suggested": "Sugerido: {client}",
+    "movedTo": "{count} registros movidos a {client}.",
+    "failedCount": "{count} registros no se pudieron asignar."
   },
   "entries": {
     "title": "Registros",
     "filters": "Filtros",
+    "filtersFields": {
+      "machine": "Máquina"
+    },
     "searchPrompt": "Buscar en el prompt…",
     "empty": "No hay registros con estos filtros.",
+    "status": {
+      "completed": "Completado",
+      "aborted": "Abortado",
+      "interrupted": "Interrumpido"
+    },
     "detail": {
       "title": "Detalle del registro",
       "assignment": "Asignación",
@@ -190,6 +201,8 @@
     "connection": "Conexión",
     "hubUrl": "URL del hub",
     "signedInAs": "Sesión iniciada como",
+    "currency": "Moneda",
+    "currencyNote": "Todos los importes de coste se muestran en dólares estadounidenses (USD).",
     "schema": "Resumen del esquema",
     "version": "Versión"
   }

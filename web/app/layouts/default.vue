@@ -12,9 +12,9 @@ const paletteOpen = ref(false)
 </script>
 
 <template>
-  <div class="min-h-screen bg-background">
-    <aside class="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-      <div class="flex h-14 items-center gap-2 px-4">
+  <div class="flex h-dvh bg-background">
+    <aside class="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar md:flex">
+      <div class="flex h-14 shrink-0 items-center gap-2 px-4">
         <Gauge class="size-5 text-primary" />
         <span class="font-semibold tracking-tight">{{ t('app.name') }}</span>
       </div>
@@ -31,9 +31,9 @@ const paletteOpen = ref(false)
       </SheetContent>
     </Sheet>
 
-    <div class="md:pl-60">
+    <div data-testid="scroll-area" class="flex h-dvh min-w-0 flex-1 flex-col overflow-y-auto">
       <Header @open-mobile-nav="mobileNavOpen = true" @open-palette="paletteOpen = true" />
-      <main class="p-4 md:p-6">
+      <main class="flex-1 p-4 md:p-6">
         <slot />
       </main>
     </div>

@@ -167,13 +167,24 @@
     "empty": "No entries waiting to be assigned.",
     "progress": "Assigning {done} of {total}…",
     "done": "Done: {succeeded} assigned, {failed} failed.",
-    "selected": "{count} selected"
+    "selected": "{count} selected",
+    "suggested": "Suggested: {client}",
+    "movedTo": "{count} entries moved to {client}.",
+    "failedCount": "{count} entries could not be assigned."
   },
   "entries": {
     "title": "Entries",
     "filters": "Filters",
+    "filtersFields": {
+      "machine": "Machine"
+    },
     "searchPrompt": "Search in prompt…",
     "empty": "No entries match these filters.",
+    "status": {
+      "completed": "Completed",
+      "aborted": "Aborted",
+      "interrupted": "Interrupted"
+    },
     "detail": {
       "title": "Entry detail",
       "assignment": "Assignment",
@@ -190,6 +201,8 @@
     "connection": "Connection",
     "hubUrl": "Hub URL",
     "signedInAs": "Signed in as",
+    "currency": "Currency",
+    "currencyNote": "All cost amounts are shown in US dollars (USD).",
     "schema": "Schema summary",
     "version": "Version"
   }

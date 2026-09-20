@@ -104,13 +104,13 @@ async function saveAssignment() {
         <Select
 v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options="[
           { value: '', label: t('common.all') },
-          { value: 'completed', label: 'completed' },
-          { value: 'aborted', label: 'aborted' },
-          { value: 'interrupted', label: 'interrupted' },
+          { value: 'completed', label: t('entries.status.completed') },
+          { value: 'aborted', label: t('entries.status.aborted') },
+          { value: 'interrupted', label: t('entries.status.interrupted') },
         ]"
         />
-        <Input v-model="filters.model" placeholder="model" class="w-32" />
-        <Input v-model="filters.machine" placeholder="machine" class="w-32" />
+        <Input v-model="filters.model" :placeholder="t('common.model')" class="w-32" />
+        <Input v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
         <Input v-model="filters.dateStart" type="date" class="w-36" />
         <Input v-model="filters.dateEnd" type="date" class="w-36" />
         <Input v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" />
@@ -129,6 +129,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
               <TableHead>{{ t('common.project') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
               <TableHead>{{ t('common.model') }}</TableHead>
+
               <TableHead class="cursor-pointer text-right" @click="toggleSort('work_ms')">
                 {{ t('common.work') }}
               </TableHead>
@@ -151,7 +152,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
               </TableCell>
               <TableCell>{{ clientName(e.client) }}</TableCell>
               <TableCell>{{ projectName(e.project) }}</TableCell>
-              <TableCell>{{ e.status }}</TableCell>
+              <TableCell>{{ t(`entries.status.${e.status}`) }}</TableCell>
               <TableCell class="text-muted-foreground">
                 {{ e.model }}
               </TableCell>
@@ -220,7 +221,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
                 {{ wr.role }} · pid {{ wr.pid }}
               </p>
               <p class="text-muted-foreground">
-                {{ formatDuration(wr.work_ms) }} · {{ formatCost(wr.cost) }} · {{ wr.status }}
+                {{ formatDuration(wr.work_ms) }} · {{ formatCost(wr.cost) }} · {{ t(`entries.status.${wr.status}`) }}
               </p>
             </div>
           </div>

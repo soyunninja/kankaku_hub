@@ -72,8 +72,16 @@ const hubUrl = computed(() => config.public.pbUrl || window.location.origin)
           <span class="text-muted-foreground">{{ t('settings.version') }}</span>
           <span class="tabular-nums">{{ config.public.appVersion }}</span>
         </div>
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">{{ t('settings.currency') }}</span>
+          <span class="tabular-nums">USD</span>
+        </div>
       </CardContent>
     </Card>
+
+    <p class="text-xs text-muted-foreground">
+      {{ t('settings.currencyNote') }}
+    </p>
 
     <Card>
       <CardHeader>
