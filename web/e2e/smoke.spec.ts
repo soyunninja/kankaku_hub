@@ -1,6 +1,5 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { expect, type Page, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { login, setTheme, shoot } from './helpers'
 
 /**
  * End-to-end smoke test against a running instance (dev server or the
@@ -8,35 +7,9 @@ import { expect, type Page, test } from '@playwright/test'
  * owner's required path: log in, land on a non-empty dashboard, switch
  * theme, open the unassigned queue, open a project — and saves
  * screenshots of the main screens in both themes to docs/screenshots/
- * (see ESTADO.md).
+ * (see ESTADO.md). See also e2e/polish.spec.ts for the targeted
+ * regression checks from the visual/UX polish pass.
  */
-
-const screenshotsDir = path.join(fileURLToPath(new URL('.', import.meta.url)), '..', 'docs', 'screenshots')
-
-const OWNER_EMAIL = 'david@kankaku.local'
-const OWNER_PASSWORD = 'kankaku-dev-owner'
-
-async function login(page: Page) {
-  await page.goto('/login')
-  await page.fill('#email', OWNER_EMAIL)
-  await page.fill('#password', OWNER_PASSWORD)
-  await page.click('button[type=submit]')
-  await page.waitForURL('/')
-}
-
-async function setTheme(page: Page, theme: 'dark' | 'light') {
-  await page.evaluate((t) => {
-    localStorage.setItem('kankaku-color-mode', t)
-  }, theme)
-  await page.reload()
-  await page.waitForLoadState('networkidle')
-  await expect(page.locator('html')).toHaveClass(theme)
-}
-
-async function shoot(page: Page, name: string) {
-  await page.waitForTimeout(300)
-  await page.screenshot({ path: path.join(screenshotsDir, `${name}.png`), fullPage: true })
-}
 
 test('dashboard shows non-zero KPIs after login', async ({ page }) => {
   await login(page)
@@ -51,7 +24,7 @@ test('dashboard shows non-zero KPIs after login', async ({ page }) => {
   expect(bodyText).toMatch(/\$\d+\.\d{2}/)
 })
 
-test('theme switches to light and back to dark, no flash of wrong theme on load', async ({ page }) => {
+test('theme defaults to dark, switches to light, back to dark, and to system', async ({ page }) => {
   await page.goto('/login')
   // Fresh profile: default theme must be dark before any interaction.
   await expect(page.locator('html')).toHaveClass('dark')
@@ -59,6 +32,9 @@ test('theme switches to light and back to dark, no flash of wrong theme on load'
   await login(page)
   await setTheme(page, 'light')
   await setTheme(page, 'dark')
+  // "System" must not throw and must apply *some* resolved theme class.
+  await setTheme(page, 'system')
+  await expect(page.locator('html')).toHaveClass(/dark|light/)
 })
 
 test('opens the unassigned queue', async ({ page }) => {
@@ -108,5 +84,18 @@ test('captures screenshots of the main screens in both themes', async ({ page })
     await page.goto('/login')
     await page.waitForLoadState('networkidle')
     await shoot(page, `login-${theme}`)
+  }
+})
+
+test('captures mobile-width dashboard screenshots (both themes)', async ({ page }) => {
+  test.setTimeout(60_000)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await login(page)
+
+  for (const theme of ['dark', 'light'] as const) {
+    await setTheme(page, theme)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await shoot(page, `dashboard-mobile-${theme}`)
   }
 })
