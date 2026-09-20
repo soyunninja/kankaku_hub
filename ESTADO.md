@@ -6,6 +6,16 @@ Fecha: 2026-09-20
 
 Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 
+> **Acción pendiente del dueño**: hay una migración nueva
+> (`1758300011_clients_contact_fields.js`, añade `website`/`contact_email`/
+> `contact_phone`/`notes` a `clients`). Reinicia `npm run dev:all` una vez
+> para que PocketBase la aplique (se aplica sola al arrancar). Si quieres
+> ver los cuatro campos rellenos en los clientes de demo, vuelve a
+> ejecutar `npm run pb:seed` después (es idempotente, no duplica nada).
+> Mientras no reinicies, la web sigue funcionando: esos cuatro campos
+> simplemente se leen vacíos y, si intentas guardarlos, verás un aviso de
+> error en vez de un "guardado" falso.
+
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
 npm run dev:all      # PARA TRASTEAR: API en :8090 + web con recarga en caliente → http://localhost:3000
@@ -257,8 +267,20 @@ otra instalación de pnpm. `components.json` ya existía y es válido
   explícito de que nunca se suma.
 - Regla D8 respetada: no hay ningún campo de tarifa/precio/margen en la
   UI; `cost` se etiqueta como coste medido en USD.
-
-### Qué está pendiente / decisiones abiertas
+- **Campos de contacto en clientes** (2026-09-20): `website`, email,
+  teléfono y notas, opcionales, en el diálogo de crear/editar cliente
+  (validación en cliente que refleja la de PocketBase: URL normalizada a
+  `https://` al perder el foco, esquema http(s) obligatorio para
+  convertirse en enlace, email con formato plausible, teléfono libre solo
+  recortado) con errores inline (propios y los que devuelve PocketBase,
+  mapeados al campo correcto). La tabla muestra web/email/teléfono como
+  enlaces (colapsan por debajo de `md` y truncan para que la tabla nunca
+  desborde la página), notas solo como icono indicador con tooltip. Panel
+  lateral de detalle del cliente (nuevo, no existía antes) con todos los
+  campos, notas en texto plano con saltos de línea preservados (nunca
+  `v-html`) y sus proyectos. Ver `docs/specs/web-catalog-management.md`
+  (`CATMGMT-REQ-006`–`009`) y `docs/specs/hub-schema-and-access-rules.md`
+  (`SCHEMA-REQ-011`).
 
 - Cobertura de tests de componentes Vue (solo se testean los helpers
   puros de `app/lib/*` con Vitest, como pedía el encargo, más el e2e de
@@ -422,6 +444,36 @@ Si se borra, los tres comandos de arriba lo reconstruyen entero.
 - Vista `task_entries_daily_totals` devuelve tipos correctos
   (`number`/`text`, no `json`) tras forzar `CAST(...)` en el `SELECT` —
   sin el cast, PocketBase infiere mal los tipos de las columnas `SUM()`.
+
+### Campos de contacto de `clients` (migración `1758300011`)
+
+Verificado sobre una copia aislada de `pb_data` (puertos 8092/3002, nunca
+se tocó el proceso del dueño en 8090/3000):
+
+- `migrate up` desde el estado ya migrado del dueño: aplica sin errores;
+  `migrate down 1` seguido de `migrate up`: revierte exactamente los
+  cuatro campos nuevos (`website`, `contact_email`, `contact_phone`,
+  `notes`) y los vuelve a crear, sin tocar `name`/`code`/`active`/
+  `unassigned`/`created`/`updated`.
+- Round-trip real por la API: crear un cliente con los cuatro campos y
+  volver a leerlo devuelve los mismos valores, incluidas las líneas
+  múltiples de `notes`.
+- El rol `service` sigue sin poder escribir `clients` (incluidos estos
+  cuatro campos): `400` con el cuerpo genérico
+  `{"data":{},"message":"Failed to create record.","status":400}`, igual
+  que para el resto de campos.
+- Comportamiento real contra un `pb_data` que TODAVÍA no tiene la
+  migración aplicada (probado con una copia limpia del `pb_data` del
+  dueño, sin el fichero de migración cargado): un `GET` de un cliente
+  existente no trae esos cuatro campos en absoluto (`undefined` en JS, no
+  `""`); un `POST`/`PATCH` que los incluya devuelve `200` pero PocketBase
+  los descarta en silencio — la web detecta esto último y muestra un
+  aviso de error en vez de un "guardado" falso (ver
+  `web/app/pages/clients/index.vue`, comprobación `contactFieldsDropped`).
+- `pocketbase/seed/seed.js` ejecutado dos veces contra la copia aislada:
+  la segunda vez no crea clientes nuevos pero sí refresca los cuatro
+  campos de contacto de los 5 clientes de demo (comportamiento
+  documentado en la cabecera del script); "Sin determinar" nunca se toca.
 
 ## Próximos pasos sugeridos
 

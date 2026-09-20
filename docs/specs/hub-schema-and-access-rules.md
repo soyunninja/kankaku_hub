@@ -47,6 +47,12 @@ surface captured from real requests.
 10. `SCHEMA-REQ-010` — No collection SHALL define a rate, price, margin, or
     invoice-number field (the billing boundary — see
     [ADR 0018](../adr/0018-billing-boundary-enforced-in-schema.md)).
+11. `SCHEMA-REQ-011` — `clients` SHALL support four optional contact fields
+    (`website`: `url`; `contact_email`: `email`; `contact_phone`: `text`,
+    max 40; `notes`: `text`, max 5000), writable only by `role = 'owner'`
+    like every other `clients` field, and none of the four SHALL ever
+    become a rate/price/invoice field (`SCHEMA-REQ-010` applies to them
+    too).
 
 ## Scenarios
 
@@ -79,6 +85,18 @@ surface captured from real requests.
 - **Given** a task with a `work_records` child whose `wall_ms` differs from the parent's `wall_ms`
 - **When** `task_entries_daily_totals` is queried for that day/project/client
 - **Then** the returned `wall_ms` matches the `task_entries` row's value, not any sum involving `work_records`
+
+### Scenario: the service account cannot write a client's contact fields either (`SCHEMA-REQ-011`)
+
+- **Given** the request is authenticated as `role: "service"`
+- **When** it attempts to `PATCH` a `clients` record's `website`/`contact_email`/`contact_phone`/`notes`
+- **Then** the request fails with the same generic `400` shape as any other service-account write to `clients` (verified manually — see `ESTADO.md`)
+
+### Scenario: the four contact fields round-trip through migrate down/up (`SCHEMA-REQ-011`)
+
+- **Given** migration `1758300011_clients_contact_fields.js` is reverted (`migrate down`)
+- **When** the schema is inspected
+- **Then** `website`/`contact_email`/`contact_phone`/`notes` are gone from `clients` and every other field is untouched; re-applying (`migrate up`) restores exactly those four fields (verified manually — see `ESTADO.md`)
 
 ## Configuration
 
@@ -115,3 +133,4 @@ full field tables per collection.
 | `SCHEMA-REQ-008` | migration `1758300009_task_entries_daily_totals_view.js`; type/CAST behavior verified manually per `ESTADO.md` | covered |
 | `SCHEMA-REQ-009` | migration `1758300010_enable_batch_api.js` | covered |
 | `SCHEMA-REQ-010` | absence across all migrations (grep) | covered |
+| `SCHEMA-REQ-011` | migration `1758300011_clients_contact_fields.js`; up/round-trip/down and service-role rejection verified manually per `ESTADO.md` | covered |

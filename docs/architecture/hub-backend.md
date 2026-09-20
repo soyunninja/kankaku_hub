@@ -36,10 +36,18 @@ provisioned only via the superuser CLI/API,
 | `code` | text, required, **unique** (`idx_clients_code`) | Short slug, e.g. `cajamar`. |
 | `active` | bool | No schema default — always send explicitly (PocketBase 0.40 defaults an omitted bool to `false`). |
 | `unassigned` | bool | `true` only for the single "Sin determinar" row. |
+| `website` | url, optional | Added by `1758300011_clients_contact_fields.js`. Display/contact metadata only — kankaku's catalog client (`kankaku/src/adapters/pocketbase-catalog.ts`) never reads it. |
+| `contact_email` | email, optional | Same migration. Same "kankaku never reads it" note. |
+| `contact_phone` | text, optional, max 40 | Same migration. Free-form, no format enforced beyond trimming. |
+| `notes` | text, optional, max 5000 | Same migration. Multi-line free text. |
 
 Access: `list`/`view` = any authenticated user; `create`/`update`/`delete` =
-`role = 'owner'` only. The sync client (service account) only ever reads
-this collection.
+`role = 'owner'` only — the four contact fields are not special-cased, they
+follow the same rule as `name`/`code`/`active`. The sync client (service
+account) only ever reads this collection. No rate/price/invoice field
+exists or will exist here (the billing boundary, [ADR
+0018](../adr/0018-billing-boundary-enforced-in-schema.md)) — the contact
+fields are display metadata, not money.
 
 ### `projects`
 
@@ -166,6 +174,15 @@ window. Verified counts after two runs:
 Seeds the one required "Sin determinar" client via migration
 `1758300008_seed_unassigned_client.js` (idempotent, looks up by `code`
 before inserting).
+
+The five demo clients also carry plausible `website`/`contact_email`/
+`contact_phone`/`notes` values. Unlike every other row this script
+generates, those four fields ARE re-applied to already-existing demo
+clients on every run (a deliberate exception — see the header comment in
+`seed.js`): they're pure display data, not owner-authored state, so
+keeping them in sync with the script's canonical values is more useful
+than leaving old runs stale. "Sin determinar" is never touched by this
+script and keeps its contact fields empty.
 
 ## Related
 

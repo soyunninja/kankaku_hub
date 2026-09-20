@@ -85,8 +85,23 @@ mapping code.
 | `code` | text, required, **unique** |
 | `active` | bool |
 | `unassigned` | bool |
+| `website` | url, optional |
+| `contact_email` | email, optional |
+| `contact_phone` | text, optional, max 40 |
+| `notes` | text, optional, max 5000, multi-line |
 
 Write access: owner only. The sync client only *reads* this collection.
+
+`website`, `contact_email`, `contact_phone` and `notes` are display/contact
+metadata for the web app's owner-facing client management screens
+(`CATMGMT-REQ-006`–`CATMGMT-REQ-008`, `docs/specs/web-catalog-management.md`).
+kankaku's own catalog client
+(`kankaku/src/adapters/pocketbase-catalog.ts#mapClient`) only ever reads
+`id`, `name`, `code`, `active` and `unassigned` off a `clients` record — it
+ignores these four fields entirely, so they need no handling on the
+kankaku side. No money-related field (rate, price, margin, invoice number)
+exists or will exist on this collection — see `AGENTS.md` and
+[ADR 0018](adr/0018-billing-boundary-enforced-in-schema.md).
 
 ### `projects`
 
