@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { Badge } from '@/components/ui/badge'
-import { ROUTE_NAV_KEYS } from '@/lib/kankaku-commands'
 import type { SearchableCommand } from '@/lib/kankaku-commands'
 import CopyButton from './CopyButton.vue'
 
-const props = defineProps<{
+defineProps<{
   command: SearchableCommand
 }>()
 
 const { t } = useI18n()
-
-const relatedNavKey = computed(() => props.command.relatedRoute ? ROUTE_NAV_KEYS[props.command.relatedRoute] : undefined)
 </script>
 
 <template>
@@ -31,12 +28,5 @@ const relatedNavKey = computed(() => props.command.relatedRoute ? ROUTE_NAV_KEYS
       {{ command.whenToUse }}
     </p>
 
-    <NuxtLink
-      v-if="command.relatedRoute && relatedNavKey"
-      :to="command.relatedRoute"
-      class="w-fit text-xs font-medium text-primary hover:underline"
-    >
-      {{ t('commands.relatedLink', { screen: t(relatedNavKey) }) }}
-    </NuxtLink>
   </div>
 </template>

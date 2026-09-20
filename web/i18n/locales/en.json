@@ -248,7 +248,6 @@
     "copied": "Copied!",
     "copyAria": "Copy \"{syntax}\" to clipboard",
     "requiresHub": "Requires hub",
-    "relatedLink": "Go to {screen}",
     "groups": {
       "reports": "Reports",
       "clientTarget": "Client & target",

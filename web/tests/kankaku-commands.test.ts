@@ -6,7 +6,6 @@ import {
   filterCommands,
   KANKAKU_COMMANDS,
   KANKAKU_ENV_VARS,
-  ROUTE_NAV_KEYS,
 } from '../app/lib/kankaku-commands'
 import type { SearchableCommand } from '../app/lib/kankaku-commands'
 
@@ -38,17 +37,6 @@ describe('KANKAKU_COMMANDS', () => {
     }
   })
 
-  it('every relatedRoute has a known nav i18n key with an es and en label', () => {
-    for (const c of KANKAKU_COMMANDS) {
-      if (!c.relatedRoute) continue
-      const navKey = ROUTE_NAV_KEYS[c.relatedRoute]
-      expect(navKey, `no ROUTE_NAV_KEYS entry for ${c.relatedRoute}`).toBeTruthy()
-      for (const dict of [es, en] as Record<string, unknown>[]) {
-        const label = readPath(dict, navKey!)
-        expect(typeof label === 'string' && label.trim().length > 0, navKey).toBe(true)
-      }
-    }
-  })
 })
 
 describe('KANKAKU_ENV_VARS', () => {

@@ -27,51 +27,40 @@ export interface KankakuCommandDef {
   group: CommandGroup
   /** Only offered by kankaku when a PocketBase hub is configured (HUB_COMMAND_TOKENS / TARGET_TOKENS / SYNC_TOKENS gates). */
   requiresHub: boolean
-  /** In-app route this command's output/effect is most related to, if any. */
-  relatedRoute?: string
 }
 
 export const KANKAKU_COMMANDS: KankakuCommandDef[] = [
   // Reports — no hub required.
-  { id: 'summary-today', syntax: '/kankaku', group: 'reports', requiresHub: false, relatedRoute: '/' },
-  { id: 'summary-all', syntax: '/kankaku all', group: 'reports', requiresHub: false, relatedRoute: '/' },
-  { id: 'tasks', syntax: '/kankaku tasks', group: 'reports', requiresHub: false, relatedRoute: '/tasks' },
-  { id: 'tasks-all', syntax: '/kankaku tasks all', group: 'reports', requiresHub: false, relatedRoute: '/tasks' },
+  { id: 'summary-today', syntax: '/kankaku', group: 'reports', requiresHub: false },
+  { id: 'summary-all', syntax: '/kankaku all', group: 'reports', requiresHub: false },
+  { id: 'tasks', syntax: '/kankaku tasks', group: 'reports', requiresHub: false },
+  { id: 'tasks-all', syntax: '/kankaku tasks all', group: 'reports', requiresHub: false },
   { id: 'sessions', syntax: '/kankaku sessions', group: 'reports', requiresHub: false },
   { id: 'sessions-all', syntax: '/kankaku sessions all', group: 'reports', requiresHub: false },
-  { id: 'clients', syntax: '/kankaku clients', group: 'reports', requiresHub: false, relatedRoute: '/clients' },
-  { id: 'clients-all', syntax: '/kankaku clients all', group: 'reports', requiresHub: false, relatedRoute: '/clients' },
+  { id: 'clients', syntax: '/kankaku clients', group: 'reports', requiresHub: false },
+  { id: 'clients-all', syntax: '/kankaku clients all', group: 'reports', requiresHub: false },
   // Reports — hub-gated (HUB_COMMAND_TOKENS).
-  { id: 'projects', syntax: '/kankaku projects', group: 'reports', requiresHub: true, relatedRoute: '/projects' },
-  { id: 'projects-all', syntax: '/kankaku projects all', group: 'reports', requiresHub: true, relatedRoute: '/projects' },
+  { id: 'projects', syntax: '/kankaku projects', group: 'reports', requiresHub: true },
+  { id: 'projects-all', syntax: '/kankaku projects all', group: 'reports', requiresHub: true },
 
   // Client & target.
   { id: 'client-show', syntax: '/kankaku client', group: 'clientTarget', requiresHub: false },
-  { id: 'client-set', syntax: '/kankaku client <name>', group: 'clientTarget', requiresHub: false, relatedRoute: '/clients' },
+  { id: 'client-set', syntax: '/kankaku client <name>', group: 'clientTarget', requiresHub: false },
   { id: 'client-clear', syntax: '/kankaku client --clear', group: 'clientTarget', requiresHub: false },
   { id: 'target-show', syntax: '/kankaku target', group: 'clientTarget', requiresHub: true },
-  { id: 'target-pick', syntax: '/kankaku target pick', group: 'clientTarget', requiresHub: true, relatedRoute: '/projects' },
+  { id: 'target-pick', syntax: '/kankaku target pick', group: 'clientTarget', requiresHub: true },
   { id: 'target-clear', syntax: '/kankaku target clear', group: 'clientTarget', requiresHub: true },
 
   // Hub.
-  { id: 'catalog-refresh', syntax: '/kankaku catalog refresh', group: 'hub', requiresHub: true, relatedRoute: '/clients' },
-  { id: 'sync', syntax: '/kankaku sync', group: 'hub', requiresHub: true, relatedRoute: '/' },
-  { id: 'sync-all', syntax: '/kankaku sync all', group: 'hub', requiresHub: true, relatedRoute: '/' },
+  { id: 'catalog-refresh', syntax: '/kankaku catalog refresh', group: 'hub', requiresHub: true },
+  { id: 'sync', syntax: '/kankaku sync', group: 'hub', requiresHub: true },
+  { id: 'sync-all', syntax: '/kankaku sync all', group: 'hub', requiresHub: true },
   { id: 'sync-status', syntax: '/kankaku sync status', group: 'hub', requiresHub: true },
-  { id: 'backfill', syntax: '/kankaku backfill', group: 'hub', requiresHub: true, relatedRoute: '/unassigned' },
+  { id: 'backfill', syntax: '/kankaku backfill', group: 'hub', requiresHub: true },
 
   // Export — no hub required.
   { id: 'export', syntax: '/kankaku export [csv|json] [all]', group: 'export', requiresHub: false },
 ]
-
-/** In-app nav i18n key for a command's `relatedRoute`, reusing the existing `nav.*` labels instead of duplicating them. */
-export const ROUTE_NAV_KEYS: Record<string, string> = {
-  '/': 'nav.dashboard',
-  '/clients': 'nav.clients',
-  '/projects': 'nav.projects',
-  '/tasks': 'nav.tasks',
-  '/unassigned': 'nav.unassigned',
-}
 
 /** kankaku environment variables (see src/config.ts and README.md "Environment variables"). */
 export interface KankakuEnvVarDef {

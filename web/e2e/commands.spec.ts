@@ -58,15 +58,12 @@ test('copy button copies the command syntax to the clipboard', async ({ page, co
   expect(clipboardText).toBe('/kankaku sync status')
 })
 
-test('the backfill command links to the unassigned queue', async ({ page }) => {
+test('command rows are reference only: no in-app navigation links', async ({ page }) => {
   await login(page)
   await page.goto('/commands')
   await page.waitForLoadState('networkidle')
 
-  const row = page.locator('code', { hasText: '/kankaku backfill' }).locator('..').locator('..')
-  await row.getByRole('link', { name: /Sin determinar/ }).click()
-  await page.waitForURL('/unassigned')
-  await expect(page.locator('h1')).toContainText(/Sin determinar/)
+  await expect(page.locator('main a[href^="/"]')).toHaveCount(0)
 })
 
 test('no horizontal overflow at 390px', async ({ page }) => {

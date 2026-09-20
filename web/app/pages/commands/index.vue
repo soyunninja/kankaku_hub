@@ -127,9 +127,6 @@ const LOAD_IN_PI_SNIPPET = 'pi -e /absolute/path/to/kankaku'
             <p class="text-muted-foreground">
               {{ t('commands.workflow.reassigning.body') }}
             </p>
-            <NuxtLink to="/unassigned" class="text-xs font-medium text-primary hover:underline">
-              {{ t('commands.relatedLink', { screen: t('nav.unassigned') }) }}
-            </NuxtLink>
           </div>
           <p class="rounded-md border border-dashed border-border px-3 py-2 text-xs text-foreground">
             {{ t('commands.workflow.keyRule') }}

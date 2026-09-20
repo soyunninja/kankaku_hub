@@ -248,7 +248,6 @@
     "copied": "¡Copiado!",
     "copyAria": "Copiar «{syntax}» al portapapeles",
     "requiresHub": "Requiere hub",
-    "relatedLink": "Ir a {screen}",
     "groups": {
       "reports": "Informes",
       "clientTarget": "Cliente y destino",

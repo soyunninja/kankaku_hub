@@ -12,8 +12,7 @@
 ## Purpose
 
 A reference screen (`/commands`) documenting every `/kankaku` subcommand the
-pi extension implements — exact syntax, what it does, when to use it, and
-(where relevant) a link to the screen of this web app it relates to — plus
+pi extension implements — exact syntax, what it does and when to use it — plus
 a "Configuration" block for connecting kankaku to this hub. It documents
 kankaku (a separate repo/process); this screen never runs a kankaku
 command itself.
@@ -34,10 +33,11 @@ command itself.
 4. `CMDREF-REQ-004` — Every command's syntax SHALL be copyable to the
    clipboard via a labeled, accessible button that shows visible
    confirmation after a successful copy.
-5. `CMDREF-REQ-005` — A command related to another screen of this web app
-   (e.g. `backfill` → unassigned queue, `projects`/`projects all` →
-   Projects, `sync`/`sync all` → dashboard) SHALL link to that screen with
-   an in-app navigation link.
+5. `CMDREF-REQ-005` — The command rows and the workflow block SHALL be
+   reference text only and SHALL NOT contain in-app navigation links.
+   (Reversed on 2026-09-20 at the owner's request: the original requirement
+   linked each command to a related screen, which read as noise on a
+   reference page. The id is kept so history stays traceable.)
 6. `CMDREF-REQ-006` — The screen SHALL render a "Configuration" section
    listing every `KANKAKU_*` environment variable kankaku reads (name,
    default, meaning) and the shape of `~/.kankaku/credentials.json`,
@@ -78,11 +78,11 @@ command itself.
 - **When** the owner clicks its copy button
 - **Then** `/kankaku sync status` is on the clipboard and the button shows a visible "copied" confirmation
 
-### Scenario: backfill links to the unassigned queue (`CMDREF-REQ-005`)
+### Scenario: command rows carry no navigation links (`CMDREF-REQ-005`)
 
-- **Given** the `/kankaku backfill` row
-- **When** the owner clicks its related-screen link
-- **Then** they land on `/unassigned` ("Sin determinar")
+- **Given** the commands screen is open
+- **When** the owner reads any command row or the workflow block
+- **Then** there is no in-app link in them; navigation stays in the sidebar and the Ctrl/Cmd+K palette
 
 ### Scenario: connect snippet uses this hub's own origin (`CMDREF-REQ-007`)
 
@@ -110,9 +110,6 @@ that module's own comment for the verification note.
 - The browser's Clipboard API is unavailable (very old browser, insecure
   context): the copy button disables itself (`useClipboard`'s
   `isSupported`) rather than silently failing.
-- A command with no `relatedRoute` (e.g. `sessions`, `sync status`) simply
-  omits the in-app link — this is expected for commands with no obvious
-  screen counterpart, not a bug.
 - The filter matches on already-localized text, so a query typed in one
   locale still works after a locale switch (it re-filters against the new
   locale's strings, since the match happens against `t(...)` output).
@@ -131,7 +128,7 @@ that module's own comment for the verification note.
 | `CMDREF-REQ-002` | `web/e2e/commands.spec.ts` ("a requires hub badge is present") | covered |
 | `CMDREF-REQ-003` | `web/tests/kankaku-commands.test.ts` (`filterCommands`), `web/e2e/commands.spec.ts` (filter narrows / empty state) | covered |
 | `CMDREF-REQ-004` | `web/e2e/commands.spec.ts` ("copy button copies…") | covered |
-| `CMDREF-REQ-005` | `web/e2e/commands.spec.ts` ("the backfill command links to the unassigned queue") | covered |
+| `CMDREF-REQ-005` | `web/e2e/commands.spec.ts` ("command rows are reference only: no in-app navigation links") | covered |
 | `CMDREF-REQ-006` | `web/tests/kankaku-commands.test.ts` (env var meaning strings) | covered |
 | `CMDREF-REQ-007` | code review (`app/pages/commands/index.vue#hubUrl`/`connectSnippet`) | not covered by an automated test found in this pass |
 | `CMDREF-REQ-008` | `web/tests/kankaku-commands.test.ts`, `web/tests/i18n.test.ts` | covered |
