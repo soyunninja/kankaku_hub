@@ -77,6 +77,7 @@ translation.
 | Convertir en tarea | Convert to (new) task | 新規タスクに変換 | native term, the "sessions without a task" queue's explicit action that creates a task from a session (ADR 0024 — never automatic) |
 | Adjuntar (a tarea existente) | Attach (to existing task) | 既存タスクに追加 | native term ("add to an existing task"), the queue's other explicit linking action — reuses 既存 ("existing") rather than a literal "attach" loanword, which reads awkwardly in Japanese for a data-record action |
 | Ignorar (sesión) | Ignore (session) | 無視 | native term, dismissing a session from the "without a task" queue without creating a task (`ignored_sessions`, ADR 0024) |
+| No medido | Not measured | 未測定 | native term, the generic "this figure wasn't measured" qualifier used by the entries explorer's quality filter options and the dashboard's measurement-quality KPI notices (Task 1/3, `waiting_quality`/`cost_quality`) |
 
 ## Conventions applied throughout `ja.json`
 

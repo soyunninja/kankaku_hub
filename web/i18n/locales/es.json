@@ -69,7 +69,8 @@
     "externalRef": "Referencia externa",
     "description": "Descripción",
     "userMenu": "Menú de usuario",
-    "agentUnknown": "Heredado (no reportado)"
+    "agentUnknown": "Heredado (no reportado)",
+    "agent": "Agente"
   },
   "dashboard": {
     "title": "Panel",
@@ -92,7 +93,9 @@
       "tokensOut": "Tokens salida",
       "tokensCache": "Tokens caché",
       "tasks": "Tareas",
-      "avgCostPerTask": "Coste medio/tarea"
+      "avgCostPerTask": "Coste medio/tarea",
+      "workTimeUpperBoundNotice": "Incluye {count} registros donde el tiempo de espera no se pudo medir: el tiempo de trabajo es un límite superior para esos casos. Verlos.",
+      "avgCostExcludedNotice": "{count} registros excluidos porque no se pudo conocer su coste"
     },
     "vsPrevious": "vs. periodo anterior",
     "chart": {
@@ -266,7 +269,12 @@
     "title": "Registros",
     "filters": "Filtros",
     "filtersFields": {
-      "machine": "Máquina"
+      "machine": "Máquina",
+      "quality": "Calidad de medición"
+    },
+    "qualityFilter": {
+      "waitingUnavailable": "Tiempo de espera no medido",
+      "costUnknown": "Coste no determinado"
     },
     "searchPrompt": "Buscar en el prompt…",
     "empty": "No hay registros con estos filtros.",

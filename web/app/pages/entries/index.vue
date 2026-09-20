@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
@@ -11,18 +12,36 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { EntriesExplorerFilters } from '@/composables/useEntriesExplorer'
+import { resolveAgent } from '@/lib/agents'
+import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('entries.title')) })
 const { formatCost, formatDateTime, formatDuration } = useFormatters()
+const route = useRoute()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { list, getOne, listWorkRecords, updateAssignment } = useEntriesExplorer()
+const { list, getOne, listWorkRecords, updateAssignment, listAgents } = useEntriesExplorer()
 const toast = useToast()
 
-const filters = reactive<EntriesExplorerFilters>({})
+/** Deep-link support so the dashboard's measurement-quality notice can
+ * navigate here pre-filtered (e.g. `/entries?quality=waitingUnavailable
+ * &dateStart=...&dateEnd=...&agent=...`) — every field stays optional and
+ * this is the only place reading `route.query`, so a normal visit with no
+ * query params behaves exactly as before. */
+function queryString(key: string): string | undefined {
+  const value = route.query[key]
+  return typeof value === 'string' && value ? value : undefined
+}
+const initialQuality = queryString('quality')
+const filters = reactive<EntriesExplorerFilters>({
+  agent: queryString('agent'),
+  quality: initialQuality === 'waitingUnavailable' || initialQuality === 'costUnknown' ? initialQuality : undefined,
+  dateStart: queryString('dateStart'),
+  dateEnd: queryString('dateEnd'),
+})
 const page = ref(1)
 const perPage = 25
 const sort = ref('-started_at')
@@ -30,6 +49,7 @@ const loading = ref(true)
 const items = ref<TaskEntryRecord[]>([])
 const totalItems = ref(0)
 const totalPages = ref(1)
+const agentOptions = ref<string[]>([])
 
 async function load() {
   loading.value = true
@@ -44,8 +64,13 @@ async function load() {
   }
 }
 
+function agentLabel(slug: string) {
+  if (slug === LEGACY_AGENT) return t('entries.detail.quality.agentLegacy')
+  return resolveAgent(slug)?.label ?? slug
+}
+
 onMounted(async () => {
-  await Promise.all([ensureClients(), ensureProjects()])
+  await Promise.all([ensureClients(), ensureProjects(), listAgents().then((agents) => { agentOptions.value = agents })])
   await load()
 })
 
@@ -124,6 +149,19 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
           { value: 'interrupted', label: t('entries.status.interrupted') },
         ]"
         />
+        <Select
+v-model="filters.agent" class="w-40" :placeholder="t('common.agent')" :options="[
+          { value: '', label: t('common.all') },
+          ...agentOptions.map(a => ({ value: a, label: agentLabel(a) })),
+        ]"
+        />
+        <Select
+v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.quality')" :options="[
+          { value: '', label: t('common.all') },
+          { value: 'waitingUnavailable', label: t('entries.qualityFilter.waitingUnavailable') },
+          { value: 'costUnknown', label: t('entries.qualityFilter.costUnknown') },
+        ]"
+        />
         <Input v-model="filters.model" :placeholder="t('common.model')" class="w-32" />
         <Input v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
         <Input v-model="filters.dateStart" type="date" class="w-36" />
@@ -143,6 +181,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
               <TableHead>{{ t('common.client') }}</TableHead>
               <TableHead>{{ t('common.project') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
+              <TableHead>{{ t('common.agent') }}</TableHead>
               <TableHead>{{ t('common.model') }}</TableHead>
 
               <TableHead class="cursor-pointer text-right" @click="toggleSort('work_ms')">
@@ -156,7 +195,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
           <TableBody>
             <template v-if="loading">
               <TableRow v-for="i in 6" :key="i">
-                <TableCell colspan="7">
+                <TableCell colspan="8">
                   <Skeleton class="h-5 w-full" />
                 </TableCell>
               </TableRow>
@@ -171,6 +210,9 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
               </TableCell>
               <TableCell>{{ projectName(e.project) }}</TableCell>
               <TableCell>{{ t(`entries.status.${e.status}`) }}</TableCell>
+              <TableCell>
+                <AgentIcon :agent="e.agent" size="xs" />
+              </TableCell>
               <TableCell class="text-muted-foreground">
                 {{ e.model }}
               </TableCell>

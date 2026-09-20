@@ -69,7 +69,8 @@
     "externalRef": "External ref",
     "description": "Description",
     "userMenu": "User menu",
-    "agentUnknown": "Legacy (not reported)"
+    "agentUnknown": "Legacy (not reported)",
+    "agent": "Agent"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -92,7 +93,9 @@
       "tokensOut": "Tokens out",
       "tokensCache": "Cache tokens",
       "tasks": "Tasks",
-      "avgCostPerTask": "Avg cost/task"
+      "avgCostPerTask": "Avg cost/task",
+      "workTimeUpperBoundNotice": "Includes {count} entries where waiting time was not measurable — work time is an upper bound for those. View them.",
+      "avgCostExcludedNotice": "{count} entries excluded because cost wasn't knowable"
     },
     "vsPrevious": "vs. previous period",
     "chart": {
@@ -266,7 +269,12 @@
     "title": "Entries",
     "filters": "Filters",
     "filtersFields": {
-      "machine": "Machine"
+      "machine": "Machine",
+      "quality": "Measurement quality"
+    },
+    "qualityFilter": {
+      "waitingUnavailable": "Waiting time not measured",
+      "costUnknown": "Cost not measured"
     },
     "searchPrompt": "Search in prompt…",
     "empty": "No entries match these filters.",

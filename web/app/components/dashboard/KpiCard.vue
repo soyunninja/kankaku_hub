@@ -80,6 +80,9 @@ const arrowIcon = computed(() => direction.value === 'up' ? ArrowUp : direction.
       </p>
       <!-- Keeps the value at the same height as sibling cards that do show a delta. -->
       <p v-else class="mt-1 text-xs" aria-hidden="true">&nbsp;</p>
+      <!-- Optional per-KPI notice (e.g. a measurement-quality caveat) — empty by
+           default, so a card with nothing to say renders pixel-identical to before. -->
+      <slot />
     </CardContent>
   </Card>
 </template>

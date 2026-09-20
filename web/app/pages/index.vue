@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { avgCostPerTask, groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
+import { groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
+import { resolveAgent } from '@/lib/agents'
+import { computeAverageCost, LEGACY_AGENT, listDistinctAgents, summarizeWorkTimeQuality } from '@/lib/measurement-quality'
 import type { DateRange, PresetKey } from '@/lib/period'
 import { previousEquivalentPeriod, resolvePreset } from '@/lib/period'
 import type { ClientRecord, TaskEntryRecord } from '@/lib/pocketbase-types'
@@ -27,6 +29,7 @@ const range = ref<DateRange>(resolvePreset('30d'))
 const includeUnassigned = ref(false)
 const metric = ref<'work' | 'cost'>('work')
 const stackBy = ref<'none' | 'client' | 'project'>('none')
+const agentFilter = ref('')
 
 const currentEntries = ref<TaskEntryRecord[]>([])
 const previousEntries = ref<TaskEntryRecord[]>([])
@@ -44,16 +47,54 @@ function projectName(id: string) {
   return projects.value.find(c => c.id === id)?.name ?? id
 }
 
-const visibleCurrent = computed(() => includeUnassigned.value
-  ? currentEntries.value
-  : currentEntries.value.filter(e => e.client !== unassignedClientId.value))
+/** Distinct `agent` values across the currently-loaded date range (not
+ * scoped by `agentFilter`/`includeUnassigned`, so picking a filter never
+ * shrinks the option list out from under itself). */
+const agentOptions = computed(() => listDistinctAgents(currentEntries.value))
+function agentLabel(slug: string) {
+  if (slug === LEGACY_AGENT) return t('entries.detail.quality.agentLegacy')
+  return resolveAgent(slug)?.label ?? slug
+}
+function matchesAgentFilter(entry: TaskEntryRecord) {
+  if (!agentFilter.value) return true
+  if (agentFilter.value === LEGACY_AGENT) return !entry.agent?.trim()
+  return entry.agent?.trim() === agentFilter.value
+}
 
-const visiblePrevious = computed(() => includeUnassigned.value
+const visibleCurrent = computed(() => (includeUnassigned.value
+  ? currentEntries.value
+  : currentEntries.value.filter(e => e.client !== unassignedClientId.value)).filter(matchesAgentFilter))
+
+const visiblePrevious = computed(() => (includeUnassigned.value
   ? previousEntries.value
-  : previousEntries.value.filter(e => e.client !== unassignedClientId.value))
+  : previousEntries.value.filter(e => e.client !== unassignedClientId.value)).filter(matchesAgentFilter))
 
 const totals = computed(() => sumTaskEntries(visibleCurrent.value))
 const previousTotals = computed(() => sumTaskEntries(visiblePrevious.value))
+
+/** Measurement-quality honesty notice (Task 3): how many of the visible
+ * current-range rows have `work_ms` as an upper bound rather than a true
+ * measurement (`waiting_quality: 'unavailable'`). Zero on fully-measured
+ * data, so the notice renders nothing extra in that case. */
+const workTimeQuality = computed(() => summarizeWorkTimeQuality(visibleCurrent.value))
+
+/** Average cost per task, excluding rows whose cost could not be known
+ * (`cost_quality: 'unknown'`) from the average only — sums above still
+ * include them. */
+const averageCost = computed(() => computeAverageCost(visibleCurrent.value))
+
+/** One-click drill-down into the entries explorer, pre-filtered to the
+ * rows the work-time notice is talking about (same range and agent filter
+ * as the dashboard is currently showing). */
+const workTimeUpperBoundDrilldown = computed(() => ({
+  path: '/entries',
+  query: {
+    quality: 'waitingUnavailable',
+    dateStart: range.value.start,
+    dateEnd: range.value.end,
+    ...(agentFilter.value ? { agent: agentFilter.value } : {}),
+  },
+}))
 
 const byClient = computed(() => groupByClient(visibleCurrent.value).map(g => ({ ...g, label: clientName(g.key) })))
 const byProject = computed(() => groupByProject(visibleCurrent.value.filter(e => e.project)).map(g => ({ ...g, label: projectName(g.key) })))
@@ -134,19 +175,35 @@ watch(range, load, { deep: true })
           <Switch v-model="includeUnassigned" />
           {{ t('dashboard.includeUnassigned') }}
         </label>
+        <Select
+v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
+          { value: '', label: t('common.all') },
+          ...agentOptions.map(a => ({ value: a, label: agentLabel(a) })),
+        ]"
+        />
         <DateRangePicker v-model:preset="preset" v-model:range="range" />
       </div>
     </div>
 
     <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
+      <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')">
+        <p v-if="workTimeQuality.upperBoundCount > 0" class="mt-1 text-xs text-muted-foreground">
+          <NuxtLink :to="workTimeUpperBoundDrilldown" class="underline decoration-dotted underline-offset-2 hover:text-foreground">
+            {{ t('dashboard.kpi.workTimeUpperBoundNotice', { count: workTimeQuality.upperBoundCount }) }}
+          </NuxtLink>
+        </p>
+      </KpiCard>
       <KpiCard :title="t('dashboard.kpi.wallTime')" :value="formatDuration(totals.wallMs)" :current-value="totals.wallMs" :previous-value="previousTotals.wallMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.waitingTime')" :value="formatDuration(totals.waitingMs)" :current-value="totals.waitingMs" :previous-value="previousTotals.waitingMs" polarity="lowerIsBetter" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="`${t('dashboard.kpi.cost')} (USD)`" :value="formatCost(totals.cost)" :current-value="totals.cost" :previous-value="previousTotals.cost" polarity="lowerIsBetter" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.tokensIn')" :value="formatTokensCompact(totals.input)" :current-value="totals.input" :previous-value="previousTotals.input" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.tokensOut')" :value="formatTokensCompact(totals.output)" :current-value="totals.output" :previous-value="previousTotals.output" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.tasks')" :value="String(totals.count)" :current-value="totals.count" :previous-value="previousTotals.count" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
-      <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(avgCostPerTask(totals))" polarity="lowerIsBetter" />
+      <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(averageCost.average ?? 0)" polarity="lowerIsBetter">
+        <p v-if="averageCost.excludedCount > 0" class="mt-1 text-xs text-muted-foreground">
+          {{ t('dashboard.kpi.avgCostExcludedNotice', { count: averageCost.excludedCount }) }}
+        </p>
+      </KpiCard>
     </div>
 
     <Card>

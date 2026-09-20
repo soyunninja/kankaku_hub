@@ -69,7 +69,8 @@
     "externalRef": "外部参照",
     "description": "説明",
     "userMenu": "ユーザーメニュー",
-    "agentUnknown": "レガシー（未報告）"
+    "agentUnknown": "レガシー（未報告）",
+    "agent": "エージェント"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -92,7 +93,9 @@
       "tokensOut": "出力トークン",
       "tokensCache": "キャッシュトークン",
       "tasks": "タスク",
-      "avgCostPerTask": "タスクあたりの平均コスト"
+      "avgCostPerTask": "タスクあたりの平均コスト",
+      "workTimeUpperBoundNotice": "待機時間を測定できなかったエントリーが{count}件含まれています。それらの作業時間は上限値です。表示する。",
+      "avgCostExcludedNotice": "コストが不明なため{count}件を除外しました"
     },
     "vsPrevious": "前期間比",
     "chart": {
@@ -266,7 +269,12 @@
     "title": "エントリー",
     "filters": "フィルター",
     "filtersFields": {
-      "machine": "マシン"
+      "machine": "マシン",
+      "quality": "測定品質"
+    },
+    "qualityFilter": {
+      "waitingUnavailable": "待機時間未測定",
+      "costUnknown": "コスト不明"
     },
     "searchPrompt": "プロンプトを検索…",
     "empty": "この条件に一致するエントリーはありません。",
