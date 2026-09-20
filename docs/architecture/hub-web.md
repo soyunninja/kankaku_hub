@@ -95,6 +95,29 @@ escaped (`escapeFilterValue`, local to this composable) before interpolation
 into the PocketBase filter string. Each row's detail drawer shows its child
 `work_records` with an explicit "never summed" notice.
 
+The detail drawer's body is `app/components/entries/EntryDetailSheet.vue` —
+a presentational component (`entries/index.vue` keeps the `Sheet`/
+`SheetContent` wrapper, open state, and the `updateAssignment` call; the
+sheet component only emits `save` and v-models `client`/`project`) built on
+`app/lib/entry-detail.ts`, a pure field-to-view mapping module (no Vue, no
+i18n, importable from plain Vitest — same rule as `app/lib/format.ts`):
+title derivation (`session_name` → prompt → short-id fallback), status
+badge tone/icon, `segments` normalisation (tolerates `null`/`{}`/an
+array/a JSON string — anything that isn't a recognisable tag→ms map
+becomes `[]`, which hides the section), the work/wait proportional-bar
+ratio, relation resolution (empty vs. deleted vs. resolved, since an id
+with no matching `expand` entry means the target was deleted, not unset),
+middle-path truncation, and `safeDisplayValue` — the one place allowed to
+render an arbitrary PocketBase field as text, which is also the fix for a
+bug the redesign found: the old drawer rendered every field with
+`String(v)`, which stringifies an object (e.g. the `segments` JSON field)
+to the literal text `[object Object]`; `safeDisplayValue` pretty-prints
+JSON instead. Everything not covered by a dedicated section (raw id,
+`task_id`, `session_id`, `machine`, `schema`, timestamps) lives in a
+collapsed-by-default "technical details" disclosure — PocketBase-internal
+fields (`collectionId`/`collectionName`/`expand`) are never rendered
+anywhere.
+
 ## Charts
 
 `app/components/charts/StackedBarChart.vue` — a dependency-free inline SVG
