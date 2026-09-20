@@ -59,6 +59,16 @@ export interface TaskRecord {
 
 export type EntryStatus = 'completed' | 'aborted' | 'interrupted'
 
+/**
+ * Agent and measurement quality fields (migration `1758300013`, see
+ * docs/contract.md "Agent and measurement quality"). All optional and
+ * additive — an empty value means *not reported* (an older client),
+ * never the best or the worst case.
+ */
+export type WaitingQuality = 'measured' | 'unavailable'
+export type CostQuality = 'measured' | 'estimated' | 'unknown'
+export type SubagentLinkage = 'linked' | 'unlinked' | 'not_applicable'
+
 export interface TaskEntryRecord {
   id: string
   task_id: string
@@ -88,6 +98,17 @@ export interface TaskEntryRecord {
   legacy_client_label: string
   repo_project: string
   schema: number
+  /** Lowercase slug (≤40 chars), e.g. `"pi"`, `"opencode"`. Empty/undefined on rows written before the migration. */
+  agent?: string
+  /** Free text (≤60 chars), the agent's own version. */
+  agent_version?: string
+  /** Free text (≤60 chars), the integration that wrote the row (`"kankaku"` for the pi package). */
+  plugin?: string
+  /** Free text (≤60 chars), that plugin's version. */
+  plugin_version?: string
+  waiting_quality?: WaitingQuality | ''
+  cost_quality?: CostQuality | ''
+  subagent_linkage?: SubagentLinkage | ''
   created: string
   updated: string
   // expand
