@@ -17,7 +17,6 @@ import type { SearchableCommand } from '@/lib/kankaku-commands'
 const { t } = useI18n()
 useHead({ title: computed(() => t('commands.title')) })
 
-const config = useRuntimeConfig()
 const query = ref('')
 
 /** kankaku's commands, with their descriptions resolved through the active locale. */
@@ -39,11 +38,7 @@ const groupedFiltered = computed(() =>
 
 const noResults = computed(() => query.value.trim().length > 0 && groupedFiltered.value.length === 0)
 
-// Same-origin resolution as app/pages/settings/index.vue and
-// app/plugins/pocketbase.client.ts: in the production build this app IS
-// served by the target hub, so `window.location.origin` is always this
-// hub's own URL.
-const hubUrl = computed(() => config.public.pbUrl || window.location.origin)
+const hubUrl = useHubUrl()
 
 const connectSnippet = computed(() =>
   [
