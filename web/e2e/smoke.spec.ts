@@ -64,6 +64,7 @@ test('captures screenshots of the main screens in both themes', async ({ page })
     { path: '/tasks', name: 'tasks' },
     { path: '/unassigned', name: 'unassigned' },
     { path: '/entries', name: 'entries' },
+    { path: '/commands', name: 'commands' },
     { path: '/settings', name: 'settings' },
   ]
 
