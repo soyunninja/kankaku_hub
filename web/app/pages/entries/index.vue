@@ -182,8 +182,8 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
     </Card>
 
     <Sheet v-model:open="detailOpen">
-      <SheetContent side="right" class="w-full max-w-md overflow-y-auto sm:w-[28rem]">
-        <div v-if="detail" class="flex flex-col gap-4 pt-8">
+      <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]">
+        <div v-if="detail" class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
           <h2 class="text-base font-semibold">
             {{ t('entries.detail.title') }}
           </h2>
@@ -195,7 +195,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
             </div>
           </div>
 
-          <div class="flex flex-col gap-2 border-t border-border pt-3">
+          <div class="space-y-2 border-t border-border pt-4">
             <h3 class="text-sm font-medium">
               {{ t('entries.detail.assignment') }}
             </h3>
@@ -206,7 +206,7 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
             </Button>
           </div>
 
-          <div class="flex flex-col gap-2 border-t border-border pt-3">
+          <div class="space-y-2 border-t border-border pt-4">
             <h3 class="text-sm font-medium">
               {{ t('entries.detail.workRecords') }}
             </h3>
