@@ -188,7 +188,11 @@
     "empty": "No hay tareas.",
     "cost": "Coste IA",
     "time": "Tiempo IA",
-    "moveTo": "Mover a",
+    "statusMovedAnnouncement": "Tarea «{title}» movida a {status}.",
+    "keyboardHint": {
+      "label": "Atajos de teclado",
+      "text": "Atajos de teclado: Intro/Espacio abre la tarea. ←/→ (o [ / ]) la mueve a la columna anterior o siguiente."
+    },
     "detail": {
       "sessions": {
         "title": "Sesiones",

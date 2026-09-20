@@ -33,7 +33,7 @@ const { formatCost, formatDate, formatDuration } = useFormatters()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { tasks, ensureLoaded: ensureTasks } = useTasks()
+const { tasks, ensureLoaded: ensureTasks, refreshOne: refreshTask } = useTasks()
 const { fetchUnassignedSessions } = useSessions()
 const { convertToTask, attachToExisting, ignoreSession } = useSessionsQueue()
 const { refresh: refreshQueueCount } = useSessionsQueueCount()
@@ -123,6 +123,12 @@ async function confirmConvert() {
   converting.value = true
   try {
     const { task, updatedCount } = await convertToTask(session, { title: convertForm.title.trim(), project: convertForm.project })
+    // The new task is created `open`, then `task_entries.task` is
+    // batch-assigned to it — a write the `task-auto-doing` PocketBase
+    // hook (TASKS-REQ-010) may react to server-side by flipping it to
+    // `doing`, outside `useTasks`' own write path. Re-read this one task
+    // so the board reflects that without a page reload.
+    if (updatedCount > 0) await refreshTask(task.id)
     if (updatedCount >= session.entryIds.length) {
       removeSessions([session.sessionId])
       deselect([session.sessionId])
@@ -215,6 +221,11 @@ async function confirmAttach() {
   attachResult.value = { succeeded: succeededSessions, failed: failedSessions }
   removeSessions(movedIds)
   deselect(movedIds)
+  // Every target session attaches to the same `taskId` — one targeted
+  // re-read (not per-session) picks up any server-side `open` -> `doing`
+  // transition the task-auto-doing hook made (TASKS-REQ-010), so the
+  // board reflects it without a page reload.
+  if (succeededSessions > 0) await refreshTask(taskId)
   if (succeededSessions > 0) toast.success(t('sessionsQueue.movedTo', { count: succeededSessions }))
   if (failedSessions > 0) toast.error(t('sessionsQueue.failedCount', { count: failedSessions }))
   refreshQueueCount()

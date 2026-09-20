@@ -7,7 +7,7 @@
 | Owners repos | kankaku-hub |
 | Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
 | Code | `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/components/tasks/TaskDetailSheet.vue` |
-| Tests | `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts` |
+| Tests | `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts` |
 
 ## Purpose
 
@@ -30,6 +30,13 @@ the future.
 4. `TASKS-REQ-004` — An accessible, non-drag alternative ("move to: <next
    status>") SHALL be available for keyboard/pointer users who cannot use
    drag-and-drop.
+   (Reversed on 2026-09-20 at the owner's request: the per-card "Mover a"
+   button is removed from the board — it read as visual clutter once the
+   board had many cards. The accessible, non-drag alternative it
+   satisfied is no longer a single button but two paths, `TASKS-REQ-011`
+   (a status control inside the task detail sheet) and `TASKS-REQ-012`
+   (keyboard shortcuts on a focused board card) — drag-and-drop itself is
+   unaffected. The id is kept so history stays traceable.)
 5. `TASKS-REQ-005` — A list view SHALL be available as an alternative to
    the board.
 6. `TASKS-REQ-006` — Each task SHALL show its accumulated cost/time,
@@ -58,6 +65,20 @@ the future.
     status it last wrote is still current. `done` SHALL never be set
     automatically by this mechanism and a `done` task SHALL never be
     reopened by it.
+11. `TASKS-REQ-011` — The task detail sheet SHALL offer a status control
+    (open/doing/done) that calls the same `useTasks().moveStatus()` the
+    board's drag-and-drop uses (optimistic update, rollback on failure).
+    Changing status through this control SHALL be reflected on the board
+    immediately and SHALL remain reflected after the sheet is closed,
+    without a page reload — the sheet and the board read the same shared
+    reactive task list, never two independent copies.
+12. `TASKS-REQ-012` — A focused board card SHALL support, without a
+    mouse: `Enter`/`Space` to open its detail sheet (same as a click);
+    `ArrowLeft`/`ArrowRight` (aliased to `[`/`]`) to move it to the
+    previous/next status column via the same `moveStatus()`, clamped at
+    the `open`/`done` ends (no-op, never wrapping). Focus SHALL remain on
+    the moved card's element in its new column after the move, and the
+    change SHALL be announced through an `aria-live="polite"` region.
 
 ## Scenarios
 
@@ -67,11 +88,32 @@ the future.
 - **When** the underlying PocketBase update fails
 - **Then** the task visually returns to "open" and an error is surfaced
 
-### Scenario: keyboard users can change status without drag-and-drop (`TASKS-REQ-004`)
+### Scenario: keyboard users can change status without drag-and-drop (`TASKS-REQ-004`, reversed — superseded by `TASKS-REQ-011`/`TASKS-REQ-012`)
 
 - **Given** a user navigating by keyboard
-- **When** they activate the "move to: doing" control on an "open" task
+- **When** they open the task's detail sheet and select "Doing" in the
+  status control (`TASKS-REQ-011`), or focus the card on the board and
+  press `ArrowRight`/`]` (`TASKS-REQ-012`)
 - **Then** the task moves to "doing" the same way a successful drag would
+
+### Scenario: the sheet's status control keeps the board in sync after closing (`TASKS-REQ-011`)
+
+- **Given** a task detail sheet is open for an "open" task
+- **When** the owner selects "Doing" in the sheet's status control and
+  then closes the sheet
+- **Then** the board card is already showing under "Doing" while the
+  sheet is still open, and stays there after closing it — no page reload
+
+### Scenario: keyboard shortcuts move a focused card and keep focus on it (`TASKS-REQ-012`)
+
+- **Given** a board card for a "doing" task is focused
+- **When** the owner presses `ArrowLeft`
+- **Then** the task moves to "open", the same card element (now rendered
+  in the "open" column) keeps keyboard focus, and an `aria-live="polite"`
+  region announces the task's title and its new status
+- **When** the owner then presses `ArrowLeft` again on an "open" task
+- **Then** nothing happens — the shortcut clamps at the "open" boundary
+  instead of wrapping to "done"
 
 ### Scenario: a task's accumulated cost never includes work_records (`TASKS-REQ-006`)
 
@@ -135,10 +177,12 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-001` | `web/e2e/smoke.spec.ts` | covered |
 | `TASKS-REQ-002` | `web/e2e/polish.spec.ts` | covered |
 | `TASKS-REQ-003` | code review (`useTasks.moveStatus`); not directly exercised by an automated test found in this pass | not covered |
-| `TASKS-REQ-004` | `web/e2e/polish.spec.ts` | covered |
+| `TASKS-REQ-004` | reversed 2026-09-20 — see the note on the requirement and `TASKS-REQ-011`/`TASKS-REQ-012` | reversed |
 | `TASKS-REQ-005` | `web/e2e/smoke.spec.ts` | covered |
 | `TASKS-REQ-006` | `web/tests/aggregate.test.ts` | covered |
 | `TASKS-REQ-007` | `web/e2e/session-resume.spec.ts` ("task detail sheet lists its sessions") | covered |
 | `TASKS-REQ-008` | `web/e2e/session-resume.spec.ts` (session totals + resume command asserted) | covered |
 | `TASKS-REQ-009` | code review (`pages/tasks/index.vue#sessionCountByTask`); the chip itself is not asserted by the e2e spec above | not covered by an automated test found in this pass |
-| `TASKS-REQ-010` | `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`) | partially covered — the unit tests prove the pure `open`→`doing` decision rule only; the hook integration (the actual PocketBase-level trigger on `task_entries` create/update) is covered by a manual/e2e check, not by these unit tests alone |
+| `TASKS-REQ-010` | `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`), `web/e2e/task-status.spec.ts` (the sessions-without-task queue's attach action reflects the hook on the board via `useTasks().refreshOne`, for an `open` and a `done` target task) | covered |
+| `TASKS-REQ-011` | `web/e2e/task-status.spec.ts` ("the sheet status control moves a card...") | covered |
+| `TASKS-REQ-012` | `web/e2e/task-status.spec.ts` ("ArrowLeft/ArrowRight (and [ / ]) move the focused card...", "Enter/Space on a focused card opens...") | covered |

@@ -188,7 +188,11 @@
     "empty": "No tasks.",
     "cost": "AI cost",
     "time": "AI time",
-    "moveTo": "Move to",
+    "statusMovedAnnouncement": "Task \"{title}\" moved to {status}.",
+    "keyboardHint": {
+      "label": "Keyboard shortcuts",
+      "text": "Keyboard shortcuts: Enter/Space opens the task. ←/→ (or [ / ]) moves it to the previous/next column."
+    },
     "detail": {
       "sessions": {
         "title": "Sessions",

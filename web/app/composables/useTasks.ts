@@ -66,6 +66,22 @@ export function useTasks() {
     }
   }
 
+  /**
+   * Re-reads a single task from the server and merges it into the local
+   * list — a targeted, cheap alternative to a full `refresh()` for
+   * callers that only need one task's current server state, e.g. after
+   * the `open` -> `doing` transition the `task-auto-doing` PocketBase
+   * hook (TASKS-REQ-010) may have performed server-side, outside any
+   * `useTasks` write path (the sessions-without-task queue's convert/
+   * attach actions patch `task_entries.task` directly, not through
+   * `update`/`moveStatus`). A no-op if the task isn't already in the
+   * local list (nothing to merge into).
+   */
+  async function refreshOne(id: string) {
+    const record = await $pb.collection('tasks').getOne<TaskRecord>(id)
+    tasks.value = tasks.value.map(t => t.id === id ? record : t)
+  }
+
   function byId(id: string) {
     return tasks.value.find(t => t.id === id)
   }
@@ -74,5 +90,5 @@ export function useTasks() {
     return tasks.value.filter(t => t.project === projectId)
   }
 
-  return { tasks, loading, loaded, refresh, ensureLoaded, create, update, remove, setStatus, moveStatus, byId, byProject }
+  return { tasks, loading, loaded, refresh, refreshOne, ensureLoaded, create, update, remove, setStatus, moveStatus, byId, byProject }
 }

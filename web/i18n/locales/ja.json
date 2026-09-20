@@ -188,7 +188,11 @@
     "empty": "タスクはありません。",
     "cost": "AIコスト",
     "time": "AI時間",
-    "moveTo": "移動先",
+    "statusMovedAnnouncement": "「{title}」タスクを{status}に移動しました。",
+    "keyboardHint": {
+      "label": "キーボードショートカット",
+      "text": "キーボードショートカット: Enter/Spaceでタスクを開きます。←/→（または[ / ]）で前後のカラムに移動します。"
+    },
     "detail": {
       "sessions": {
         "title": "セッション",

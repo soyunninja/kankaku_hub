@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, History, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { History, Keyboard, Pencil, Plus, Trash2 } from '@lucide/vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import RowActions from '@/components/common/RowActions.vue'
 import TaskDetailSheet from '@/components/tasks/TaskDetailSheet.vue'
@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { groupByKey } from '@/lib/aggregate'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 import type { SessionSummary } from '@/lib/session-aggregate'
@@ -23,7 +23,7 @@ useHead({ title: computed(() => t('tasks.title')) })
 const { formatCost, formatDuration } = useFormatters()
 
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { tasks, loading, ensureLoaded, create, update, remove, setStatus, moveStatus } = useTasks()
+const { tasks, loading, ensureLoaded, create, update, remove, moveStatus } = useTasks()
 const { fetchAll } = useTaskEntries()
 const { fetchSessionsForTask } = useSessions()
 const toast = useToast()
@@ -66,15 +66,12 @@ function byStatus(status: TaskStatus) {
   return filtered.value.filter(t2 => t2.status === status)
 }
 
-async function advance(task: TaskRecord) {
-  const idx = statuses.indexOf(task.status)
-  if (idx < statuses.length - 1) await setStatus(task.id, statuses[idx + 1]!)
-}
-
 // Drag-and-drop between board columns. Native HTML5 DnD — no extra
-// dependency. The "Mover a: <next status>" button above stays as the
-// pointer- and keyboard-accessible alternative for anyone who can't (or
-// doesn't want to) drag.
+// dependency. Native HTML5 DnD does not work with touch or keyboard, so
+// two additional paths reach the same `moveStatus()` call: the status
+// control inside TaskDetailSheet.vue (below), and the keyboard shortcuts
+// on a focused card (also below) — see docs/specs/web-tasks.md
+// `TASKS-REQ-011`/`TASKS-REQ-012`.
 const draggingTaskId = ref<string | null>(null)
 const dragOverStatus = ref<TaskStatus | null>(null)
 
@@ -115,17 +112,25 @@ async function onColumnDrop(status: TaskStatus, event: DragEvent) {
   }
 }
 
-// Detail sheet — a board card's click/Enter opens this (view-only: title,
-// project, status, sessions) instead of jumping straight into the edit
-// dialog. The sheet's own "Edit" button routes back to the existing
+// Detail sheet — a board card's click/Enter/Space opens this (view-only:
+// title, project, status, sessions) instead of jumping straight into the
+// edit dialog. The sheet's own "Edit" button routes back to the existing
 // edit dialog via openEdit, so editing still works exactly as before.
+//
+// `detailTask` is derived from `tasks.value` by id (not a snapshot
+// reference captured at open time) so that a status change made through
+// ANY path — drag-and-drop, the sheet's own status control, or a
+// keyboard shortcut on the board — reflects immediately in the open
+// sheet too. All three paths write through the same `moveStatus()`, one
+// shared reactive `tasks` state, never two parallel sources of truth.
 const detailOpen = ref(false)
-const detailTask = ref<TaskRecord | null>(null)
+const detailTaskId = ref<string | null>(null)
+const detailTask = computed(() => detailTaskId.value ? (tasks.value.find(t2 => t2.id === detailTaskId.value) ?? null) : null)
 const detailSessions = ref<SessionSummary[]>([])
 const detailSessionsLoading = ref(false)
 
 async function openDetail(task: TaskRecord) {
-  detailTask.value = task
+  detailTaskId.value = task.id
   detailOpen.value = true
   detailSessionsLoading.value = true
   try {
@@ -143,6 +148,17 @@ function onDetailEdit() {
   openEdit(task)
 }
 
+async function onDetailStatusChange(status: TaskStatus) {
+  const task = detailTask.value
+  if (!task) return
+  try {
+    await moveStatus(task.id, status)
+  }
+  catch {
+    toast.error(t('common.error'))
+  }
+}
+
 // Same auto-focus override as entries/index.vue's EntryDetailSheet: the
 // sheet's default initial-focus target is its first focusable element
 // (the "Edit" button) — send it to the title instead.
@@ -150,6 +166,56 @@ const detailSheet = ref<InstanceType<typeof TaskDetailSheet> | null>(null)
 function onDetailOpenAutoFocus(event: Event) {
   event.preventDefault()
   nextTick(() => detailSheet.value?.focusTitle())
+}
+
+// Keyboard shortcuts on a focused board card (the touch/keyboard-only
+// counterpart to drag-and-drop, alongside the sheet's status control
+// above): Enter/Space opens the same detail sheet a click would;
+// ArrowLeft/ArrowRight (aliased to `[`/`]`) move the card to the
+// previous/next status column through the same `moveStatus()`, clamped
+// at the open/done ends (no-op, never wraps). Focus is restored to the
+// moved card's element in its new column after the reactive re-render.
+const cardEls = new Map<string, HTMLElement>()
+function setCardEl(taskId: string, el: unknown) {
+  if (!el) {
+    cardEls.delete(taskId)
+    return
+  }
+  const node = (el as { $el?: HTMLElement }).$el ?? (el as HTMLElement)
+  cardEls.set(taskId, node)
+}
+
+const liveMessage = ref('')
+
+async function moveFocusedTask(task: TaskRecord, status: TaskStatus) {
+  try {
+    await moveStatus(task.id, status)
+    liveMessage.value = t('tasks.statusMovedAnnouncement', { title: task.title, status: t(`tasks.status.${status}`) })
+  }
+  catch {
+    toast.error(t('common.error'))
+    return
+  }
+  await nextTick()
+  cardEls.get(task.id)?.focus()
+}
+
+function onCardKeydown(task: TaskRecord, status: TaskStatus, event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+    event.preventDefault()
+    openDetail(task)
+    return
+  }
+
+  const isPrev = event.key === 'ArrowLeft' || event.key === '['
+  const isNext = event.key === 'ArrowRight' || event.key === ']'
+  if (!isPrev && !isNext) return
+
+  event.preventDefault()
+  const idx = statuses.indexOf(status)
+  const targetIdx = isPrev ? idx - 1 : idx + 1
+  if (targetIdx < 0 || targetIdx >= statuses.length) return // clamped at open/done — no-op, never wraps
+  moveFocusedTask(task, statuses[targetIdx]!)
 }
 
 const dialogOpen = ref(false)
@@ -224,11 +290,25 @@ async function onDelete(task: TaskRecord) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          <Tooltip v-if="view === 'board'">
+            <TooltipTrigger as-child>
+              <Button size="icon" variant="outline" :aria-label="t('tasks.keyboardHint.label')">
+                <Keyboard class="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {{ t('tasks.keyboardHint.text') }}
+            </TooltipContent>
+          </Tooltip>
           <Button size="sm" @click="openCreate">
             <Plus class="size-4" />
             {{ t('tasks.new') }}
           </Button>
         </div>
+      </div>
+
+      <div aria-live="polite" class="sr-only">
+        {{ liveMessage }}
       </div>
 
       <div v-if="view === 'board'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -248,14 +328,15 @@ async function onDelete(task: TaskRecord) {
           <div class="flex min-h-16 flex-col gap-2">
             <Card
               v-for="task in byStatus(status)" :key="task.id"
+              :ref="(el) => setCardEl(task.id, el)"
               draggable="true"
-              class="cursor-grab gap-0 py-0 touch-none active:cursor-grabbing"
+              class="cursor-grab gap-0 py-0 touch-none outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring"
               :class="draggingTaskId === task.id ? 'opacity-50' : ''"
               role="button"
               tabindex="0"
               :aria-label="`${task.title} — ${t(`tasks.status.${status}`)}`"
               @click="openDetail(task)"
-              @keydown.enter="openDetail(task)"
+              @keydown="onCardKeydown(task, status, $event)"
               @dragstart="onDragStart(task, $event)"
               @dragend="onDragEnd"
             >
@@ -281,10 +362,6 @@ async function onDelete(task: TaskRecord) {
                   <span>{{ formatDuration(totalsByTask[task.id]?.workMs ?? 0) }}</span>
                   <span>{{ formatCost(totalsByTask[task.id]?.cost ?? 0) }}</span>
                 </div>
-                <Button v-if="status !== 'done'" size="sm" variant="outline" class="self-start" @click.stop="advance(task)">
-                  {{ t('tasks.moveTo') }}: {{ t(`tasks.status.${statuses[statuses.indexOf(status) + 1]}`) }}
-                  <ArrowRight class="size-3.5" />
-                </Button>
               </CardContent>
             </Card>
             <EmptyState v-if="byStatus(status).length === 0" :title="t('tasks.empty')" />
@@ -361,6 +438,7 @@ async function onDelete(task: TaskRecord) {
             :sessions="detailSessions"
             :sessions-loading="detailSessionsLoading"
             @edit="onDetailEdit"
+            @status-change="onDetailStatusChange"
           />
         </SheetContent>
       </Sheet>

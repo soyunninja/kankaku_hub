@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * Content of the task detail sheet on the tasks board
- * (app/pages/tasks/index.vue) — header (title, project, status, an
- * "Edit" action back to the existing edit dialog) and a "Sessions"
+ * (app/pages/tasks/index.vue) — header (title, project, a Tabs-based
+ * status control for open/doing/done — the touch/keyboard-accessible
+ * replacement for the board's old "Mover a" buttons, TASKS-REQ-011 — and
+ * an "Edit" action back to the existing edit dialog) and a "Sessions"
  * section listing every kankaku session that touched this task, sourced
  * from `useSessions().fetchSessionsForTask` (already-consolidated
  * `task_entries` rows — D6, never `work_records`). The page keeps the
@@ -17,10 +19,10 @@ import { Pencil } from '@lucide/vue'
 import AgentBadge from '@/components/agents/AgentBadge.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { TaskRecord } from '@/lib/pocketbase-types'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 import { MIXED, type SessionSummary } from '@/lib/session-aggregate'
 import { buildResumeCommand } from '@/lib/session-resume'
 
@@ -31,7 +33,17 @@ const props = defineProps<{
   sessionsLoading: boolean
 }>()
 
-const emit = defineEmits<{ edit: [] }>()
+const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus] }>()
+
+// Touch/keyboard-accessible status control (the "Mover a" board buttons'
+// replacement, TASKS-REQ-011): this Tabs segmented control uses the same
+// primitive as the board/list toggle on the page above, and drives the
+// page's own `moveStatus()` (optimistic + rollback) via `statusChange` —
+// this component never talks to PocketBase directly, same as `edit`.
+const STATUSES: TaskStatus[] = ['open', 'doing', 'done']
+function onStatusTabChange(value: string | number) {
+  emit('statusChange', value as TaskStatus)
+}
 
 const { t } = useI18n()
 const { formatCost, formatDateTime, formatDuration } = useFormatters()
@@ -87,10 +99,19 @@ defineOptions({ inheritAttrs: false })
         {{ task.title }}
       </h2>
       <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">
-          {{ t(`tasks.status.${task.status}`) }}
-        </Badge>
         <span class="text-xs text-muted-foreground">{{ projectName }}</span>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <span id="task-detail-status-label" class="text-xs font-medium text-muted-foreground">
+          {{ t('common.status') }}
+        </span>
+        <Tabs :model-value="task.status" aria-labelledby="task-detail-status-label" @update:model-value="onStatusTabChange">
+          <TabsList>
+            <TabsTrigger v-for="s in STATUSES" :key="s" :value="s">
+              {{ t(`tasks.status.${s}`) }}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
       <Button size="sm" variant="outline" class="w-fit gap-1.5" @click="emit('edit')">
         <Pencil class="size-3.5" />
