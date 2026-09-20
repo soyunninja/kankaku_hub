@@ -18,7 +18,7 @@ const { t } = useI18n()
 useHead({ title: computed(() => t('tasks.title')) })
 
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { tasks, loading, ensureLoaded, create, update, remove, setStatus } = useTasks()
+const { tasks, loading, ensureLoaded, create, update, remove, setStatus, moveStatus } = useTasks()
 const { fetchAll } = useTaskEntries()
 const toast = useToast()
 
@@ -47,6 +47,50 @@ function byStatus(status: TaskStatus) {
 async function advance(task: TaskRecord) {
   const idx = statuses.indexOf(task.status)
   if (idx < statuses.length - 1) await setStatus(task.id, statuses[idx + 1]!)
+}
+
+// Drag-and-drop between board columns. Native HTML5 DnD — no extra
+// dependency. The "Mover a: <next status>" button above stays as the
+// pointer- and keyboard-accessible alternative for anyone who can't (or
+// doesn't want to) drag.
+const draggingTaskId = ref<string | null>(null)
+const dragOverStatus = ref<TaskStatus | null>(null)
+
+function onDragStart(task: TaskRecord, event: DragEvent) {
+  draggingTaskId.value = task.id
+  event.dataTransfer?.setData('text/plain', task.id)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragEnd() {
+  draggingTaskId.value = null
+  dragOverStatus.value = null
+}
+
+function onColumnDragOver(status: TaskStatus, event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverStatus.value = status
+}
+
+function onColumnDragLeave(status: TaskStatus) {
+  if (dragOverStatus.value === status) dragOverStatus.value = null
+}
+
+async function onColumnDrop(status: TaskStatus, event: DragEvent) {
+  event.preventDefault()
+  const id = event.dataTransfer?.getData('text/plain') || draggingTaskId.value
+  draggingTaskId.value = null
+  dragOverStatus.value = null
+  if (!id) return
+  const task = tasks.value.find(t2 => t2.id === id)
+  if (!task || task.status === status) return
+  try {
+    await moveStatus(id, status)
+  }
+  catch {
+    toast.error(t('common.error'))
+  }
 }
 
 const dialogOpen = ref(false)
@@ -128,15 +172,33 @@ async function onDelete(task: TaskRecord) {
     </div>
 
     <div v-if="view === 'board'" class="grid gap-4 md:grid-cols-3">
-      <div v-for="status in statuses" :key="status" class="flex flex-col gap-2">
+      <div
+        v-for="status in statuses" :key="status" class="flex flex-col gap-2 rounded-lg p-1 transition-colors"
+        :class="dragOverStatus === status ? 'bg-accent/40 ring-2 ring-primary/40' : ''"
+        @dragover="onColumnDragOver(status, $event)"
+        @dragleave="onColumnDragLeave(status)"
+        @drop="onColumnDrop(status, $event)"
+      >
         <h2 class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           {{ t(`tasks.status.${status}`) }}
           <Badge variant="outline">
             {{ byStatus(status).length }}
           </Badge>
         </h2>
-        <div class="flex flex-col gap-2">
-          <Card v-for="task in byStatus(status)" :key="task.id" class="cursor-pointer" @click="openEdit(task)">
+        <div class="flex min-h-16 flex-col gap-2">
+          <Card
+            v-for="task in byStatus(status)" :key="task.id"
+            draggable="true"
+            class="cursor-grab touch-none active:cursor-grabbing"
+            :class="draggingTaskId === task.id ? 'opacity-50' : ''"
+            role="button"
+            tabindex="0"
+            :aria-label="`${task.title} — ${t(`tasks.status.${status}`)}`"
+            @click="openEdit(task)"
+            @keydown.enter="openEdit(task)"
+            @dragstart="onDragStart(task, $event)"
+            @dragend="onDragEnd"
+          >
             <CardContent class="flex flex-col gap-2 p-3">
               <p class="text-sm font-medium">
                 {{ task.title }}

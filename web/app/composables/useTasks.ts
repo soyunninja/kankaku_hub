@@ -43,6 +43,29 @@ export function useTasks() {
     return update(id, { status })
   }
 
+  /**
+   * Move a task to a new status optimistically (for drag-and-drop on the
+   * board): the local list updates immediately, without waiting for a
+   * full `refresh()`, and rolls back to the previous status if the
+   * PocketBase write fails. Throws on failure so the caller can surface
+   * an error toast; the rollback has already happened by then.
+   */
+  async function moveStatus(id: string, status: TaskStatus) {
+    const idx = tasks.value.findIndex(t => t.id === id)
+    if (idx === -1) return
+    const previous = tasks.value[idx]!.status
+    if (previous === status) return
+
+    tasks.value = tasks.value.map((t, i) => i === idx ? { ...t, status } : t)
+    try {
+      await $pb.collection('tasks').update<TaskRecord>(id, { status })
+    }
+    catch (err) {
+      tasks.value = tasks.value.map((t, i) => i === idx ? { ...t, status: previous } : t)
+      throw err
+    }
+  }
+
   function byId(id: string) {
     return tasks.value.find(t => t.id === id)
   }
@@ -51,5 +74,5 @@ export function useTasks() {
     return tasks.value.filter(t => t.project === projectId)
   }
 
-  return { tasks, loading, loaded, refresh, ensureLoaded, create, update, remove, setStatus, byId, byProject }
+  return { tasks, loading, loaded, refresh, ensureLoaded, create, update, remove, setStatus, moveStatus, byId, byProject }
 }

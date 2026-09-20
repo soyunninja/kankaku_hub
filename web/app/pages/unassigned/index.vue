@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { groupUnassigned } from '@/lib/aggregate'
 import { formatCost, formatDate, formatDuration } from '@/lib/format'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
+import { suggestClient } from '@/lib/suggest-client'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('unassigned.title')) })
@@ -39,6 +40,18 @@ async function load() {
 onMounted(load)
 
 const groups = computed(() => groupUnassigned(entries.value))
+
+/** Per-group suggested client (id), a conservative pre-fill hint for the
+ * assign dialog — never an auto-assignment. See app/lib/suggest-client.ts. */
+const suggestedClientByGroup = computed(() => {
+  const candidates = assignableClients.value.map(c => ({ id: c.id, name: c.name, code: c.code }))
+  const map = new Map<string, { id: string, name: string }>()
+  for (const g of groups.value) {
+    const suggestion = suggestClient(g.legacyLabel, candidates)
+    if (suggestion) map.set(groupKey(g), suggestion)
+  }
+  return map
+})
 
 function groupKey(g: { legacyLabel: string, repoProject: string }) {
   return `${g.legacyLabel} ${g.repoProject}`
@@ -90,9 +103,12 @@ const progressTotal = ref(0)
 const lastResult = ref<{ succeeded: number, failed: number } | null>(null)
 let pendingIds: string[] = []
 
-function openAssign(ids: string[]) {
+function openAssign(ids: string[], suggestedClientId?: string) {
   pendingIds = ids
-  assignClient.value = ''
+  // Pre-fill from the suggestion when there is one — the picker still
+  // opens on it, the user still has to hit "assign" to confirm it. Never
+  // skips the dialog, never assigns without confirmation.
+  assignClient.value = suggestedClientId ?? ''
   assignProject.value = ''
   lastResult.value = null
   progressDone.value = 0
@@ -116,7 +132,13 @@ async function confirmAssign() {
   entries.value = entries.value.filter(e => !succeededSet.has(e.id))
   for (const id of succeeded) selected.value.delete(id)
   selected.value = new Set(selected.value)
-  toast.success(t('unassigned.done', { succeeded: succeeded.length, failed: failed.length }))
+  const destination = assignableClients.value.find(c => c.id === assignClient.value)?.name ?? assignClient.value
+  if (succeeded.length > 0) {
+    toast.success(t('unassigned.movedTo', { count: succeeded.length, client: destination }))
+  }
+  if (failed.length > 0) {
+    toast.error(t('unassigned.failedCount', { count: failed.length }))
+  }
 }
 </script>
 
@@ -156,10 +178,10 @@ async function confirmAssign() {
                 {{ t('unassigned.entries') }}
               </TableHead>
               <TableHead class="text-right">
-                Work
+                {{ t('common.work') }}
               </TableHead>
               <TableHead class="text-right">
-                Cost
+                {{ t('common.cost') }}
               </TableHead>
               <TableHead class="text-right">
                 {{ t('common.actions') }}
@@ -179,7 +201,12 @@ async function confirmAssign() {
                   <Checkbox :model-value="groupState(g)" @update:model-value="toggleGroup(g)" />
                 </TableCell>
                 <TableCell class="font-medium">
-                  {{ g.legacyLabel }}
+                  <div class="flex flex-col">
+                    <span>{{ g.legacyLabel }}</span>
+                    <span v-if="suggestedClientByGroup.get(groupKey(g))" class="text-xs font-normal text-muted-foreground">
+                      {{ t('unassigned.suggested', { client: suggestedClientByGroup.get(groupKey(g))!.name }) }}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell class="max-w-xs truncate text-muted-foreground" :title="g.repoProject">
                   {{ g.repoProject }}
@@ -194,7 +221,7 @@ async function confirmAssign() {
                   {{ formatCost(g.totals.cost) }}
                 </TableCell>
                 <TableCell class="text-right">
-                  <Button size="sm" variant="outline" @click="openAssign(g.entryIds)">
+                  <Button size="sm" variant="outline" @click="openAssign(g.entryIds, suggestedClientByGroup.get(groupKey(g))?.id)">
                     {{ t('unassigned.assignGroup') }}
                   </Button>
                 </TableCell>
