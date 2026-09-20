@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight } from '@lucide/vue'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -55,6 +56,10 @@ const suggestedClientByGroup = computed(() => {
 
 function groupKey(g: { legacyLabel: string, repoProject: string }) {
   return `${g.legacyLabel} ${g.repoProject}`
+}
+
+function assignableClientById(id: string) {
+  return assignableClients.value.find(c => c.id === id)
 }
 
 function toggleExpand(key: string) {
@@ -203,7 +208,12 @@ async function confirmAssign() {
                 <TableCell class="font-medium">
                   <div class="flex flex-col">
                     <span>{{ g.legacyLabel }}</span>
-                    <span v-if="suggestedClientByGroup.get(groupKey(g))" class="text-xs font-normal text-muted-foreground">
+                    <span v-if="suggestedClientByGroup.get(groupKey(g))" class="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                      <ClientAvatar
+                        v-if="assignableClientById(suggestedClientByGroup.get(groupKey(g))!.id)"
+                        :client="assignableClientById(suggestedClientByGroup.get(groupKey(g))!.id)!"
+                        size="xs"
+                      />
                       {{ t('unassigned.suggested', { client: suggestedClientByGroup.get(groupKey(g))!.name }) }}
                     </span>
                   </div>

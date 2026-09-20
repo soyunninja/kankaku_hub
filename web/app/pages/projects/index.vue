@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Plus, Trash2 } from '@lucide/vue'
+import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SkeletonRows from '@/components/common/SkeletonRows.vue'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +37,9 @@ onMounted(async () => {
 
 function clientName(id: string) {
   return clients.value.find(c => c.id === id)?.name ?? id
+}
+function clientById(id: string) {
+  return clients.value.find(c => c.id === id)
 }
 
 const filtered = computed(() => filterClient.value ? projects.value.filter(p => p.client === filterClient.value) : projects.value)
@@ -142,7 +146,8 @@ async function toggleArchive(project: ProjectRecord) {
                 {{ p.name }}
               </TableCell>
               <TableCell class="text-muted-foreground">
-                {{ clientName(p.client) }}
+                <ClientName v-if="clientById(p.client)" :client="clientById(p.client)!" size="xs" class="max-w-40" />
+                <span v-else>{{ clientName(p.client) }}</span>
               </TableCell>
               <TableCell>
                 <Badge :variant="p.active ? 'success' : 'outline'">

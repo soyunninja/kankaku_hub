@@ -10,7 +10,9 @@
  * width, instead of a fixed pixel width with left-over empty space.
  */
 import { useElementSize } from '@vueuse/core'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import { niceTicks } from '@/lib/ticks'
+import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const props = defineProps<{
   /** One point per day. `values` maps series key -> raw number. */
@@ -26,6 +28,13 @@ const props = defineProps<{
    * `1`) for a metric already in its natural unit, like currency.
    */
   tickUnit?: number
+  /**
+   * When stacked/grouped by client, maps each series key (a client id)
+   * to its record so the legend and tooltip can show its avatar next to
+   * the name. Omitted (or a key with no entry, e.g. `stackBy === 'none'`
+   * where the only key is `'total'`) falls back to a plain color dot.
+   */
+  seriesClients?: Record<string, ClientRecord>
 }>()
 
 const height = computed(() => props.height ?? 220)
@@ -189,7 +198,8 @@ function labelStep() {
       </p>
       <div v-for="key in seriesKeys" :key="key" class="flex items-center justify-between gap-4">
         <span class="flex items-center gap-1.5 text-muted-foreground">
-          <span class="size-2 rounded-full" :style="{ background: colorFor(key) }" />
+          <ClientAvatar v-if="seriesClients?.[key]" :client="seriesClients[key]!" size="xs" />
+          <span v-else class="size-2 rounded-full" :style="{ background: colorFor(key) }" />
           {{ seriesLabels[key] }}
         </span>
         <span class="tabular-nums">{{ formatValue(hoveredPoint.values[key] ?? 0) }}</span>
@@ -198,7 +208,8 @@ function labelStep() {
 
     <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span v-for="key in seriesKeys" :key="key" class="flex items-center gap-1.5">
-        <span class="size-2 shrink-0 rounded-full" :style="{ background: colorFor(key) }" />
+        <ClientAvatar v-if="seriesClients?.[key]" :client="seriesClients[key]!" size="xs" />
+        <span v-else class="size-2 shrink-0 rounded-full" :style="{ background: colorFor(key) }" />
         <span class="truncate">{{ seriesLabels[key] }}</span>
       </span>
     </div>

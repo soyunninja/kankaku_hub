@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft } from '@lucide/vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
+import ClientName from '@/components/clients/ClientName.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,8 +60,9 @@ const trendPoints = computed(() => {
         <h1 class="text-xl font-semibold tracking-tight">
           {{ project.name }}
         </h1>
-        <p class="text-sm text-muted-foreground">
-          {{ client?.name }}
+        <ClientName v-if="client" :client="client" size="xs" class="text-sm text-muted-foreground" />
+        <p v-else class="text-sm text-muted-foreground">
+          {{ project.client }}
         </p>
       </div>
       <Badge class="ml-2" :variant="project.active ? 'success' : 'outline'">

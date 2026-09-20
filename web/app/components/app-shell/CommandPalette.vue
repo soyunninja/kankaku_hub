@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Boxes, Gauge, Inbox, ListTodo, Search, Settings, Terminal, Users } from '@lucide/vue'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -24,7 +26,7 @@ watch(open, async (v) => {
   }
 })
 
-interface Entry { id: string, label: string, to: string, icon: typeof Users }
+interface Entry { id: string, label: string, to: string, icon: typeof Users, client?: ClientRecord }
 
 /** Every page of the app, so the palette also works as plain keyboard navigation. */
 const pages = computed<Entry[]>(() => [
@@ -43,7 +45,7 @@ const items = computed<Entry[]>(() => {
   if (!q) return pages.value
   const all: Entry[] = [
     ...pages.value,
-    ...clients.value.map(c => ({ id: c.id, label: c.name, to: `/clients?highlight=${c.id}`, icon: Users })),
+    ...clients.value.map(c => ({ id: c.id, label: c.name, to: `/clients?highlight=${c.id}`, icon: Users, client: c })),
     ...projects.value.map(p => ({ id: p.id, label: p.name, to: `/projects/${p.id}`, icon: Boxes })),
     ...tasks.value.map(t2 => ({ id: t2.id, label: t2.title, to: `/tasks?highlight=${t2.id}`, icon: ListTodo })),
   ]
@@ -157,7 +159,8 @@ function onKeydown(e: KeyboardEvent) {
           @mousemove="activeIndex = index"
           @click="go(item)"
         >
-          <component :is="item.icon" class="size-4 shrink-0 text-muted-foreground" />
+          <ClientAvatar v-if="item.client" :client="item.client" size="xs" />
+          <component :is="item.icon" v-else class="size-4 shrink-0 text-muted-foreground" />
           <span class="min-w-0 truncate">{{ item.label }}</span>
         </div>
         <p v-if="items.length === 0" class="px-3 py-6 text-center text-sm text-muted-foreground">

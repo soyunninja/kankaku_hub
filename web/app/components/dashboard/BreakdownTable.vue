@@ -1,13 +1,19 @@
 <script setup lang="ts">
+import ClientName from '@/components/clients/ClientName.vue'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { GroupTotals } from '@/lib/aggregate'
 import { formatCost, formatDuration, formatPercent } from '@/lib/format'
+import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 
 defineProps<{
   rows: (GroupTotals & { label: string })[]
   nameHeader: string
+  /** When these rows are grouped by client, resolves a row's `key` (a
+   * client id) to its record so the name can render with an avatar.
+   * Omit for rows grouped by anything else (e.g. project). */
+  resolveClient?: (id: string) => ClientRecord | undefined
 }>()
 
 type SortKey = 'cost' | 'workMs' | 'count'
@@ -48,7 +54,10 @@ function sorted(rows: (GroupTotals & { label: string })[]) {
     <TableBody>
       <TableRow v-for="row in sorted(rows)" :key="row.key">
         <TableCell class="font-medium">
-          {{ row.label }}
+          <ClientName v-if="resolveClient?.(row.key)" :client="resolveClient(row.key)!" size="xs">
+            {{ row.label }}
+          </ClientName>
+          <span v-else>{{ row.label }}</span>
         </TableCell>
         <TableCell class="text-right tabular-nums">
           {{ formatDuration(row.workMs) }}

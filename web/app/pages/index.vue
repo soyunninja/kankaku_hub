@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
+import ClientName from '@/components/clients/ClientName.vue'
 import BreakdownTable from '@/components/dashboard/BreakdownTable.vue'
 import DateRangePicker from '@/components/dashboard/DateRangePicker.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
@@ -12,7 +13,7 @@ import { avgCostPerTask, groupByClient, groupByProject, sumTaskEntries } from '@
 import { formatCost, formatDuration, formatTokensCompact } from '@/lib/format'
 import type { DateRange, PresetKey } from '@/lib/period'
 import { previousEquivalentPeriod, resolvePreset } from '@/lib/period'
-import type { TaskEntryRecord } from '@/lib/pocketbase-types'
+import type { ClientRecord, TaskEntryRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('dashboard.title')) })
@@ -35,6 +36,9 @@ const unassignedClientId = computed(() => clients.value.find(c => c.unassigned)?
 
 function clientName(id: string) {
   return clients.value.find(c => c.id === id)?.name ?? id
+}
+function clientById(id: string) {
+  return clients.value.find(c => c.id === id)
 }
 function projectName(id: string) {
   return projects.value.find(c => c.id === id)?.name ?? id
@@ -65,6 +69,15 @@ const chartSeriesLabels = computed<Record<string, string>>(() => {
   if (stackBy.value === 'client') return Object.fromEntries(byClient.value.map(g => [g.key, g.label]))
   if (stackBy.value === 'project') return Object.fromEntries(byProject.value.map(g => [g.key, g.label]))
   return { total: metric.value === 'work' ? t('dashboard.chart.work') : t('dashboard.chart.cost') }
+})
+const chartSeriesClients = computed(() => {
+  if (stackBy.value !== 'client') return undefined
+  const map: Record<string, ClientRecord> = {}
+  for (const key of chartSeriesKeys.value) {
+    const client = clientById(key)
+    if (client) map[key] = client
+  }
+  return map
 })
 
 const chartPoints = computed(() => {
@@ -163,6 +176,7 @@ v-model="stackBy" class="w-40" :options="[
           :points="chartPoints"
           :series-keys="chartSeriesKeys"
           :series-labels="chartSeriesLabels"
+          :series-clients="chartSeriesClients"
           :format-value="metric === 'work' ? formatDuration : (n) => formatCost(n)"
           :tick-unit="metric === 'work' ? 3_600_000 : 1"
         />
@@ -178,7 +192,7 @@ v-model="stackBy" class="w-40" :options="[
           {{ t('dashboard.byClient') }}
         </CardTitle></CardHeader>
         <CardContent class="p-0">
-          <BreakdownTable :rows="byClient" :name-header="t('common.client')" />
+          <BreakdownTable :rows="byClient" :name-header="t('common.client')" :resolve-client="clientById" />
         </CardContent>
       </Card>
       <Card>
@@ -212,7 +226,10 @@ v-model="stackBy" class="w-40" :options="[
           </TableHeader>
           <TableBody>
             <TableRow v-for="e in topExpensive" :key="e.id">
-              <TableCell>{{ clientName(e.client) }}</TableCell>
+              <TableCell>
+                <ClientName v-if="clientById(e.client)" :client="clientById(e.client)!" size="xs" class="max-w-40" />
+                <span v-else>{{ clientName(e.client) }}</span>
+              </TableCell>
               <TableCell>{{ e.project ? projectName(e.project) : '—' }}</TableCell>
               <TableCell class="text-right tabular-nums">
                 {{ formatCost(e.cost) }}

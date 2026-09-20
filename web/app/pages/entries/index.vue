@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -52,6 +53,9 @@ watch(page, load)
 
 function clientName(id: string) {
   return clients.value.find(c => c.id === id)?.name ?? id
+}
+function clientById(id: string) {
+  return clients.value.find(c => c.id === id)
 }
 function projectName(id: string) {
   return id ? (projects.value.find(p => p.id === id)?.name ?? id) : '—'
@@ -150,7 +154,10 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
               <TableCell class="tabular-nums">
                 {{ formatDateTime(e.started_at) }}
               </TableCell>
-              <TableCell>{{ clientName(e.client) }}</TableCell>
+              <TableCell>
+                <ClientName v-if="clientById(e.client)" :client="clientById(e.client)!" size="xs" class="max-w-36" />
+                <span v-else>{{ clientName(e.client) }}</span>
+              </TableCell>
               <TableCell>{{ projectName(e.project) }}</TableCell>
               <TableCell>{{ t(`entries.status.${e.status}`) }}</TableCell>
               <TableCell class="text-muted-foreground">
