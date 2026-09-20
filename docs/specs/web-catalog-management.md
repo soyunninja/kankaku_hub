@@ -42,6 +42,12 @@ for silent auto-selection.
    `https:` URL SHALL ever become a clickable `website` link. `notes`
    SHALL NOT be shown in the table — only a small indicator when a client
    has notes.
+   (Reversed on 2026-09-20 at the owner's request: the `website` and
+   `contact_email`/`contact_phone` columns no longer render in the
+   clients table at all — that information now lives only in the client
+   detail sheet and the create/edit dialog, per `CATMGMT-REQ-012`. The
+   `notes`-indicator half of this requirement is unaffected and still
+   holds. The id is kept so history stays traceable.)
 8. `CATMGMT-REQ-008` — A client detail view SHALL be reachable from the
    clients list, showing every field (notes rendered as plain text with
    line breaks preserved, never `v-html`), the client's totals, and its
@@ -65,6 +71,14 @@ for silent auto-selection.
     (to the right of it, vertically centered, never wrapping under the
     name or colliding with the sheet's close button), with the client's
     `code` on the line below.
+12. `CATMGMT-REQ-012` — The clients list table SHALL NOT render `website`,
+    `contact_email`, or `contact_phone` as columns. That information
+    SHALL be shown only in the client detail sheet (`website` as a
+    safe-scheme external link, `contact_email` as a `mailto:` link,
+    `contact_phone` as a `tel:` link, same rules as `CATMGMT-REQ-007`)
+    and in the create/edit dialog's form fields. The table SHALL
+    continue to show a small indicator next to the client's name when it
+    has notes.
 
 ## Amendments (client favicons)
 
@@ -72,6 +86,14 @@ Requirements `CATMGMT-REQ-010`/`011` were added when
 [`client-favicons.md`](client-favicons.md) landed — that spec owns the
 avatar/favicon-refresh behavior itself; this one only owns *where* a
 client name is shown and the detail sheet's header layout.
+
+## Amendments (clients table simplification)
+
+`CATMGMT-REQ-012` was added on 2026-09-20 when the owner asked to drop
+the `website` and `contact_email`/`contact_phone` columns from the
+clients table (see the reversal note on `CATMGMT-REQ-007`). The
+information itself was never removed from the product — it remains one
+click away in the detail sheet and in the edit dialog.
 
 ## Scenarios
 
@@ -105,17 +127,24 @@ client name is shown and the detail sheet's header layout.
 - **When** the owner submits the form
 - **Then** the dialog stays open and an inline, field-scoped error message is shown next to the offending field
 
-### Scenario: only a safe URL scheme ever becomes a clickable link (`CATMGMT-REQ-007`)
+### Scenario: only a safe URL scheme ever becomes a clickable link (`CATMGMT-REQ-012`)
 
 - **Given** a client's `website` value is not a syntactically valid `http:`/`https:` URL (e.g. it was written directly to the database)
-- **When** the clients list or detail view renders that client
+- **When** the client detail view renders that client
 - **Then** the value is shown as plain text, never as an `<a href>`
 
-### Scenario: the clients table never overflows the page (`CATMGMT-REQ-007`)
+### Scenario: the clients table never overflows the page (`CATMGMT-REQ-012`)
 
 - **Given** the clients screen is viewed at 390px width
 - **When** the page renders
-- **Then** the document does not scroll horizontally (website/contact columns collapse below the `md` breakpoint, and long values truncate rather than widening the table at any width)
+- **Then** the document does not scroll horizontally (the table has no `website`/`contact_email`/`contact_phone` columns to begin with — only Name, Code, Status, Total time, Total cost and Actions render — and long values in those columns truncate rather than widening the table at any width)
+
+### Scenario: website and contact info live in the detail sheet, not the table (`CATMGMT-REQ-012`)
+
+- **Given** a client has a `website`, `contact_email`, and `contact_phone`
+- **When** the owner views that client's row in the clients table
+- **Then** none of those three values (nor any link for them) appears in the row
+- **And** opening the row's detail sheet shows the website as an external link, the email as a `mailto:` link, and the phone as a `tel:` link
 
 ### Scenario: notes preserve line breaks as plain text (`CATMGMT-REQ-008`)
 
@@ -165,8 +194,9 @@ None beyond the shared PocketBase connection.
 | `CATMGMT-REQ-004` | `web/app/composables/useClients.ts`, `web/app/composables/useProjects.ts` (code review) | covered |
 | `CATMGMT-REQ-005` | `web/e2e/smoke.spec.ts` | covered |
 | `CATMGMT-REQ-006` | `web/tests/client-contact.test.ts`, `web/e2e/client-contact.spec.ts` ("creating...", "editing...", "invalid email and invalid website...") | covered |
-| `CATMGMT-REQ-007` | `web/tests/client-contact.test.ts` (`isSafeLinkUrl`), `web/e2e/client-contact.spec.ts` ("creating...", "no horizontal page overflow", "row actions...visible") | covered |
+| `CATMGMT-REQ-007` | reversed 2026-09-20 — see the note on the requirement and `CATMGMT-REQ-012` | reversed |
 | `CATMGMT-REQ-008` | `web/e2e/client-contact.spec.ts` ("creating..." — notes line-break assertion) | covered |
 | `CATMGMT-REQ-009` | manual verification against a genuinely pre-migration PocketBase instance (recorded in `ESTADO.md`); no automated test (would require serving two schema states in one Playwright run) | partially covered |
 | `CATMGMT-REQ-010` | `web/e2e/client-avatars.spec.ts` ("client avatars render across the app") | covered |
 | `CATMGMT-REQ-011` | `web/e2e/client-avatars.spec.ts` ("client detail sheet header layout") | covered |
+| `CATMGMT-REQ-012` | `web/tests/client-contact.test.ts` (`isSafeLinkUrl`), `web/e2e/client-contact.spec.ts` ("creating...", "editing...", "no horizontal page overflow") | covered |

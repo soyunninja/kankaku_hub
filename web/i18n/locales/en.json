@@ -126,7 +126,6 @@
     "empty": "No clients yet.",
     "codeHint": "Short, unique identifier, e.g. \"cajamar\".",
     "website": "Website",
-    "contact": "Contact",
     "contactEmail": "Contact email",
     "contactPhone": "Contact phone",
     "notes": "Notes",

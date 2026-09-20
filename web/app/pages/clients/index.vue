@@ -248,12 +248,6 @@ async function onRefreshFavicon() {
               <TableRow>
                 <TableHead>{{ t('common.name') }}</TableHead>
                 <TableHead>{{ t('common.code') }}</TableHead>
-                <TableHead class="hidden md:table-cell md:max-w-24 lg:max-w-32">
-                  {{ t('clients.website') }}
-                </TableHead>
-                <TableHead class="hidden md:table-cell md:max-w-24 lg:max-w-32">
-                  {{ t('clients.contact') }}
-                </TableHead>
                 <TableHead>{{ t('common.status') }}</TableHead>
                 <TableHead class="text-right">
                   {{ t('clients.totalTime') }}
@@ -267,7 +261,7 @@ async function onRefreshFavicon() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <SkeletonRows v-if="loading && clients.length === 0" :rows="4" :cols="8" />
+              <SkeletonRows v-if="loading && clients.length === 0" :rows="4" :cols="6" />
               <TableRow
                 v-for="c in clients"
                 :key="c.id"
@@ -292,40 +286,6 @@ async function onRefreshFavicon() {
                 </TableCell>
                 <TableCell class="text-muted-foreground">
                   {{ c.code }}
-                </TableCell>
-                <TableCell class="hidden max-w-24 text-muted-foreground md:table-cell lg:max-w-32" @click.stop>
-                  <a
-                    v-if="isSafeLinkUrl(c.website ?? '')"
-                    :href="c.website"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="flex min-w-0 items-center gap-1 hover:underline"
-                  >
-                    <Globe class="size-3.5 shrink-0" />
-                    <span class="min-w-0 flex-1 truncate">{{ displayUrlWithoutScheme(c.website ?? '') }}</span>
-                  </a>
-                  <span v-else>—</span>
-                </TableCell>
-                <TableCell class="hidden max-w-24 text-muted-foreground md:table-cell lg:max-w-32" @click.stop>
-                  <div class="flex flex-col gap-0.5">
-                    <a
-                      v-if="c.contact_email"
-                      :href="`mailto:${c.contact_email}`"
-                      class="flex min-w-0 items-center gap-1 hover:underline"
-                    >
-                      <Mail class="size-3.5 shrink-0" />
-                      <span class="min-w-0 flex-1 truncate">{{ c.contact_email }}</span>
-                    </a>
-                    <a
-                      v-if="c.contact_phone"
-                      :href="`tel:${c.contact_phone}`"
-                      class="flex min-w-0 items-center gap-1 hover:underline"
-                    >
-                      <Phone class="size-3.5 shrink-0" />
-                      <span class="min-w-0 flex-1 truncate">{{ c.contact_phone }}</span>
-                    </a>
-                    <span v-if="!c.contact_email && !c.contact_phone">—</span>
-                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge :variant="c.active ? 'success' : 'outline'">

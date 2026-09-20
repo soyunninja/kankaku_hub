@@ -103,23 +103,24 @@ test('creating a client with all four contact fields shows them in the list and 
 
   const row = page.locator('table tbody tr', { hasText: name })
   await expect(row).toBeVisible()
-  // Website is shown without its scheme, as an external link.
-  await expect(row.getByRole('link', { name: 'example-e2e.test', exact: true })).toBeVisible()
-  await expect(row.getByRole('link', { name: 'owner@example-e2e.test' })).toHaveAttribute('href', 'mailto:owner@example-e2e.test')
-  // Phone is trimmed.
-  await expect(row.getByRole('link', { name: '+34 600 111 222' })).toHaveAttribute('href', 'tel:+34 600 111 222')
-  // Notes are never shown inline in the table — only an indicator icon.
+  // Website, email and phone are not shown in the table anymore — only in
+  // the detail sheet and the edit dialog. Notes are never shown inline in
+  // the table either — only an indicator icon next to the name.
+  await expect(row).not.toContainText('example-e2e.test')
+  await expect(row).not.toContainText('owner@example-e2e.test')
   await expect(row).not.toContainText('First line of notes')
 
-  // Open the detail sheet from the row and check the notes render with
-  // their line break preserved (plain text, not v-html).
+  // Open the detail sheet from the row and check website (as an external
+  // link, without its scheme), email (mailto: link), phone (tel: link,
+  // trimmed) and notes all render there, with the notes' line break
+  // preserved (plain text, not v-html).
   await row.locator('td').first().click()
   const sheet = page.locator('[data-slot="sheet-content"]')
   await expect(sheet).toBeVisible()
   await expect(sheet).toContainText(name)
-  await expect(sheet).toContainText('example-e2e.test')
-  await expect(sheet).toContainText('owner@example-e2e.test')
-  await expect(sheet).toContainText('+34 600 111 222')
+  await expect(sheet.getByRole('link', { name: 'example-e2e.test', exact: true })).toBeVisible()
+  await expect(sheet.getByRole('link', { name: 'owner@example-e2e.test' })).toHaveAttribute('href', 'mailto:owner@example-e2e.test')
+  await expect(sheet.getByRole('link', { name: '+34 600 111 222' })).toHaveAttribute('href', 'tel:+34 600 111 222')
 
   const notesText = await sheet.locator('p.whitespace-pre-wrap').first().textContent()
   expect(notesText).toContain('First line of notes.')
@@ -160,8 +161,13 @@ test('editing a client preserves and updates contact fields', async ({ page }) =
   await page.getByRole('button', { name: /^guardar$|^save$/i }).click()
   await expect(page.locator('#c-name')).toBeHidden()
 
-  await expect(row.getByRole('link', { name: 'after-edit.test', exact: true })).toBeVisible()
-  await expect(row.getByRole('link', { name: 'after@example.test' })).toBeVisible()
+  // Website and email are no longer shown in the table — open the detail
+  // sheet and check the updated values render there instead.
+  await row.locator('td').first().click()
+  const sheet = page.locator('[data-slot="sheet-content"]')
+  await expect(sheet).toBeVisible()
+  await expect(sheet.getByRole('link', { name: 'after-edit.test', exact: true })).toBeVisible()
+  await expect(sheet.getByRole('link', { name: 'after@example.test' })).toBeVisible()
 })
 
 test('invalid email and invalid website show inline errors and block submit', async ({ page }) => {
