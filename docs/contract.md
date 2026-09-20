@@ -210,6 +210,64 @@ Write access: owner only. The sync client only *reads* this collection
 | `legacy_client_label` | text | only set for rows routed to "Sin determinar" |
 | `repo_project` | text | kankaku's local project path |
 | `schema` | number (int) | |
+| `agent` | text (≤40) | which coding agent ran the work, lowercase slug: `pi`, `opencode`, … See "Agent and measurement quality" below |
+| `agent_version` | text (≤60) | that agent's own version, free text |
+| `plugin` | text (≤60) | the integration that wrote the row (`kankaku` for the pi package) |
+| `plugin_version` | text (≤60) | its version |
+| `waiting_quality` | select | `measured` \| `unavailable` |
+| `cost_quality` | select | `measured` \| `estimated` \| `unknown` |
+| `subagent_linkage` | select | `linked` \| `unlinked` \| `not_applicable` |
+
+#### Agent and measurement quality
+
+The hub is agent-agnostic: any integration that honours this contract may
+write `task_entries`. Because agents expose different signals, every row
+declares **which agent produced it and how well each figure was measured**,
+so a consumer can show what exists, label what is approximate, and never
+blend figures that are not comparable without saying so. Added by migration
+`1758300013`; index `idx_task_entries_agent_started (agent, started_at)`.
+
+| field | value | meaning for a consumer |
+|---|---|---|
+| `waiting_quality` | `measured` | time blocked on the human was observed and excluded; `work_ms < wall_ms` is meaningful |
+| | `unavailable` | the agent exposes no such signal: `waiting_ms` is `0`, `work_ms == wall_ms`, and `work_ms` is an **upper bound** — do not present it as measured work time |
+| `cost_quality` | `measured` | provider-reported cost |
+| | `estimated` | computed by the integration from token counts and a price table |
+| | `unknown` | `cost` is `0` because it could not be known — exclude from cost averages rather than averaging in a zero |
+| `subagent_linkage` | `linked` | child work is folded into this row (interval union, see `architecture/aggregation.md`) |
+| | `unlinked` | children ran but could not be joined; this row under-reports |
+| | `not_applicable` | the run used no subagents |
+
+Rules:
+
+- They are **selects, not bools, on purpose**: PocketBase bools have no
+  default and read back as `false`, which would make "not measured"
+  indistinguishable from "not reported". An **empty** value always means
+  *not reported* (an older client); treat it as unknown, never as the best
+  or the worst case.
+- All seven fields are optional and additive: a client that does not send
+  them still gets `200` (captured below). A value outside the select's list
+  is rejected with `400`.
+- Like every measurement field they may be sent on create **and** on update
+  (they are not assignment fields; the create-only rule covers only
+  `client`, `project`, `task`, `legacy_client_label`).
+- Rows that existed before the migration were all written by the pi package
+  and were backfilled to `agent: "pi"`, `plugin: "kankaku"`,
+  `waiting_quality: "measured"`, `cost_quality: "measured"`, and
+  `subagent_linkage` = `linked` when `subagent_count > 0`, else
+  `not_applicable`.
+- The `task_entries_daily_totals` view does **not** group by `agent` yet, so
+  its sums mix agents and qualities; a consumer that must separate them
+  reads `task_entries` directly until the view is extended.
+
+Captured against PocketBase 0.40.4 on an isolated copy, authenticated as the
+`service` account, 2026-09-20:
+
+| request | status |
+|---|---|
+| create with `agent: "opencode"`, `waiting_quality: "unavailable"`, `cost_quality: "estimated"`, `subagent_linkage: "not_applicable"` | `200` |
+| create with `waiting_quality: "maybe"` | `400` |
+| create sending none of the seven fields | `200` |
 
 Write access: any authenticated user (owner or service) may create/update;
 only owner may delete.
