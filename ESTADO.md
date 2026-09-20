@@ -51,6 +51,99 @@ PocketBase (`app/plugins/pocketbase.client.ts`) usa
 no depender de resolución relativa en absoluto. Verificado con Playwright
 contra el build real servido por PocketBase.
 
+### Pase de pulido visual/UX (2026-09-20)
+
+Revisión de las capturas existentes en `web/docs/screenshots/` detectó una
+serie de defectos reales, corregidos en este pase:
+
+1. **KPIs del dashboard**: la rejilla forzaba 8 tarjetas en una sola fila
+   en escritorio (`xl:grid-cols-8`), recortando el valor de coste y
+   envolviendo etiquetas en 3 líneas. Ahora es `grid-cols-2 md:grid-cols-4`
+   (2 columnas en móvil, 2 filas de 4 en escritorio), con `min-w-0` +
+   `truncate` + `tabular-nums` en el valor para que nunca se recorte, y la
+   línea "vs. periodo anterior" en una sola línea siempre.
+2. **Precisión del dinero**: `formatCost` (`app/lib/format.ts`) ahora usa
+   2 decimales para importes ≥ 1 USD y hasta 4 decimales para importes
+   < 1 USD (los costes por tarea son céntimos). `$12.5683` → `$12.57`;
+   `$0.0722` se mantiene con sus 4 decimales significativos. USD se deja
+   explícito en Ajustes → Conexión ("Moneda: USD" + nota) y junto al
+   coste del dashboard.
+3. **Color de las variaciones**: nuevo `deltaTone()`/`MetricPolarity` en
+   `app/lib/format.ts` (con tests). Coste, tiempo de espera y coste
+   medio/tarea son `lowerIsBetter` (bajar = verde); tiempo de trabajo,
+   tiempo total, tareas y tokens son `neutral` (volumen, no calidad) y se
+   quedan en gris siempre. `KpiCard.vue` añade además un icono de flecha
+   (↑/↓/–) para no depender solo del color.
+4. **Gráfico de serie temporal**: reescrito con `useElementSize` de
+   VueUse (ResizeObserver) — el `viewBox` del SVG se recalcula al ancho
+   real del contenedor en vez de un ancho fijo de 600px, con eje Y
+   formateado (horas o USD según la métrica), grupos de barras
+   focuseables por teclado (`tabindex`, `role="img"`, resaltado de foco) y
+   la leyenda ya envolvía correctamente (se mantiene).
+5. **Sidebar en páginas largas**: el shell (`app/layouts/default.vue`) usaba
+   `position: fixed` para la sidebar sobre un body que hacía scroll — en
+   una captura de página completa (y en la práctica al hacer scroll) el
+   fondo de la sidebar no llegaba hasta abajo. Ahora es un layout flex de
+   altura completa (`h-dvh`): sidebar `sticky` con su propio alto
+   `h-dvh`, área de contenido con su propio `overflow-y-auto`.
+6. **i18n**: la cola de "Sin determinar" y la tabla de proyectos tenían
+   las cabeceras `Work`/`Cost` sin traducir (texto literal en el
+   template, no `t(...)`) — corregido en ambas pantallas y en los
+   `sr-only` "Close" de los componentes de diálogo. Filtros de
+   Registros (`model`/`machine`) y los estados de entrada
+   (`completed`/`aborted`/`interrupted`) también traducidos. Nuevo test
+   `tests/i18n.test.ts` compara `es.json`/`en.json` clave a clave y falla
+   si divergen o si hay algún valor vacío.
+7. Auditadas las 8 pantallas a 390/768/1440px en ambos temas (ver
+   capturas regeneradas); no se encontraron más desbordamientos — las
+   tablas ya scrollaban horizontalmente dentro de su tarjeta.
+8. **Drag-and-drop real en el tablero de tareas**: `useTasks.moveStatus()`
+   hace la actualización optimista (muta la lista local antes de esperar
+   la respuesta de PocketBase) con rollback si falla la escritura.
+   `app/pages/tasks/index.vue` usa HTML5 DnD nativo (`draggable`,
+   `dragstart`/`dragover`/`drop`) entre las tres columnas; el botón
+   "Mover a: <siguiente estado>" se mantiene como alternativa accesible
+   por teclado/puntero.
+9. **Cola de "Sin determinar"**: la reasignación masiva ya actualizaba la
+   lista local sin recarga completa; se añadió (a) un toast que dice
+   cuántos registros se movieron y a qué cliente
+   (`unassigned.movedTo`/`unassigned.failedCount`), y (b) una sugerencia
+   de cliente por grupo (`app/lib/suggest-client.ts`, con tests) — solo
+   por coincidencia EXACTA normalizada (minúsculas, sin espacios/
+   puntuación/acentos) contra el nombre o código del cliente. Es
+   deliberadamente conservadora: `"Caja Mar"`/`"ACME"` sugieren
+   `Cajamar`/`Acme`, pero `"cjamar"` (typo) o `"acme sl"` no sugieren
+   nada. Es solo un valor pre-rellenado en el selector del diálogo — el
+   usuario sigue teniendo que confirmar la asignación.
+
+**shadcn-vue genuino**: el CLI (`pnpm dlx shadcn-vue add ...` / `npx
+shadcn-vue@latest add ...`) seguía colgándose en este entorno, pero no por
+falta de red (confirmado con `curl` directo a `registry.npmjs.org` y
+`www.shadcn-vue.com`, ambos responden al instante) sino por el paso propio
+de pnpm 10.34 "Verifying lockfile against supply-chain policies", que
+re-verifica los ~1000 paquetes del lockfile del proyecto uno a uno y no
+termina en un tiempo razonable en este sandbox. Como alternativa
+legítima (shadcn-vue es "copy-in source"), se descargó el JSON del
+registro oficial (`https://www.shadcn-vue.com/r/styles/new-york-v4/<name>.json`)
+para cada primitiva en uso y se escribieron los ficheros tal cual:
+button, card, input, label, table, tabs, dropdown-menu, checkbox, switch,
+skeleton, separator, textarea, dialog, sheet, popover, tooltip, badge
+(con una variante `success` añadida a mano para el estado "Activo",
+sobre el token `--success` existente, sin tocar el mecanismo del
+componente). Quedaron con el kit **hecho a mano** (no del registro) dos
+primitivas cuya API oficial es incompatible con los ~15 sitios de uso
+actuales sin una reescritura fuera de alcance de este pase: `select`
+(la oficial es compositiva — `Select`/`SelectTrigger`/`SelectContent`/
+`SelectItem`… — la nuestra es un único `<select>` nativo con
+`v-model`+`options`) y `avatar` (la oficial exige componer
+`AvatarImage`/`AvatarFallback`; la nuestra tiene una prop `label` que
+genera las iniciales). Tampoco se adoptó `sonner` (toast) porque
+requiere la dependencia nueva `vue-sonner` y el toast propio
+(`useToast.ts` + `Toaster.vue`) ya cubre el mismo contrato sin arriesgar
+otra instalación de pnpm. `components.json` ya existía y es válido
+(`style: new-york`, `baseColor: neutral`, alias `@/components/ui`,
+`iconLibrary: lucide`).
+
 ### Qué está hecho
 
 - Las 9 pantallas del encargo: login + guard de auth, dashboard (KPIs,
@@ -80,12 +173,10 @@ contra el build real servido por PocketBase.
   navegador — es un requisito explícito, ver `nuxt.config.ts`), inglés
   como segundo idioma, selector persistido. Todo el copy de la UI pasa
   por `t(...)`.
-- Componentes de UI estilo shadcn-vue escritos a mano en
-  `app/components/ui/` (primitivas de `reka-ui` + `cva` + `tailwind-merge`
-  + iconos `@lucide/vue`) — el CLI `shadcn-vue add` no funcionó de forma
-  fiable en este entorno (su propio `pnpm` interno, descargado vía
-  corepack, se quedaba reintentando descargas del registro
-  indefinidamente); el resultado final es equivalente.
+- Componentes de UI genuinos de shadcn-vue en `app/components/ui/`
+  (primitivas de `reka-ui` + `cva` + `tailwind-merge` + iconos
+  `@lucide/vue`) — ver "Pase de pulido" más abajo para cómo se obtuvieron
+  finalmente (el CLI seguía sin funcionar, pero el registro JSON sí).
 - Gráficos: componente SVG propio sin dependencias
   (`app/components/charts/StackedBarChart.vue`), en vez de una librería
   de charts — decisión deliberada para no añadir más superficie de
@@ -100,9 +191,6 @@ contra el build real servido por PocketBase.
 
 ### Qué está pendiente / decisiones abiertas
 
-- Drag-and-drop real en el tablero de tareas: implementado con botones
-  "mover a siguiente estado" en vez de arrastrar — la propia consigna lo
-  ofrecía como alternativa válida.
 - Cobertura de tests de componentes Vue (solo se testean los helpers
   puros de `app/lib/*` con Vitest, como pedía el encargo, más el e2e de
   Playwright). No hay tests de componentes individuales.
@@ -127,6 +215,44 @@ contra el build real servido por PocketBase.
   y a sistema funciona y persiste.
 - Capturas de las pantallas principales en ambos temas en
   `web/docs/screenshots/` (generadas por el propio test e2e).
+
+### Verificación del pase de pulido (2026-09-20)
+
+- `pnpm lint`: verde (0 errores; 14 avisos preexistentes
+  `vue/require-default-prop` en primitivas del registro oficial de
+  shadcn-vue, que no fija valores por defecto en props `class`
+  opcionales — es su convención, no un error).
+- `pnpm typecheck` (`nuxt typecheck`): verde.
+- `pnpm test` (Vitest): **59/59 tests en verde** (41 previos + 8 de
+  `formatCost`/`deltaTone`/`deltaDirection`, 2 de paridad `es`/`en`, 8 de
+  `suggestClient`).
+- `pnpm generate`: verde, build estático servido por PocketBase en un
+  solo proceso (`scripts/dev.sh`, puerto 8090).
+- `pnpm test:e2e` contra ese build (`PW_BASE_URL=http://127.0.0.1:8090`):
+  **11/11 specs en verde** — `e2e/smoke.spec.ts` (ahora con capturas
+  extra a 390px) + nuevo `e2e/polish.spec.ts`:
+  - valores de KPI sin recorte (`scrollWidth <= clientWidth`) a 1440px y
+    390px;
+  - el SVG del gráfico ocupa > 90% del ancho de su tarjeta;
+  - cabeceras en español ("Trabajo"/"Coste") en la cola de "Sin
+    determinar";
+  - asignación masiva de extremo a extremo: crea 2 `task_entries` de
+    usar-y-tirar contra el cliente `Sin determinar` vía la API REST de
+    PocketBase, las asigna por la UI a un cliente real, comprueba que el
+    grupo desaparece de la cola sin recargar, que el toast dice cuántas
+    filas se movieron y a dónde, y que el desglose "Por cliente" del
+    dashboard sube exactamente en 2 tras una navegación SPA (sin
+    recarga completa) — y borra esas 2 filas al final pase lo que pase,
+    para no dejar nada en la semilla (confirmado con una consulta a la
+    API tras la suite: 0 filas `E2E` restantes);
+  - tema por defecto oscuro, cambio a claro y a sistema.
+- Capturas regeneradas desde el **build de producción** (sin badge de
+  devtools): 8 pantallas × oscuro/claro + `dashboard-mobile` ×
+  oscuro/claro en `web/docs/screenshots/`. Revisadas una a una: KPIs sin
+  recorte, colores de variación correctos, gráfico a ancho completo con
+  eje Y legible, sidebar a altura completa en páginas largas (tablero de
+  tareas), cabeceras en español, insignia "Activo" con la variante
+  `success` añadida al badge oficial.
 
 ## kankaku-hub (parte PocketBase)
 
