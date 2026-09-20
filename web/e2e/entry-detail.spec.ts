@@ -146,7 +146,7 @@ test.describe('entry detail sheet', () => {
       expect(sheetText).toContain('test')
 
       // Prompt line breaks are preserved, never innerHTML'd.
-      const promptPre = sheet.locator('pre')
+      const promptPre = sheet.locator('[data-testid="prompt-pre"]')
       await expect(promptPre).toContainText('First line of the prompt.')
       await expect(promptPre).toContainText('Second line, after a break.')
     }
@@ -218,7 +218,7 @@ test.describe('entry detail sheet', () => {
       await openFixture(page, fixture.runId)
 
       const sheet = page.locator('[data-slot="sheet-content"]')
-      await expect(sheet.locator('pre')).toHaveCount(0)
+      await expect(sheet.locator('[data-testid="prompt-pre"]')).toHaveCount(0)
       await expect(sheet.getByText('KANKAKU_SYNC_PROMPT')).toBeVisible()
       const link = sheet.getByRole('link', { name: /Comandos|Commands/ })
       await expect(link).toBeVisible()
