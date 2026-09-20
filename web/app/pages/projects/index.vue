@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Plus, Trash2 } from '@lucide/vue'
+import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from '@lucide/vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import RowActions from '@/components/common/RowActions.vue'
 import SkeletonRows from '@/components/common/SkeletonRows.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { groupByProject } from '@/lib/aggregate'
 import { resolvePreset } from '@/lib/period'
 import type { ProjectRecord } from '@/lib/pocketbase-types'
@@ -103,125 +105,125 @@ async function toggleArchive(project: ProjectRecord) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-xl font-semibold tracking-tight">
-        {{ t('projects.title') }}
-      </h1>
-      <div class="flex items-center gap-2">
-        <Select
-          v-model="filterClient" class="w-48" :placeholder="t('projects.filterByClient')"
-          :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
-        />
-        <Button size="sm" @click="openCreate">
-          <Plus class="size-4" />
-          {{ t('projects.new') }}
-        </Button>
+  <TooltipProvider>
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold tracking-tight">
+          {{ t('projects.title') }}
+        </h1>
+        <div class="flex items-center gap-2">
+          <Select
+            v-model="filterClient" class="w-48" :placeholder="t('projects.filterByClient')"
+            :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
+          />
+          <Button size="sm" @click="openCreate">
+            <Plus class="size-4" />
+            {{ t('projects.new') }}
+          </Button>
+        </div>
       </div>
-    </div>
 
-    <Card>
-      <CardContent class="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{{ t('common.name') }}</TableHead>
-              <TableHead>{{ t('common.client') }}</TableHead>
-              <TableHead>{{ t('common.status') }}</TableHead>
-              <TableHead class="text-right">
-                {{ t('common.work') }}
-              </TableHead>
-              <TableHead class="text-right">
-                {{ t('common.cost') }}
-              </TableHead>
-              <TableHead class="text-right">
-                {{ t('common.actions') }}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <SkeletonRows v-if="loading && projects.length === 0" :rows="4" :cols="6" />
-            <TableRow v-for="p in filtered" :key="p.id" class="cursor-pointer" @click="navigateTo(`/projects/${p.id}`)">
-              <TableCell class="font-medium">
-                {{ p.name }}
-              </TableCell>
-              <TableCell class="text-muted-foreground">
-                <ClientName v-if="clientById(p.client)" :client="clientById(p.client)!" size="xs" class="max-w-40" />
-                <span v-else>{{ clientName(p.client) }}</span>
-              </TableCell>
-              <TableCell>
-                <Badge :variant="p.active ? 'success' : 'outline'">
-                  {{ p.active ? t('common.active') : t('common.inactive') }}
-                </Badge>
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatDuration(totalsByProject[p.id]?.workMs ?? 0) }}
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatCost(totalsByProject[p.id]?.cost ?? 0) }}
-              </TableCell>
-              <TableCell class="text-right" @click.stop>
-                <div class="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" @click="openEdit(p)">
-                    {{ t('common.edit') }}
-                  </Button>
-                  <Button variant="ghost" size="sm" @click="toggleArchive(p)">
-                    {{ p.active ? t('common.archive') : t('common.unarchive') }}
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <EmptyState v-if="!loading && filtered.length === 0" :title="t('projects.empty')" class="m-4" />
-      </CardContent>
-    </Card>
+      <Card>
+        <CardContent class="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('common.name') }}</TableHead>
+                <TableHead>{{ t('common.client') }}</TableHead>
+                <TableHead>{{ t('common.status') }}</TableHead>
+                <TableHead class="text-right">
+                  {{ t('common.work') }}
+                </TableHead>
+                <TableHead class="text-right">
+                  {{ t('common.cost') }}
+                </TableHead>
+                <TableHead class="text-right">
+                  {{ t('common.actions') }}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <SkeletonRows v-if="loading && projects.length === 0" :rows="4" :cols="6" />
+              <TableRow v-for="p in filtered" :key="p.id" class="cursor-pointer" @click="navigateTo(`/projects/${p.id}`)">
+                <TableCell class="font-medium">
+                  {{ p.name }}
+                </TableCell>
+                <TableCell class="text-muted-foreground">
+                  <ClientName v-if="clientById(p.client)" :client="clientById(p.client)!" size="xs" class="max-w-40" />
+                  <span v-else>{{ clientName(p.client) }}</span>
+                </TableCell>
+                <TableCell>
+                  <Badge :variant="p.active ? 'success' : 'outline'">
+                    {{ p.active ? t('common.active') : t('common.inactive') }}
+                  </Badge>
+                </TableCell>
+                <TableCell class="text-right tabular-nums">
+                  {{ formatDuration(totalsByProject[p.id]?.workMs ?? 0) }}
+                </TableCell>
+                <TableCell class="text-right tabular-nums">
+                  {{ formatCost(totalsByProject[p.id]?.cost ?? 0) }}
+                </TableCell>
+                <TableCell class="text-right" @click.stop>
+                  <RowActions
+                    :actions="[
+                      { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(p) },
+                      { icon: p.active ? Archive : ArchiveRestore, label: p.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(p) },
+                    ]"
+                  />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <EmptyState v-if="!loading && filtered.length === 0" :title="t('projects.empty')" class="m-4" />
+        </CardContent>
+      </Card>
 
-    <Dialog v-model:open="dialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ editing ? t('projects.edit') : t('projects.new') }}</DialogTitle>
-        </DialogHeader>
-        <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <div class="flex flex-col gap-1.5">
-            <Label for="p-name">{{ t('common.name') }}</Label>
-            <Input id="p-name" v-model="form.name" required />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label>{{ t('common.client') }}</Label>
-            <Select v-model="form.client" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label for="p-code">{{ t('common.code') }}</Label>
-            <Input id="p-code" v-model="form.code" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label>{{ t('projects.repoPaths') }}</Label>
-            <p class="text-xs text-muted-foreground">
-              {{ t('projects.repoPathsHint') }}
-            </p>
-            <div v-for="(_, i) in form.repoPaths" :key="i" class="flex gap-2">
-              <Input v-model="form.repoPaths[i]" placeholder="/home/dev/repos/project" />
-              <Button type="button" variant="ghost" size="icon" @click="removePath(i)">
-                <Trash2 class="size-4" />
+      <Dialog v-model:open="dialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{{ editing ? t('projects.edit') : t('projects.new') }}</DialogTitle>
+          </DialogHeader>
+          <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
+            <div class="flex flex-col gap-1.5">
+              <Label for="p-name">{{ t('common.name') }}</Label>
+              <Input id="p-name" v-model="form.name" required />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label>{{ t('common.client') }}</Label>
+              <Select v-model="form.client" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label for="p-code">{{ t('common.code') }}</Label>
+              <Input id="p-code" v-model="form.code" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label>{{ t('projects.repoPaths') }}</Label>
+              <p class="text-xs text-muted-foreground">
+                {{ t('projects.repoPathsHint') }}
+              </p>
+              <div v-for="(_, i) in form.repoPaths" :key="i" class="flex gap-2">
+                <Input v-model="form.repoPaths[i]" placeholder="/home/dev/repos/project" />
+                <Button type="button" variant="ghost" size="icon" @click="removePath(i)">
+                  <Trash2 class="size-4" />
+                </Button>
+              </div>
+              <Button type="button" variant="outline" size="sm" class="self-start" @click="addPath">
+                <Plus class="size-4" />
+                {{ t('projects.addPath') }}
               </Button>
             </div>
-            <Button type="button" variant="outline" size="sm" class="self-start" @click="addPath">
-              <Plus class="size-4" />
-              {{ t('projects.addPath') }}
-            </Button>
-          </div>
-          <label class="flex items-center gap-2 text-sm">
-            <Switch v-model="form.active" />
-            {{ t('common.active') }}
-          </label>
-          <DialogFooter>
-            <Button type="submit">
-              {{ t('common.save') }}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  </div>
+            <label class="flex items-center gap-2 text-sm">
+              <Switch v-model="form.active" />
+              {{ t('common.active') }}
+            </label>
+            <DialogFooter>
+              <Button type="submit">
+                {{ t('common.save') }}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  </TooltipProvider>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ArrowRight, History, Plus, Trash2 } from '@lucide/vue'
+import { ArrowRight, History, Pencil, Plus, Trash2 } from '@lucide/vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import RowActions from '@/components/common/RowActions.vue'
 import TaskDetailSheet from '@/components/tasks/TaskDetailSheet.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { groupByKey } from '@/lib/aggregate'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 import type { SessionSummary } from '@/lib/session-aggregate'
@@ -201,206 +203,206 @@ async function onDelete(task: TaskRecord) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-xl font-semibold tracking-tight">
-        {{ t('tasks.title') }}
-      </h1>
-      <div class="flex items-center gap-2">
-        <Select
-          v-model="filterProject" class="w-48" :placeholder="t('projects.filterByClient')"
-          :options="[{ value: '', label: t('common.all') }, ...projects.map(p => ({ value: p.id, label: p.name }))]"
-        />
-        <Tabs v-model="view">
-          <TabsList>
-            <TabsTrigger value="board">
-              {{ t('tasks.board') }}
-            </TabsTrigger>
-            <TabsTrigger value="list">
-              {{ t('tasks.list') }}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Button size="sm" @click="openCreate">
-          <Plus class="size-4" />
-          {{ t('tasks.new') }}
-        </Button>
-      </div>
-    </div>
-
-    <div v-if="view === 'board'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
-      <div
-        v-for="status in statuses" :key="status" class="flex flex-col gap-2 rounded-lg p-1 transition-colors"
-        :class="dragOverStatus === status ? 'bg-accent/40 ring-2 ring-primary/40' : ''"
-        @dragover="onColumnDragOver(status, $event)"
-        @dragleave="onColumnDragLeave(status)"
-        @drop="onColumnDrop(status, $event)"
-      >
-        <h2 class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          {{ t(`tasks.status.${status}`) }}
-          <Badge variant="outline">
-            {{ byStatus(status).length }}
-          </Badge>
-        </h2>
-        <div class="flex min-h-16 flex-col gap-2">
-          <Card
-            v-for="task in byStatus(status)" :key="task.id"
-            draggable="true"
-            class="cursor-grab gap-0 py-0 touch-none active:cursor-grabbing"
-            :class="draggingTaskId === task.id ? 'opacity-50' : ''"
-            role="button"
-            tabindex="0"
-            :aria-label="`${task.title} — ${t(`tasks.status.${status}`)}`"
-            @click="openDetail(task)"
-            @keydown.enter="openDetail(task)"
-            @dragstart="onDragStart(task, $event)"
-            @dragend="onDragEnd"
-          >
-            <CardContent class="flex flex-col gap-2 p-3">
-              <div class="flex items-start justify-between gap-2">
-                <p class="text-sm font-medium">
-                  {{ task.title }}
-                </p>
-                <Badge
-                  v-if="(sessionCountByTask[task.id] ?? 0) > 0"
-                  variant="outline"
-                  class="shrink-0 gap-1 px-1.5 text-[11px] font-normal text-muted-foreground"
-                  :aria-label="t('tasks.detail.sessions.countAria', { count: sessionCountByTask[task.id] })"
-                >
-                  <History class="size-3" aria-hidden="true" />
-                  {{ sessionCountByTask[task.id] }}
-                </Badge>
-              </div>
-              <p class="text-xs text-muted-foreground">
-                {{ projectName(task.project) }}
-              </p>
-              <div class="flex items-center justify-between text-xs tabular-nums text-muted-foreground">
-                <span>{{ formatDuration(totalsByTask[task.id]?.workMs ?? 0) }}</span>
-                <span>{{ formatCost(totalsByTask[task.id]?.cost ?? 0) }}</span>
-              </div>
-              <Button v-if="status !== 'done'" size="sm" variant="outline" class="self-start" @click.stop="advance(task)">
-                {{ t('tasks.moveTo') }}: {{ t(`tasks.status.${statuses[statuses.indexOf(status) + 1]}`) }}
-                <ArrowRight class="size-3.5" />
-              </Button>
-            </CardContent>
-          </Card>
-          <EmptyState v-if="byStatus(status).length === 0" :title="t('tasks.empty')" />
+  <TooltipProvider>
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold tracking-tight">
+          {{ t('tasks.title') }}
+        </h1>
+        <div class="flex items-center gap-2">
+          <Select
+            v-model="filterProject" class="w-48" :placeholder="t('projects.filterByClient')"
+            :options="[{ value: '', label: t('common.all') }, ...projects.map(p => ({ value: p.id, label: p.name }))]"
+          />
+          <Tabs v-model="view">
+            <TabsList>
+              <TabsTrigger value="board">
+                {{ t('tasks.board') }}
+              </TabsTrigger>
+              <TabsTrigger value="list">
+                {{ t('tasks.list') }}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button size="sm" @click="openCreate">
+            <Plus class="size-4" />
+            {{ t('tasks.new') }}
+          </Button>
         </div>
       </div>
-    </div>
 
-    <Card v-else>
-      <CardContent class="p-0">
-        <table class="w-full text-sm">
-          <thead class="border-b border-border text-left text-xs text-muted-foreground">
-            <tr>
-              <th class="p-3">
-                {{ t('common.name') }}
-              </th>
-              <th class="p-3">
-                {{ t('common.project') }}
-              </th>
-              <th class="p-3">
-                {{ t('common.status') }}
-              </th>
-              <th class="p-3 text-right">
-                {{ t('tasks.time') }}
-              </th>
-              <th class="p-3 text-right">
-                {{ t('tasks.cost') }}
-              </th>
-              <th class="p-3 text-right">
-                {{ t('common.actions') }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="task in filtered" :key="task.id" class="border-b border-border">
-              <td class="p-3 font-medium">
-                {{ task.title }}
-              </td>
-              <td class="p-3 text-muted-foreground">
-                {{ projectName(task.project) }}
-              </td>
-              <td class="p-3">
-                <Badge variant="outline">
-                  {{ t(`tasks.status.${task.status}`) }}
-                </Badge>
-              </td>
-              <td class="p-3 text-right tabular-nums">
-                {{ formatDuration(totalsByTask[task.id]?.workMs ?? 0) }}
-              </td>
-              <td class="p-3 text-right tabular-nums">
-                {{ formatCost(totalsByTask[task.id]?.cost ?? 0) }}
-              </td>
-              <td class="p-3 text-right">
-                <div class="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" @click="openEdit(task)">
-                    {{ t('common.edit') }}
-                  </Button>
-                  <Button variant="ghost" size="icon" @click="onDelete(task)">
-                    <Trash2 class="size-4" />
-                  </Button>
+      <div v-if="view === 'board'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div
+          v-for="status in statuses" :key="status" class="flex flex-col gap-2 rounded-lg p-1 transition-colors"
+          :class="dragOverStatus === status ? 'bg-accent/40 ring-2 ring-primary/40' : ''"
+          @dragover="onColumnDragOver(status, $event)"
+          @dragleave="onColumnDragLeave(status)"
+          @drop="onColumnDrop(status, $event)"
+        >
+          <h2 class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            {{ t(`tasks.status.${status}`) }}
+            <Badge variant="outline">
+              {{ byStatus(status).length }}
+            </Badge>
+          </h2>
+          <div class="flex min-h-16 flex-col gap-2">
+            <Card
+              v-for="task in byStatus(status)" :key="task.id"
+              draggable="true"
+              class="cursor-grab gap-0 py-0 touch-none active:cursor-grabbing"
+              :class="draggingTaskId === task.id ? 'opacity-50' : ''"
+              role="button"
+              tabindex="0"
+              :aria-label="`${task.title} — ${t(`tasks.status.${status}`)}`"
+              @click="openDetail(task)"
+              @keydown.enter="openDetail(task)"
+              @dragstart="onDragStart(task, $event)"
+              @dragend="onDragEnd"
+            >
+              <CardContent class="flex flex-col gap-2 p-3">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="text-sm font-medium">
+                    {{ task.title }}
+                  </p>
+                  <Badge
+                    v-if="(sessionCountByTask[task.id] ?? 0) > 0"
+                    variant="outline"
+                    class="shrink-0 gap-1 px-1.5 text-[11px] font-normal text-muted-foreground"
+                    :aria-label="t('tasks.detail.sessions.countAria', { count: sessionCountByTask[task.id] })"
+                  >
+                    <History class="size-3" aria-hidden="true" />
+                    {{ sessionCountByTask[task.id] }}
+                  </Badge>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <EmptyState v-if="!loading && filtered.length === 0" :title="t('tasks.empty')" class="m-4" />
-      </CardContent>
-    </Card>
+                <p class="text-xs text-muted-foreground">
+                  {{ projectName(task.project) }}
+                </p>
+                <div class="flex items-center justify-between text-xs tabular-nums text-muted-foreground">
+                  <span>{{ formatDuration(totalsByTask[task.id]?.workMs ?? 0) }}</span>
+                  <span>{{ formatCost(totalsByTask[task.id]?.cost ?? 0) }}</span>
+                </div>
+                <Button v-if="status !== 'done'" size="sm" variant="outline" class="self-start" @click.stop="advance(task)">
+                  {{ t('tasks.moveTo') }}: {{ t(`tasks.status.${statuses[statuses.indexOf(status) + 1]}`) }}
+                  <ArrowRight class="size-3.5" />
+                </Button>
+              </CardContent>
+            </Card>
+            <EmptyState v-if="byStatus(status).length === 0" :title="t('tasks.empty')" />
+          </div>
+        </div>
+      </div>
 
-    <Sheet v-model:open="detailOpen">
-      <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
-        <TaskDetailSheet
-          v-if="detailTask"
-          ref="detailSheet"
-          :task="detailTask"
-          :project-name="projectName(detailTask.project)"
-          :sessions="detailSessions"
-          :sessions-loading="detailSessionsLoading"
-          @edit="onDetailEdit"
-        />
-      </SheetContent>
-    </Sheet>
+      <Card v-else>
+        <CardContent class="p-0">
+          <table class="w-full text-sm">
+            <thead class="border-b border-border text-left text-xs text-muted-foreground">
+              <tr>
+                <th class="p-3">
+                  {{ t('common.name') }}
+                </th>
+                <th class="p-3">
+                  {{ t('common.project') }}
+                </th>
+                <th class="p-3">
+                  {{ t('common.status') }}
+                </th>
+                <th class="p-3 text-right">
+                  {{ t('tasks.time') }}
+                </th>
+                <th class="p-3 text-right">
+                  {{ t('tasks.cost') }}
+                </th>
+                <th class="p-3 text-right">
+                  {{ t('common.actions') }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="task in filtered" :key="task.id" class="border-b border-border">
+                <td class="p-3 font-medium">
+                  {{ task.title }}
+                </td>
+                <td class="p-3 text-muted-foreground">
+                  {{ projectName(task.project) }}
+                </td>
+                <td class="p-3">
+                  <Badge variant="outline">
+                    {{ t(`tasks.status.${task.status}`) }}
+                  </Badge>
+                </td>
+                <td class="p-3 text-right tabular-nums">
+                  {{ formatDuration(totalsByTask[task.id]?.workMs ?? 0) }}
+                </td>
+                <td class="p-3 text-right tabular-nums">
+                  {{ formatCost(totalsByTask[task.id]?.cost ?? 0) }}
+                </td>
+                <td class="p-3 text-right">
+                  <RowActions
+                    :actions="[
+                      { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(task) },
+                      { icon: Trash2, label: t('common.delete'), onClick: () => onDelete(task), destructive: true },
+                    ]"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <EmptyState v-if="!loading && filtered.length === 0" :title="t('tasks.empty')" class="m-4" />
+        </CardContent>
+      </Card>
 
-    <Dialog v-model:open="dialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ editing ? t('tasks.edit') : t('tasks.new') }}</DialogTitle>
-        </DialogHeader>
-        <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <div class="flex flex-col gap-1.5">
-            <Label for="t-title">{{ t('common.name') }}</Label>
-            <Input id="t-title" v-model="form.title" required />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label>{{ t('common.project') }}</Label>
-            <Select v-model="form.project" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label>{{ t('common.status') }}</Label>
-            <Select v-model="form.status" :options="statuses.map(s => ({ value: s, label: t(`tasks.status.${s}`) }))" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label for="t-ref">{{ t('common.externalRef') }}</Label>
-            <Input id="t-ref" v-model="form.external_ref" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label for="t-desc">{{ t('common.description') }}</Label>
-            <Textarea id="t-desc" v-model="form.description" />
-          </div>
-          <DialogFooter class="justify-between sm:justify-between">
-            <Button v-if="editing" type="button" variant="ghost" class="text-destructive" @click="onDelete(editing); dialogOpen = false">
-              <Trash2 class="size-4" />
-              {{ t('common.delete') }}
-            </Button>
-            <Button type="submit">
-              {{ t('common.save') }}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  </div>
+      <Sheet v-model:open="detailOpen">
+        <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
+          <TaskDetailSheet
+            v-if="detailTask"
+            ref="detailSheet"
+            :task="detailTask"
+            :project-name="projectName(detailTask.project)"
+            :sessions="detailSessions"
+            :sessions-loading="detailSessionsLoading"
+            @edit="onDetailEdit"
+          />
+        </SheetContent>
+      </Sheet>
+
+      <Dialog v-model:open="dialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{{ editing ? t('tasks.edit') : t('tasks.new') }}</DialogTitle>
+          </DialogHeader>
+          <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
+            <div class="flex flex-col gap-1.5">
+              <Label for="t-title">{{ t('common.name') }}</Label>
+              <Input id="t-title" v-model="form.title" required />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label>{{ t('common.project') }}</Label>
+              <Select v-model="form.project" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label>{{ t('common.status') }}</Label>
+              <Select v-model="form.status" :options="statuses.map(s => ({ value: s, label: t(`tasks.status.${s}`) }))" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label for="t-ref">{{ t('common.externalRef') }}</Label>
+              <Input id="t-ref" v-model="form.external_ref" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <Label for="t-desc">{{ t('common.description') }}</Label>
+              <Textarea id="t-desc" v-model="form.description" />
+            </div>
+            <DialogFooter class="justify-between sm:justify-between">
+              <Button v-if="editing" type="button" variant="ghost" class="text-destructive" @click="onDelete(editing); dialogOpen = false">
+                <Trash2 class="size-4" />
+                {{ t('common.delete') }}
+              </Button>
+              <Button type="submit">
+                {{ t('common.save') }}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  </TooltipProvider>
 </template>
