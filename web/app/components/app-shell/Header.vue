@@ -35,7 +35,7 @@ async function onLogout() {
 </script>
 
 <template>
-  <header class="sticky top-0 z-30 flex h-[4.5rem] items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
+  <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
     <button class="rounded-md p-2 hover:bg-accent md:hidden" @click="emit('openMobileNav')">
       <Menu class="size-5" />
     </button>
