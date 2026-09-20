@@ -73,5 +73,6 @@ docs/
   proposal.md     the design doc (copy, kept in sync manually)
   contract.md     the API contract for the kankaku sync client
 scripts/          pb-download.sh, dev.sh, create-dev-accounts.sh
-web/              (later, not built here) Nuxt dashboard, served from pb_public
+web/              Nuxt 4 SPA dashboard (pnpm, Tailwind v4, shadcn-vue), served from PocketBase publicDir
+docs/             documentation system: specs, ADRs, phases, runbooks (start at docs/README.md)
 ```

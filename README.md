@@ -3,8 +3,8 @@
 PocketBase backend for [kankaku](../kankaku), a pi extension that measures
 AI agent work time and token cost. This repo receives consolidated task
 rows from kankaku's sync client, holds the canonical catalog of
-clients/projects/tasks, and (later, in `./web`, not part of this repo yet)
-serves a small Nuxt dashboard.
+clients/projects/tasks, and serves the Nuxt dashboard in `./web` as a static
+build from the same PocketBase process.
 
 Full design: [`docs/proposal.md`](docs/proposal.md).
 
@@ -29,7 +29,8 @@ docs/
   proposal.md     the design doc this repo implements
   contract.md     the exact API contract for the kankaku sync client
 scripts/          pb-download.sh, dev.sh, create-dev-accounts.sh
-web/              (future) Nuxt dashboard, static-built and served by PocketBase
+web/              Nuxt 4 SPA dashboard, static-built and served by PocketBase
+docs/             specs, ADRs, phases, runbooks — start at docs/README.md
 ```
 
 ## Running locally
