@@ -12,6 +12,11 @@ const props = withDefaults(defineProps<{
   /** Whether a rise/drop in this KPI is good, bad, or neither. Defaults
    * to neutral (volume metrics: work time, tasks, tokens...). */
   polarity?: MetricPolarity
+  /** Comparison label, e.g. "vs. previous period". Plain string (not a
+   * slot) so it can double as the delta line's accessible name — on
+   * narrow screens only the arrow + percentage show visually, but the
+   * full text stays available to assistive tech via title/aria-label. */
+  vsLabel?: string
 }>(), {
   polarity: 'neutral',
 })
@@ -19,6 +24,13 @@ const props = withDefaults(defineProps<{
 const delta = computed(() => {
   if (props.previousValue === undefined || props.currentValue === undefined) return null
   return formatDelta(props.currentValue, props.previousValue)
+})
+
+/** Full accessible text for the delta line, always including the
+ * comparison label even when it's visually hidden below `sm`. */
+const deltaAccessibleText = computed(() => {
+  if (!delta.value) return undefined
+  return props.vsLabel ? `${delta.value} ${props.vsLabel}` : delta.value
 })
 
 const direction = computed(() => {
@@ -44,7 +56,7 @@ const arrowIcon = computed(() => direction.value === 'up' ? ArrowUp : direction.
 <template>
   <Card class="min-w-0">
     <CardHeader class="pb-1">
-      <CardTitle class="truncate" :title="title">
+      <CardTitle class="line-clamp-2 min-h-10 text-sm leading-snug font-semibold" :title="title">
         {{ title }}
       </CardTitle>
     </CardHeader>
@@ -52,11 +64,18 @@ const arrowIcon = computed(() => direction.value === 'up' ? ArrowUp : direction.
       <p data-testid="kpi-value" class="truncate text-xl font-semibold tabular-nums sm:text-2xl" :title="value">
         {{ value }}
       </p>
-      <p v-if="delta" class="mt-1 flex min-w-0 items-center gap-1 whitespace-nowrap text-xs tabular-nums" :class="toneClass">
+      <p
+        v-if="delta"
+        data-testid="kpi-delta"
+        class="mt-1 flex min-w-0 items-center gap-1 whitespace-nowrap text-xs tabular-nums"
+        :class="toneClass"
+        :title="deltaAccessibleText"
+        :aria-label="deltaAccessibleText"
+      >
         <component :is="arrowIcon" class="size-3 shrink-0" aria-hidden="true" />
         <span class="shrink-0">{{ delta }}</span>
-        <span class="truncate text-muted-foreground">
-          <slot name="vsLabel" />
+        <span v-if="vsLabel" class="hidden truncate text-muted-foreground sm:inline" aria-hidden="true">
+          {{ vsLabel }}
         </span>
       </p>
     </CardContent>

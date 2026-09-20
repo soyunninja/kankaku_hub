@@ -86,6 +86,7 @@ const trendPoints = computed(() => {
           :series-keys="['total']"
           :series-labels="{ total: t('dashboard.kpi.workTime') }"
           :format-value="formatDuration"
+          :tick-unit="3_600_000"
         />
         <p v-else class="py-10 text-center text-sm text-muted-foreground">
           {{ t('dashboard.noData') }}
@@ -93,7 +94,7 @@ const trendPoints = computed(() => {
       </CardContent>
     </Card>
 
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader><CardTitle class="text-sm font-medium text-foreground">
           {{ t('projects.detail.tasksTitle') }}
