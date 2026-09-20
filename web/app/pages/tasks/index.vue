@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ArrowRight, Plus, Trash2 } from '@lucide/vue'
+import { ArrowRight, History, Plus, Trash2 } from '@lucide/vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import TaskDetailSheet from '@/components/tasks/TaskDetailSheet.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,10 +9,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { groupByKey } from '@/lib/aggregate'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
+import type { SessionSummary } from '@/lib/session-aggregate'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('tasks.title')) })
@@ -20,17 +23,34 @@ const { formatCost, formatDuration } = useFormatters()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, loading, ensureLoaded, create, update, remove, setStatus, moveStatus } = useTasks()
 const { fetchAll } = useTaskEntries()
+const { fetchSessionsForTask } = useSessions()
 const toast = useToast()
 
 const filterProject = ref('')
 const view = ref<'board' | 'list'>('board')
 const totalsByTask = ref<Record<string, { cost: number, workMs: number }>>({})
+/** Distinct session count per task, for the board card's session chip
+ * (Task 2). Perf choice: derived from the same `fetchAll()` call the
+ * board already makes for `totalsByTask` — one grouping pass over
+ * already-fetched entries, not a second network round-trip and not a
+ * per-card `fetchSessionsForTask` call (that composable is reserved for
+ * the detail sheet, opened lazily per task). */
+const sessionCountByTask = ref<Record<string, number>>({})
 
 onMounted(async () => {
   await Promise.all([ensureProjects(), ensureLoaded()])
   const entries = await fetchAll()
   const grouped = groupByKey(entries.filter(e => e.task), e => e.task!)
   totalsByTask.value = Object.fromEntries(grouped.map(g => [g.key, { cost: g.cost, workMs: g.workMs }]))
+
+  const sessionsByTask = new Map<string, Set<string>>()
+  for (const e of entries) {
+    if (!e.task || !e.session_id) continue
+    const set = sessionsByTask.get(e.task) ?? new Set<string>()
+    set.add(e.session_id)
+    sessionsByTask.set(e.task, set)
+  }
+  sessionCountByTask.value = Object.fromEntries([...sessionsByTask].map(([taskId, ids]) => [taskId, ids.size]))
 })
 
 function projectName(id: string) {
@@ -91,6 +111,43 @@ async function onColumnDrop(status: TaskStatus, event: DragEvent) {
   catch {
     toast.error(t('common.error'))
   }
+}
+
+// Detail sheet — a board card's click/Enter opens this (view-only: title,
+// project, status, sessions) instead of jumping straight into the edit
+// dialog. The sheet's own "Edit" button routes back to the existing
+// edit dialog via openEdit, so editing still works exactly as before.
+const detailOpen = ref(false)
+const detailTask = ref<TaskRecord | null>(null)
+const detailSessions = ref<SessionSummary[]>([])
+const detailSessionsLoading = ref(false)
+
+async function openDetail(task: TaskRecord) {
+  detailTask.value = task
+  detailOpen.value = true
+  detailSessionsLoading.value = true
+  try {
+    detailSessions.value = await fetchSessionsForTask(task.id)
+  }
+  finally {
+    detailSessionsLoading.value = false
+  }
+}
+
+function onDetailEdit() {
+  const task = detailTask.value
+  if (!task) return
+  detailOpen.value = false
+  openEdit(task)
+}
+
+// Same auto-focus override as entries/index.vue's EntryDetailSheet: the
+// sheet's default initial-focus target is its first focusable element
+// (the "Edit" button) — send it to the title instead.
+const detailSheet = ref<InstanceType<typeof TaskDetailSheet> | null>(null)
+function onDetailOpenAutoFocus(event: Event) {
+  event.preventDefault()
+  nextTick(() => detailSheet.value?.focusTitle())
 }
 
 const dialogOpen = ref(false)
@@ -194,15 +251,26 @@ async function onDelete(task: TaskRecord) {
             role="button"
             tabindex="0"
             :aria-label="`${task.title} — ${t(`tasks.status.${status}`)}`"
-            @click="openEdit(task)"
-            @keydown.enter="openEdit(task)"
+            @click="openDetail(task)"
+            @keydown.enter="openDetail(task)"
             @dragstart="onDragStart(task, $event)"
             @dragend="onDragEnd"
           >
             <CardContent class="flex flex-col gap-2 p-3">
-              <p class="text-sm font-medium">
-                {{ task.title }}
-              </p>
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-sm font-medium">
+                  {{ task.title }}
+                </p>
+                <Badge
+                  v-if="(sessionCountByTask[task.id] ?? 0) > 0"
+                  variant="outline"
+                  class="shrink-0 gap-1 px-1.5 text-[11px] font-normal text-muted-foreground"
+                  :aria-label="t('tasks.detail.sessions.countAria', { count: sessionCountByTask[task.id] })"
+                >
+                  <History class="size-3" aria-hidden="true" />
+                  {{ sessionCountByTask[task.id] }}
+                </Badge>
+              </div>
               <p class="text-xs text-muted-foreground">
                 {{ projectName(task.project) }}
               </p>
@@ -281,6 +349,20 @@ async function onDelete(task: TaskRecord) {
         <EmptyState v-if="!loading && filtered.length === 0" :title="t('tasks.empty')" class="m-4" />
       </CardContent>
     </Card>
+
+    <Sheet v-model:open="detailOpen">
+      <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
+        <TaskDetailSheet
+          v-if="detailTask"
+          ref="detailSheet"
+          :task="detailTask"
+          :project-name="projectName(detailTask.project)"
+          :sessions="detailSessions"
+          :sessions-loading="detailSessionsLoading"
+          @edit="onDetailEdit"
+        />
+      </SheetContent>
+    </Sheet>
 
     <Dialog v-model:open="dialogOpen">
       <DialogContent>

@@ -71,6 +71,9 @@ translation.
 | Límite superior (upper bound) | Upper bound | 上限値 | native term, used when `work_ms` is not a true measurement |
 | Estimado | Estimated | 概算 | native term, for `cost_quality: "estimated"` |
 | Enlazado / sin enlazar (subagent linkage) | Linked / unlinked | 紐づけ済み / 未紐づけ | native term ("linked/tied together"), for `subagent_linkage` |
+| Agente | Agent | エージェント | established loanword, the AI agent that ran a session (`entry.agent` / `SessionSummary.agent`, e.g. `"pi"`) |
+| Mixto | Mixed | 混在 | native term, for the `MIXED` sentinel (`app/lib/session-aggregate.ts`) shown when a session's entries disagree on a field (client/project/task/agent) |
+| Primera actividad / Última actividad | First activity / Last activity | 最初のアクティビティ / 最新のアクティビティ | native term, a session's earliest/most-recent `task_entries.started_at` (`SessionSummary.firstActivity`/`lastActivity`) |
 
 ## Conventions applied throughout `ja.json`
 

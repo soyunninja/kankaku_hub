@@ -184,7 +184,24 @@
     "empty": "No hay tareas.",
     "cost": "Coste IA",
     "time": "Tiempo IA",
-    "moveTo": "Mover a"
+    "moveTo": "Mover a",
+    "detail": {
+      "sessions": {
+        "title": "Sesiones",
+        "empty": "Aún no hay sesiones.",
+        "entries": "Registros",
+        "firstActivity": "Primera actividad",
+        "lastActivity": "Última actividad",
+        "machine": "Máquina",
+        "agent": "Agente",
+        "agentMixed": "Mixto",
+        "nameFallback": "Sesión sin nombre",
+        "countAria": "{count} sesiones",
+        "resume": {
+          "unsupportedAgent": "Reanudar sesión aún no es compatible con este agente."
+        }
+      }
+    }
   },
   "unassigned": {
     "title": "Sin determinar",

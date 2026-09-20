@@ -184,7 +184,24 @@
     "empty": "タスクはありません。",
     "cost": "AIコスト",
     "time": "AI時間",
-    "moveTo": "移動先"
+    "moveTo": "移動先",
+    "detail": {
+      "sessions": {
+        "title": "セッション",
+        "empty": "まだセッションがありません。",
+        "entries": "エントリー",
+        "firstActivity": "最初のアクティビティ",
+        "lastActivity": "最新のアクティビティ",
+        "machine": "マシン",
+        "agent": "エージェント",
+        "agentMixed": "混在",
+        "nameFallback": "名前のないセッション",
+        "countAria": "{count}件のセッション",
+        "resume": {
+          "unsupportedAgent": "このエージェントではセッションの再開にまだ対応していません。"
+        }
+      }
+    }
   },
   "unassigned": {
     "title": "未割り当て",

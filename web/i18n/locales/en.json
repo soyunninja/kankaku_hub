@@ -184,7 +184,24 @@
     "empty": "No tasks.",
     "cost": "AI cost",
     "time": "AI time",
-    "moveTo": "Move to"
+    "moveTo": "Move to",
+    "detail": {
+      "sessions": {
+        "title": "Sessions",
+        "empty": "No sessions yet.",
+        "entries": "Entries",
+        "firstActivity": "First activity",
+        "lastActivity": "Last activity",
+        "machine": "Machine",
+        "agent": "Agent",
+        "agentMixed": "Mixed",
+        "nameFallback": "Unnamed session",
+        "countAria": "{count} sessions",
+        "resume": {
+          "unsupportedAgent": "Resuming a session isn't supported for this agent yet."
+        }
+      }
+    }
   },
   "unassigned": {
     "title": "Sin determinar",
