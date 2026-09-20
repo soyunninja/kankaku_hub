@@ -1,5 +1,7 @@
 import type { ClientRecord } from '~/lib/pocketbase-types'
 
+export type ClientContactFields = Pick<ClientRecord, 'website' | 'contact_email' | 'contact_phone' | 'notes'>
+
 /** Clients catalog: small collection, fetched in full and cached in a
  * shared useState (refresh() re-fetches; components call it after
  * create/update/archive). */
@@ -25,13 +27,13 @@ export function useClients() {
     if (!loaded.value && !loading.value) await refresh()
   }
 
-  async function create(data: { name: string, code: string, active: boolean, unassigned: boolean }) {
+  async function create(data: { name: string, code: string, active: boolean, unassigned: boolean } & Partial<ClientContactFields>) {
     const record = await $pb.collection('clients').create<ClientRecord>(data)
     await refresh()
     return record
   }
 
-  async function update(id: string, data: Partial<Pick<ClientRecord, 'name' | 'code' | 'active'>>) {
+  async function update(id: string, data: Partial<Pick<ClientRecord, 'name' | 'code' | 'active'> & ClientContactFields>) {
     const record = await $pb.collection('clients').update<ClientRecord>(id, data)
     await refresh()
     return record

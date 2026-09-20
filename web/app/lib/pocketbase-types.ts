@@ -10,6 +10,14 @@ export interface ClientRecord {
   code: string
   active: boolean
   unassigned: boolean
+  /** Optional — PocketBase `url` field, empty string when unset. */
+  website: string
+  /** Optional — PocketBase `email` field, empty string when unset. */
+  contact_email: string
+  /** Optional — free-form phone number, empty string when unset. */
+  contact_phone: string
+  /** Optional — free-form multi-line text, empty string when unset. */
+  notes: string
   created: string
   updated: string
 }

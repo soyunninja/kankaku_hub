@@ -119,7 +119,27 @@
     "totalCost": "Coste total",
     "totalTime": "Tiempo de trabajo",
     "empty": "Todavía no hay clientes.",
-    "codeHint": "Identificador corto y único, p. ej. \"cajamar\"."
+    "codeHint": "Identificador corto y único, p. ej. \"cajamar\".",
+    "website": "Web",
+    "contact": "Contacto",
+    "contactEmail": "Email de contacto",
+    "contactPhone": "Teléfono de contacto",
+    "notes": "Notas",
+    "notesHint": "Solo visible en el detalle del cliente, nunca en la tabla.",
+    "hasNotes": "Tiene notas",
+    "invalidWebsite": "Introduce una URL válida (ej. https://ejemplo.com).",
+    "invalidEmail": "Introduce un email válido.",
+    "migrationPending": "Los campos de contacto no se han guardado: falta aplicar la migración de la base de datos (reinicia el servidor).",
+    "viewDetail": "Ver detalle",
+    "detail": {
+      "contactTitle": "Contacto",
+      "noWebsite": "Sin web",
+      "noContactEmail": "Sin email de contacto",
+      "noContactPhone": "Sin teléfono de contacto",
+      "noNotes": "Sin notas",
+      "projectsTitle": "Proyectos",
+      "noProjects": "Sin proyectos"
+    }
   },
   "projects": {
     "title": "Proyectos",

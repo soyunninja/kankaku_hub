@@ -119,7 +119,27 @@
     "totalCost": "Total cost",
     "totalTime": "Work time",
     "empty": "No clients yet.",
-    "codeHint": "Short, unique identifier, e.g. \"cajamar\"."
+    "codeHint": "Short, unique identifier, e.g. \"cajamar\".",
+    "website": "Website",
+    "contact": "Contact",
+    "contactEmail": "Contact email",
+    "contactPhone": "Contact phone",
+    "notes": "Notes",
+    "notesHint": "Only shown in the client's detail view, never in the table.",
+    "hasNotes": "Has notes",
+    "invalidWebsite": "Enter a valid URL (e.g. https://example.com).",
+    "invalidEmail": "Enter a valid email.",
+    "migrationPending": "Contact fields were not saved: the database migration hasn't been applied yet (restart the server).",
+    "viewDetail": "View detail",
+    "detail": {
+      "contactTitle": "Contact",
+      "noWebsite": "No website",
+      "noContactEmail": "No contact email",
+      "noContactPhone": "No contact phone",
+      "noNotes": "No notes",
+      "projectsTitle": "Projects",
+      "noProjects": "No projects"
+    }
   },
   "projects": {
     "title": "Projects",
