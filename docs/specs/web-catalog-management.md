@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0001](../adr/0001-identity-is-an-id-not-a-name.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md) |
-| Code | `web/app/pages/clients/index.vue`, `web/app/pages/projects/index.vue`, `web/app/pages/projects/[id].vue`, `web/app/composables/useClients.ts`, `web/app/composables/useProjects.ts`, `web/app/lib/client-contact.ts`, `pocketbase/pb_migrations/1758300011_clients_contact_fields.js` |
-| Tests | `web/e2e/smoke.spec.ts`, `web/e2e/client-contact.spec.ts`, `web/tests/client-contact.test.ts` |
+| Code | `web/app/pages/clients/index.vue`, `web/app/pages/projects/index.vue`, `web/app/pages/projects/[id].vue`, `web/app/composables/useClients.ts`, `web/app/composables/useProjects.ts`, `web/app/lib/client-contact.ts`, `web/app/components/clients/ClientAvatar.vue`, `web/app/components/clients/ClientName.vue`, `pocketbase/pb_migrations/1758300011_clients_contact_fields.js` |
+| Tests | `web/e2e/smoke.spec.ts`, `web/e2e/client-contact.spec.ts`, `web/e2e/client-avatars.spec.ts`, `web/tests/client-contact.test.ts` |
 
 ## Purpose
 
@@ -51,6 +51,27 @@ for silent auto-selection.
    applied the contact-fields migration: missing fields read as empty
    rather than crashing, and a save that silently drops them SHALL surface
    a clear error instead of a false "saved" confirmation.
+10. `CATMGMT-REQ-010` — Every place a client's name is displayed across
+    the app (the clients list, its detail sheet, the dashboard's client
+    breakdown and stacked-chart legend, projects list/detail, entries
+    list, the unassigned queue's suggestion hint, and the command
+    palette's client results) SHALL render it through the shared
+    `ClientName`/`ClientAvatar` pair — see
+    [`client-favicons.md`](client-favicons.md) for the avatar's own
+    requirements. A native `<select>`'s option rows are the one
+    documented exception (see that spec's "Out of scope").
+11. `CATMGMT-REQ-011` — The client detail sheet's header SHALL show the
+    active/inactive status badge on the same line as the client's name
+    (to the right of it, vertically centered, never wrapping under the
+    name or colliding with the sheet's close button), with the client's
+    `code` on the line below.
+
+## Amendments (client favicons)
+
+Requirements `CATMGMT-REQ-010`/`011` were added when
+[`client-favicons.md`](client-favicons.md) landed — that spec owns the
+avatar/favicon-refresh behavior itself; this one only owns *where* a
+client name is shown and the detail sheet's header layout.
 
 ## Scenarios
 
@@ -108,6 +129,12 @@ for silent auto-selection.
 - **When** the owner fills in any of the four contact fields and saves
 - **Then** PocketBase accepts the request and silently drops the unknown fields (verified against a real pre-migration instance), and the UI detects the drop and shows an error toast instead of the normal "saved" confirmation
 
+### Scenario: the status badge sits beside the name in the detail sheet (`CATMGMT-REQ-011`)
+
+- **Given** the owner opens any client's detail sheet
+- **When** the header renders
+- **Then** the avatar, name and status badge share one line (the name truncating rather than pushing the badge off-screen or under the sheet's close button), with the client's code on the line below
+
 ## Configuration
 
 None beyond the shared PocketBase connection.
@@ -141,3 +168,5 @@ None beyond the shared PocketBase connection.
 | `CATMGMT-REQ-007` | `web/tests/client-contact.test.ts` (`isSafeLinkUrl`), `web/e2e/client-contact.spec.ts` ("creating...", "no horizontal page overflow", "row actions...visible") | covered |
 | `CATMGMT-REQ-008` | `web/e2e/client-contact.spec.ts` ("creating..." — notes line-break assertion) | covered |
 | `CATMGMT-REQ-009` | manual verification against a genuinely pre-migration PocketBase instance (recorded in `ESTADO.md`); no automated test (would require serving two schema states in one Playwright run) | partially covered |
+| `CATMGMT-REQ-010` | `web/e2e/client-avatars.spec.ts` ("client avatars render across the app") | covered |
+| `CATMGMT-REQ-011` | `web/e2e/client-avatars.spec.ts` ("client detail sheet header layout") | covered |

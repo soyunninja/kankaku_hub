@@ -28,8 +28,16 @@ Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 > 0019](docs/adr/0019-hub-fetches-and-stores-client-favicons.md) para el
 > porqué (nunca un servicio externo de favicons, nunca hotlinking directo
 > a la web del cliente — siempre PocketBase descargando una vez, bajo
-> acción explícita). El botón en la pantalla de gestión de clientes que
-> llama a esta ruta lo añade la parte web (agente aparte).
+> acción explícita). **La parte web ya está hecha**: cada pantalla que
+> muestra un cliente (lista, panel de detalle, dashboard, proyectos,
+> registros, cola de "Sin determinar", paleta de comandos) muestra ahora
+> su favicon o, si no hay, sus iniciales sobre un color determinista. Tras
+> reiniciar, los clientes existentes con `website` no tendrán icono
+> todavía (nunca se buscó uno) — abre un cliente y pulsa el botón de
+> "Actualizar icono" del panel de detalle (o simplemente vuelve a
+> guardarlo sin cambiar nada más y luego edítalo de verdad) para
+> buscárselo. Ver
+> [`docs/specs/client-favicons.md`](docs/specs/client-favicons.md).
 
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
@@ -369,6 +377,77 @@ otra instalación de pnpm. `components.json` ya existía y es válido
   eje Y legible, sidebar a altura completa en páginas largas (tablero de
   tareas), cabeceras en español, insignia "Activo" con la variante
   `success` añadida al badge oficial.
+
+### Avatares de favicon de clientes — parte web (2026-09-20)
+
+Wire-up en el frontend del backend de favicons ya existente (migración
+`1758300012` + `pocketbase/pb_hooks/favicon.pb.js`, ver más abajo y
+[`docs/specs/client-favicons.md`](docs/specs/client-favicons.md)):
+
+- Nuevos `app/components/clients/ClientAvatar.vue` (favicon o iniciales
+  deterministas sobre un color derivado del `id` del cliente, tomado de
+  la misma paleta `--chart-1..5` que ya usan los gráficos — nunca inventa
+  colores nuevos) y `ClientName.vue` (avatar + nombre, truncando el
+  nombre sin encoger nunca el avatar). Helpers puros en
+  `app/lib/client-avatar.ts` (iniciales, hash determinista de color,
+  contraste WCAG AA **calculado** de verdad — conversión oklch → sRGB
+  lineal → luminancia relativa, no solo afirmado — contra las 10
+  variantes claro/oscuro de la paleta, y el builder de URL con
+  cache-busting por `updated`), con tests en
+  `web/tests/client-avatar.test.ts` (20 tests).
+- Cableado en las 9 pantallas/componentes que muestran un nombre de
+  cliente: lista de clientes + panel de detalle, tabla "Por cliente" y
+  "Entradas más costosas" del dashboard, leyenda del gráfico apilado
+  cuando se agrupa por cliente, lista de proyectos y detalle de proyecto,
+  explorador de registros, pista de sugerencia de la cola de "Sin
+  determinar", y resultados de cliente en la paleta de comandos. El
+  `<select>` nativo hecho a mano (ver "Pendiente / a decidir" arriba) no
+  puede mostrar un avatar dentro de una `<option>` en ningún navegador —
+  documentado como límite deliberado, no como hueco, en
+  `docs/specs/client-favicons.md` ("Out of scope"). La pantalla de tareas
+  no muestra cliente en absoluto (solo proyecto), así que no aplica.
+- Botón "Actualizar icono" (solo dueño, oculto para "Sin determinar") en
+  el panel de detalle: spinner mientras está en curso, toast con el
+  resultado en texto llano (éxito o los seis motivos de fallo) en
+  es/en. Guardar un cliente con `website` cambiado dispara el mismo
+  fetch en segundo plano (nunca esperado antes de cerrar el diálogo,
+  nunca para "Sin determinar").
+- Arreglo de foco de la ficha lateral: el enlace a la web pasa a
+  `inline-flex` (el anillo de foco ya no pinta todo el ancho de la
+  ficha) y el foco inicial al abrir se redirige al título de la ficha
+  (`tabindex="-1"`, vía el evento `open-auto-focus` de reka-ui) en vez de
+  caer en ese enlace — el tabulado manual normal sigue llegando a todo
+  igual. El drawer de detalle de registros no tiene ese mismo patrón de
+  enlace (verificado, no aplica).
+- Cambio de maquetación no pedido originalmente pero encajado en el
+  mismo trabajo: la insignia Activo/Inactivo del panel de detalle pasa a
+  la misma línea que el nombre (antes iba debajo del código), con
+  `pr-8` para no chocar con el botón de cerrar.
+
+**Verificación**: `pnpm lint` 0 errores (mismos avisos preexistentes de
+siempre), `pnpm typecheck` verde, `pnpm test` **141/141 tests en verde**
+(121 previos + 20 de `client-avatar.test.ts`), `pnpm generate` verde.
+`pnpm test:e2e` completo (**63/63 specs en verde**, incluido el nuevo
+`e2e/client-avatars.spec.ts`) contra una copia aislada completa de
+`web/` (para evitar el candado de `nuxt dev` sobre `.nuxt` que impide dos
+`nuxt dev` sobre el mismo directorio) + copia de `pb_data` en el puerto
+8092 con `KANKAKU_FAVICON_ALLOW_PRIVATE=1` + un servidor de fixture local
+(puerto 8099, favicon real de 1×1 px) para que los resultados
+`ok`/`fetch_failed` del botón de refresco sean deterministas — nunca se
+tocó el proceso del dueño en 8090/3000 (confirmado antes y después).
+
+**Defecto preexistente corregido de paso**: `e2e/polish.spec.ts` llamaba
+a la API de PocketBase con rutas relativas (`request.post('/api/...')`),
+resueltas por Playwright contra `baseURL` — la web, no PocketBase. En
+`npm run dev:all` (dos procesos, web en :3000 y PocketBase en :8090) eso
+apunta al origen equivocado; en `npm run dev` (un proceso, PocketBase
+sirve ambos) coincidían por casualidad y el bug quedaba oculto. Arreglo:
+nuevos `apiLogin`/`findClients`/`pbUrl`/`pbOrigin` en `e2e/helpers.ts`
+(mismo criterio de resolución que `app/plugins/pocketbase.client.ts`:
+`NUXT_PUBLIC_PB_URL` si está definida, si no `http://127.0.0.1:8090`),
+usados ahora por todas las llamadas directas a la API de `polish.spec.ts`.
+Verificado precisamente en el modo donde antes fallaba (`nuxt dev`,
+web y PocketBase en puertos distintos): las 63 specs en verde.
 
 ## kankaku-hub (parte PocketBase)
 

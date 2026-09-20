@@ -19,6 +19,7 @@ configuration, edge cases, out-of-scope, and a traceability table to tests.
 | Web auth and shell | kankaku-hub | phase-3 | implemented | [web-auth-and-shell.md](web-auth-and-shell.md) |
 | Web dashboard | kankaku-hub | phase-3 | implemented | [web-dashboard.md](web-dashboard.md) |
 | Web catalog management | kankaku-hub | phase-3 | implemented | [web-catalog-management.md](web-catalog-management.md) |
+| Client favicons | kankaku-hub | phase-3 | implemented | [client-favicons.md](client-favicons.md) |
 | Web tasks | kankaku-hub | phase-3 | implemented | [web-tasks.md](web-tasks.md) |
 | Web unassigned queue | kankaku-hub | phase-3 | implemented | [web-unassigned-queue.md](web-unassigned-queue.md) |
 | Web entries explorer | kankaku-hub | phase-3 | implemented | [web-entries-explorer.md](web-entries-explorer.md) |

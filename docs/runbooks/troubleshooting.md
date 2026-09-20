@@ -121,6 +121,41 @@ client plugin using `window.location.origin` in production.
 `web/app/plugins/pocketbase.client.ts` still resolves to
 `window.location.origin` rather than a relative/empty base in production.
 
+## Icon not appearing
+
+**Symptom**: a client always shows its initials avatar, never its site's
+favicon, even after pressing the refresh-icon button in its detail sheet
+or saving a `website` change.
+
+**Why**: several independent, by-design reasons, roughly in likelihood
+order — see [`../specs/client-favicons.md`](../specs/client-favicons.md):
+
+1. The connected PocketBase instance hasn't applied
+   `1758300012_clients_favicon_fields.js` yet (the owner hasn't restarted
+   since this feature landed — see `ESTADO.md`). `favicon` reads as
+   `undefined`, which `ClientAvatar` treats the same as no favicon: this
+   is the expected degrade-gracefully behavior, not a bug.
+2. The refresh actually ran and failed — check the toast it showed (or
+   `clients.favicon_checked_at`/`favicon_source` on the record via the
+   PocketBase Admin UI): `no_website` (nothing to fetch), `fetch_failed`,
+   `no_icon_found`, `unsupported_type`, `too_large`, or `blocked_host`
+   (the client's own site resolves to a private/loopback address — see
+   [`../architecture/hub-backend.md`](../architecture/hub-backend.md)).
+3. The client's `website` hasn't actually changed since the last save —
+   the automatic background refresh only fires on a real change (see
+   `FAVICON-REQ-009`); use the manual refresh-icon button to force a
+   retry without editing the field.
+4. The favicon *was* fetched, but the browser's request for the image
+   itself failed client-side (network hiccup, the file was deleted from
+   `pb_data/storage` out of band) — `ClientAvatar`'s `@error` handler
+   falls back to initials silently; a page reload re-attempts the same
+   URL (now cache-busted by `updated`, so it isn't served from a stale
+   browser cache entry either).
+
+**Fix**: restart `npm run dev:all` once if the migration/hook haven't
+been applied yet; otherwise open the client's detail sheet and press the
+refresh-icon button, then read the resulting toast for the actual reason.
+
 ## Related
 
 - [`local-development.md`](local-development.md), [`connect-kankaku-to-hub.md`](connect-kankaku-to-hub.md)
