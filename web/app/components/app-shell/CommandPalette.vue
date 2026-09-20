@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Boxes, ListTodo, Search, Users } from '@lucide/vue'
+import { Boxes, ListTodo, Search, Terminal, Users } from '@lucide/vue'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
@@ -22,9 +22,15 @@ watch(open, async (v) => {
 
 interface Entry { id: string, label: string, to: string, icon: typeof Users }
 
+/** Static, non-record pages reachable from the palette (in addition to the dynamic client/project/task entries below). */
+const pages = computed<Entry[]>(() => [
+  { id: 'page-commands', label: t('nav.commands'), to: '/commands', icon: Terminal },
+])
+
 const items = computed<Entry[]>(() => {
   const q = query.value.trim().toLowerCase()
   const all: Entry[] = [
+    ...pages.value,
     ...clients.value.map(c => ({ id: c.id, label: c.name, to: `/clients?highlight=${c.id}`, icon: Users })),
     ...projects.value.map(p => ({ id: p.id, label: p.name, to: `/projects/${p.id}`, icon: Boxes })),
     ...tasks.value.map(t2 => ({ id: t2.id, label: t2.title, to: `/tasks?highlight=${t2.id}`, icon: ListTodo })),

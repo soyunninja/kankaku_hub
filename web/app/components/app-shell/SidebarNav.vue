@@ -6,6 +6,7 @@ import {
   ListTodo,
   Search,
   Settings,
+  Terminal,
   Users,
 } from '@lucide/vue'
 
@@ -21,6 +22,7 @@ const nav = computed(() => [
   { to: '/tasks', label: t('nav.tasks'), icon: ListTodo },
   { to: '/unassigned', label: t('nav.unassigned'), icon: Inbox },
   { to: '/entries', label: t('nav.entries'), icon: Search },
+  { to: '/commands', label: t('nav.commands'), icon: Terminal },
   { to: '/settings', label: t('nav.settings'), icon: Settings },
 ])
 

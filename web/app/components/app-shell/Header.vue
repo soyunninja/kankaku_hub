@@ -18,6 +18,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   tasks: 'nav.tasks',
   unassigned: 'nav.unassigned',
   entries: 'nav.entries',
+  commands: 'nav.commands',
   settings: 'nav.settings',
 }
 

@@ -9,6 +9,7 @@
     "tasks": "Tasks",
     "unassigned": "Unassigned",
     "entries": "Entries",
+    "commands": "Commands",
     "settings": "Settings",
     "logout": "Log out"
   },
@@ -205,5 +206,160 @@
     "currencyNote": "All cost amounts are shown in US dollars (USD).",
     "schema": "Schema summary",
     "version": "Version"
+  },
+  "commands": {
+    "title": "Commands",
+    "subtitle": "Reference for every /kankaku subcommand inside pi.",
+    "intro": "\"/kankaku\" is a slash command inside pi (the coding agent), not something you run from this web app. Hub commands — the ones that need PocketBase — only show up once kankaku has a hub configured; everything else works with or without one.",
+    "filterPlaceholder": "Filter commands…",
+    "filterEmpty": "No command matches your search.",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "copyAria": "Copy \"{syntax}\" to clipboard",
+    "requiresHub": "Requires hub",
+    "relatedLink": "Go to {screen}",
+    "groups": {
+      "reports": "Reports",
+      "clientTarget": "Client & target",
+      "hub": "Hub",
+      "export": "Export"
+    },
+    "workflow": {
+      "title": "Typical workflow",
+      "firstRun": {
+        "title": "First run",
+        "body": "When pi starts in a new project and a hub is configured, kankaku asks for the client and project (with a skip option). Answering \"yes\" to \"remember for this repository?\" saves the choice in \"KANKAKU_DIR/config.json\", so it won't ask again."
+      },
+      "dailyUse": {
+        "title": "Daily use",
+        "body": "kankaku syncs on its own, without ever blocking a prompt: on session start and after each agent turn, throttled to at most once every 5 minutes (\"KANKAKU_SYNC_MIN_INTERVAL_MINUTES\"). New entries show up in this hub's dashboard without you doing anything."
+      },
+      "reassigning": {
+        "title": "Reassigning history",
+        "body": "Run \"/kankaku backfill\" to force a full sync and see how many old tasks landed in \"Sin determinar\". Reassign them from this web app's unassigned queue."
+      },
+      "keyRule": "Key rule: once you reassign a task in this web app, a later kankaku sync never undoes that reassignment — it only updates measurement fields (time, cost, status), never client or project."
+    },
+    "config": {
+      "title": "Configuration",
+      "envTitle": "Environment variables",
+      "envColumns": {
+        "name": "Variable",
+        "default": "Default",
+        "meaning": "Meaning"
+      },
+      "env": {
+        "dir": "Directory for the work log (`worklog.jsonl`) and crash-recovery checkpoints, relative to the project cwd unless given as an absolute path.",
+        "interactiveTools": "Comma-separated list of tool names whose execution span counts as waiting time.",
+        "segments": "\";\"-separated \"tag=tool:regex\" rules for tagged segments (defaults to the single \"review\" rule).",
+        "client": "Default billing client for this project; lower precedence than \"/kankaku client\", higher than the project's \"config.json\".",
+        "pbUrl": "PocketBase hub URL. Must be HTTPS unless it points at localhost/127.0.0.1/::1.",
+        "pbEmail": "Hub service-account email.",
+        "pbPassword": "Hub service-account password.",
+        "machine": "This machine's display name, attached to every record as \"machine\" once the hub is configured.",
+        "syncPrompt": "Prompt privacy for sync: \"none\" (omitted), \"truncated\" (first 120 characters), or \"full\".",
+        "syncWindowHours": "How many hours behind the sync watermark are re-evaluated on every run, to catch subagents that settle late.",
+        "syncRecords": "\"0\" disables uploading \"work_records\" (raw detail); \"task_entries\" are always uploaded.",
+        "syncAuto": "\"0\" disables the automatic \"session_start\"/\"agent_settled\" sync; \"/kankaku sync\" still works.",
+        "syncMinInterval": "Minimum minutes between automatic syncs; \"0\" disables the throttle. Never applies to a manual sync."
+      },
+      "credentialsTitle": "Credentials file",
+      "credentialsBody": "Instead of environment variables, kankaku also reads \"~/.kankaku/credentials.json\" (recommended \"chmod 600\"). Environment variables take precedence, field by field, over this file.",
+      "connectTitle": "Point kankaku at this hub",
+      "connectBody": "Copy and run this in the terminal where you use pi, replacing the password with the real service account's — never the owner account — ask whoever administers this hub for it.",
+      "loadInPiTitle": "Load this branch's build in pi",
+      "loadInPiBody": "To try this build without publishing or installing it:",
+      "serviceAccountNote": "Always use the service account (\"role: \\\"service\\\"\"), never the owner account — it's the only one allowed to write \"task_entries\"/\"work_records\"."
+    },
+    "items": {
+      "summary-today": {
+        "description": "Shows today's totals (work, waiting, record count) by role, plus a union-based tasks segment, each with its estimated cost.",
+        "whenToUse": "To see at a glance how much you've worked today and its cost, without leaving pi."
+      },
+      "summary-all": {
+        "description": "Same as \"/kankaku\", but across every historical record instead of just today's.",
+        "whenToUse": "To see the full accumulated total, e.g. when reviewing overall usage."
+      },
+      "tasks": {
+        "description": "One line per task (time, union of work/waiting, cost, subagent count, truncated prompt) for the current pi session.",
+        "whenToUse": "To review which tasks ran in the current session and what they cost."
+      },
+      "tasks-all": {
+        "description": "Same as \"tasks\", but across every session instead of only the current one.",
+        "whenToUse": "To review the full task history, not just this session's."
+      },
+      "sessions": {
+        "description": "One line per session today (id, time range, union of work/waiting, cost, task count).",
+        "whenToUse": "To see how many pi sessions you've had today and their combined cost."
+      },
+      "sessions-all": {
+        "description": "Same as \"sessions\", but across every day instead of only today.",
+        "whenToUse": "For a historical review of every recorded session."
+      },
+      "clients": {
+        "description": "Today's totals (work, waiting, wall time, cost, task count) grouped by billing client. Tasks with no resolved client are grouped under \"(none)\".",
+        "whenToUse": "To see where today's time went by client, with or without a hub configured."
+      },
+      "clients-all": {
+        "description": "Same as \"clients\", but summed across every day.",
+        "whenToUse": "For the full historical breakdown by client."
+      },
+      "projects": {
+        "description": "Today's totals by project, same shape as \"clients\" but grouped by project. Only available with a hub configured.",
+        "whenToUse": "To see where today's time went by project."
+      },
+      "projects-all": {
+        "description": "Same as \"projects\", but summed across every day.",
+        "whenToUse": "For the full historical breakdown by project."
+      },
+      "client-show": {
+        "description": "Shows the effective billing client for the current session and which source it came from (session, \"KANKAKU_CLIENT\", or the project's \"config.json\").",
+        "whenToUse": "To check which client is being applied before kankaku records more work."
+      },
+      "client-set": {
+        "description": "Sets the billing client for the current session. With a hub configured, the name must match a catalog client's code or name (case-insensitive) and also sets the target with no project.",
+        "whenToUse": "To fix or force a session's client before work gets recorded under the wrong one."
+      },
+      "client-clear": {
+        "description": "Clears the session-level client override, so resolution falls back to the next source in precedence.",
+        "whenToUse": "To undo a client set earlier in this session with \"/kankaku client\"."
+      },
+      "target-show": {
+        "description": "Shows the effective hub target (client + project) and which source it came from: session, project \"config.json\", \"repo_paths\", or the picker. Hub-only.",
+        "whenToUse": "To check which client and project work is being attributed to before syncing."
+      },
+      "target-pick": {
+        "description": "Re-runs the client/project picker even if one is already resolved. The new target applies to records settled after this command.",
+        "whenToUse": "To switch client or project mid-session without restarting pi."
+      },
+      "target-clear": {
+        "description": "Clears the session-level target, so resolution falls back to \"config.json\", \"repo_paths\", or the picker.",
+        "whenToUse": "To undo a \"/kankaku target pick\" set earlier in this session."
+      },
+      "catalog-refresh": {
+        "description": "Forces a catalog (clients/projects) refresh from the hub instead of waiting for the 6-hour cache to expire, and reports how many clients/projects came back.",
+        "whenToUse": "After creating or editing a client or project in this web app, so kankaku sees it right away."
+      },
+      "sync": {
+        "description": "Pushes pending tasks to the hub: new ones, plus anything inside the revisit window (\"KANKAKU_SYNC_WINDOW_HOURS\", 24h by default) that changed.",
+        "whenToUse": "To force a manual sync instead of waiting for the automatic one after each prompt."
+      },
+      "sync-all": {
+        "description": "A full re-evaluation: revisits every task, not just the recent window. The content hash keeps it cheap even when nothing changed.",
+        "whenToUse": "When you suspect something didn't reach the hub, or after changing sync configuration."
+      },
+      "sync-status": {
+        "description": "Shows the sync watermark (\"syncedThrough\"), a locally-computed pending count (no network call), and the last sync error, if any.",
+        "whenToUse": "To check whether automatic sync is up to date without triggering one."
+      },
+      "backfill": {
+        "description": "Runs a full sync and reports the result grouped by the old free-text label (\"legacy_client_label\"): how many tasks went to \"Sin determinar\" and under which name.",
+        "whenToUse": "The first time you connect a historical project to the hub, to know what to reassign afterwards in the unassigned queue."
+      },
+      "export": {
+        "description": "Writes one row per task (today's by default, or every task with \"all\") as CSV or JSON, under \"KANKAKU_DIR/export/\".",
+        "whenToUse": "To take the data outside pi, e.g. into a spreadsheet."
+      }
+    }
   }
 }
