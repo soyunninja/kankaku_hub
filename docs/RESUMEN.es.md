@@ -89,13 +89,12 @@ establecido. Ver [`vision.md`](vision.md#the-billing-boundary).
 
 ## Discrepancias encontradas durante esta documentación
 
-- `README.md` de kankaku-hub describe `web/` como "(future) Nuxt dashboard,
-  not part of this repo yet" — ya está completamente implementado; el
-  README raíz no se actualizó tras la fase 3. `ESTADO.md` sí refleja el
-  estado real.
+- (Resuelta) El `README.md` y el `AGENTS.md` de kankaku-hub describían `web/`
+  como futura; se corrigieron al cerrar la fase 3.
 - La propuesta original (§6.0) menciona `/kankaku sync --since <date>` como
   solución para el caso patológico de un orquestador más viejo que la
   ventana de revisión que gana un hijo tardío. No se encontró evidencia de
   que ese flag exista en el conjunto actual de subcomandos
   (`SYNC_TOKENS = ["all", "status"]`) — documentado como no confirmado en
-  [`specs/sync-push.md`](specs/sync-push.md).
+  [`specs/sync-push.md`](specs/sync-push.md). Hoy ese caso se resuelve
+  con `/kankaku sync all`, que reevalúa todo el historial.
