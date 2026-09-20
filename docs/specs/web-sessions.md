@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
-| Code | `web/app/lib/session-aggregate.ts`, `web/app/lib/session-resume.ts`, `web/app/lib/agents.ts`, `web/app/composables/useSessions.ts`, `web/app/composables/useSessionsQueue.ts`, `web/app/composables/useSessionsQueueCount.ts`, `web/app/pages/sessions-without-task/index.vue`, `web/app/components/tasks/TaskDetailSheet.vue`, `web/app/components/entries/EntryDetailSheet.vue` (resume block), `web/app/components/agents/AgentIcon.vue`, `web/app/components/agents/AgentBadge.vue`, `web/app/components/app-shell/SidebarNav.vue`, `web/app/components/app-shell/CommandPalette.vue`, `pocketbase/pb_migrations/1758300014_ignored_sessions_collection.js` |
-| Tests | `web/tests/session-aggregate.test.ts`, `web/tests/session-resume.test.ts`, `web/tests/agents.test.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/sessions-queue.spec.ts` |
+| Code | `web/app/lib/session-aggregate.ts`, `web/app/lib/session-resume.ts`, `web/app/lib/agents.ts`, `web/app/lib/nav-items.ts`, `web/app/composables/useSessions.ts`, `web/app/composables/useSessionsQueue.ts`, `web/app/composables/useSessionsQueueCount.ts`, `web/app/composables/useUnassignedQueueCount.ts`, `web/app/pages/sessions-without-task/index.vue`, `web/app/components/tasks/TaskDetailSheet.vue`, `web/app/components/entries/EntryDetailSheet.vue` (resume block), `web/app/components/agents/AgentIcon.vue`, `web/app/components/agents/AgentBadge.vue`, `web/app/components/app-shell/SidebarNav.vue`, `web/app/components/app-shell/CommandPalette.vue`, `web/app/components/app-shell/Header.vue`, `pocketbase/pb_migrations/1758300014_ignored_sessions_collection.js`, `pocketbase/pb_migrations/1758300016_task_entries_session_dir.js` |
+| Tests | `web/tests/session-aggregate.test.ts`, `web/tests/session-resume.test.ts`, `web/tests/agents.test.ts`, `web/tests/nav-items.test.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/sessions-queue.spec.ts` |
 
 ## Purpose
 
@@ -99,6 +99,51 @@ exist in the working tree but had not yet been committed.
     of the queue, sourced from one shared cached fetch
     (`useSessionsQueueCount`) rather than each surface issuing its own
     round-trip.
+15. `SESSIONS-REQ-015` — Every top-level route SHALL be registered exactly
+    once in a shared `NAV_ITEMS` registry (`app/lib/nav-items.ts`); the
+    header breadcrumb SHALL derive its segment → label map from that same
+    registry (`resolveBreadcrumbLabels`) instead of a separately
+    maintained copy, so a route added to `NAV_ITEMS` can never again be
+    missing from the breadcrumb. An unmapped or dynamic route segment
+    SHALL fall back to the nearest known parent crumb (with a dev-mode
+    console warning) and SHALL NEVER render as a raw, untranslated path
+    segment. The `/sessions-without-task` breadcrumb SHALL show that
+    page's own full title (`sessionsQueue.title`) rather than the
+    shorter `nav.sessionsQueue` label used in the sidebar/palette — the
+    one route where the breadcrumb and nav label deliberately diverge.
+16. `SESSIONS-REQ-016` — The sidebar's `nav.sessionsQueue` label SHALL be
+    short enough to never truncate next to its live count badge (es "Sin
+    tarea", en "No task", ja "タスク未設定"). The `/unassigned`
+    reassignment queue SHALL receive the same live-badge treatment as the
+    sessions queue, via a `useUnassignedQueueCount` composable (same
+    `useState`-cached shape as `useSessionsQueueCount`, re-checked
+    alongside it on every SPA navigation).
+17. `SESSIONS-REQ-017` — The "sessions without a task" table SHALL NOT
+    render dedicated Wall time / Waiting time columns; that data SHALL
+    remain reachable as a keyboard-accessible tooltip (an `Info` icon
+    button with an `aria-label` summarizing both values, opened via
+    `Tooltip`/`TooltipTrigger`) on the Work time cell, so the table fits
+    at 1280px viewport width without horizontal scroll.
+18. `SESSIONS-REQ-018` — `AgentIcon`/`AgentBadge` SHALL support exactly
+    two sizes, `sm` (20px) and `md` (24px); the previous `xs` (16px) size
+    SHALL be retired from both components' public API. Tables (the
+    entries explorer, the sessions-without-task queue) SHALL render
+    agent icons at `sm`; sheets (entry detail, task detail) SHALL render
+    them at `md`. A `background: 'white'` icon's mark SHALL be inset
+    ~15% within its disc (previously ~22%); a `background: 'own'` icon
+    SHALL additionally get a `dark:ring-white/25` ring so its disc edge
+    stays perceivable against a dark table row (a `background: 'white'`
+    icon already has enough contrast on its own and does not need it).
+19. `SESSIONS-REQ-019` — `task_entries` SHALL support an optional
+    `session_dir` field (migration `1758300016`, text, max 1000 — see
+    [`hub-schema-and-access-rules.md`](hub-schema-and-access-rules.md)
+    `SCHEMA-REQ-018`). When present, the `pi` resume builder SHALL emit
+    it as its own `--session-dir <dir>` flag on the `pi` invocation,
+    additive to and independent of the `cd '<repo>' &&` prefix derived
+    from `repo_project` — both combine when both are present, and either
+    may appear alone. A session summary's `sessionDir` SHALL be derived
+    with the same first-entry-with-a-value strategy as `repoProject`
+    (`pickSessionDir`).
 
 ## Scenarios
 
@@ -170,6 +215,57 @@ exist in the working tree but had not yet been committed.
 - **Then** it reads the cached `useState` value instead of issuing a
   second fetch
 
+### Scenario: an unmapped route never renders a raw slug in the breadcrumb (`SESSIONS-REQ-015`)
+
+- **Given** a route path whose segment is not registered in `NAV_ITEMS`
+  (a future route, or a dynamic id segment)
+- **When** the header breadcrumb resolves labels for that path
+- **Then** it falls back to the nearest known parent crumb (e.g. the
+  dashboard, or the parent list for a dynamic detail route) instead of
+  showing the raw path segment, and logs a dev-mode console warning
+
+### Scenario: the sessions-without-task breadcrumb shows its full page title (`SESSIONS-REQ-015`)
+
+- **Given** the owner navigates to `/sessions-without-task`
+- **When** the header breadcrumb renders
+- **Then** it shows `sessionsQueue.title` ("Sesiones sin tarea"), not the
+  shorter `nav.sessionsQueue` label used in the sidebar and command
+  palette for the same route
+
+### Scenario: the unassigned queue badge uses the same cached-count shape as the sessions queue (`SESSIONS-REQ-016`)
+
+- **Given** neither queue's count has been fetched yet this session
+- **When** the sidebar mounts
+- **Then** `useSessionsQueueCount` and `useUnassignedQueueCount` each
+  fetch their own total once and cache it in `useState`, and a
+  subsequent SPA navigation triggers a `refresh()` on both rather than a
+  second initial fetch on either
+
+### Scenario: wall/waiting time move to a tooltip on the work-time cell (`SESSIONS-REQ-017`)
+
+- **Given** a session row in the sessions-without-task table
+- **When** the owner focuses or hovers the `Info` icon next to the Work
+  time value
+- **Then** a tooltip shows `"Wall: <duration> · Waiting: <duration>"`,
+  and the table renders no separate Wall time / Waiting time columns
+
+### Scenario: agent icons render at the size appropriate to their context (`SESSIONS-REQ-018`)
+
+- **Given** the entries table, the sessions-without-task table, the entry
+  detail sheet, and the task detail sheet each render an
+  `AgentIcon`/`AgentBadge`
+- **When** they render
+- **Then** both tables request `size="sm"` (20px) and both sheets request
+  `size="md"` (24px); no consumer requests the retired `xs` size
+
+### Scenario: pi resumes with both a cd prefix and a --session-dir flag (`SESSIONS-REQ-019`)
+
+- **Given** a session's `repo_project` and `session_dir` are both set
+- **When** `buildResumeCommand` runs
+- **Then** it returns
+  `cd '<repo>' && pi --session-dir '<dir>' --session '<id>'`, both parts
+  present and in that order
+
 ## Configuration
 
 None beyond the shared PocketBase connection. The per-agent resume table
@@ -221,3 +317,8 @@ entry to that table, not branching `buildResumeCommand` itself.
 | `SESSIONS-REQ-012` | `web/e2e/sessions-queue.spec.ts` ("ignoring a session removes it from the queue permanently"); the concurrent-duplicate-ignore race is not separately exercised | partial |
 | `SESSIONS-REQ-013` | `web/tests/agents.test.ts` | covered |
 | `SESSIONS-REQ-014` | code review (`useSessionsQueueCount.ts`, `SidebarNav.vue`, `CommandPalette.vue`) | not covered by an automated test found in this pass |
+| `SESSIONS-REQ-015` | `web/tests/nav-items.test.ts` (`resolveBreadcrumbLabels` unmapped-route and full-title cases) | covered |
+| `SESSIONS-REQ-016` | code review (`SidebarNav.vue`, `useUnassignedQueueCount.ts`); no automated test asserts the label never truncates or that both badges share one fetch shape | not covered by an automated test found in this pass |
+| `SESSIONS-REQ-017` | code review (`pages/sessions-without-task/index.vue` tooltip markup); no automated test asserts the removed columns or the 1280px no-scroll fit for this page found in this pass | not covered by an automated test found in this pass |
+| `SESSIONS-REQ-018` | code review (`AgentIcon.vue` `sizeClass`/`sizePx`, consumer call sites in `entries/index.vue`, `sessions-without-task/index.vue`, `EntryDetailSheet.vue`, `TaskDetailSheet.vue`); no automated test asserts rendered icon pixel size found in this pass | not covered by an automated test found in this pass |
+| `SESSIONS-REQ-019` | `web/tests/session-resume.test.ts` ("buildResumeCommand — sessionDir" describe block, including hostile-quoting cases), `web/tests/session-aggregate.test.ts` (`pickSessionDir` fallback/undefined cases) | covered |

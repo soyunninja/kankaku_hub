@@ -79,6 +79,13 @@ task, never for computing a total.
     unlinked-subagent warning when `subagent_linkage = "unlinked"` — an
     empty/legacy value on any of these SHALL render identically to the
     good case, never trigger a badge.
+17. `ENTRIES-REQ-017` — The explorer table's `agent` column SHALL render
+    its `AgentIcon` at `size="sm"` (20px), the same size and treatment as
+    the sessions-without-task table (see
+    [`web-sessions.md`](web-sessions.md) `SESSIONS-REQ-018`) — not the
+    retired `xs`/16px size. This table (8 columns: Date, Client, Project,
+    Status, Agent, Model, Work, Cost) SHALL fit at 1280px viewport width
+    without horizontal scroll.
 
 ## Scenarios
 
@@ -148,6 +155,13 @@ task, never for computing a total.
 - **Then** the agent badge and plugin fields render, and none of the
   upper-bound/cost-approximate/unlinked badges appear
 
+### Scenario: the entries table fits at 1280px without horizontal scroll (`ENTRIES-REQ-017`)
+
+- **Given** the explorer is viewed at 1280px viewport width
+- **When** the table renders its 8 columns, including a `size="sm"`
+  `AgentIcon` per row
+- **Then** the document does not scroll horizontally
+
 ## Configuration
 
 None beyond the shared PocketBase connection.
@@ -195,3 +209,4 @@ None beyond the shared PocketBase connection.
 | `ENTRIES-REQ-014` | code review (`pages/entries/index.vue` `queryString` seeding) | not covered by an automated test found in this pass |
 | `ENTRIES-REQ-015` | `web/tests/session-resume.test.ts` (command derivation), `web/e2e/session-resume.spec.ts` (drawer rendering + clipboard copy) | covered |
 | `ENTRIES-REQ-016` | `web/tests/measurement-quality.test.ts` (`describeEntryQuality`, `normalizeAgentInfo`); drawer rendering not separately exercised by an e2e spec in this pass | partial |
+| `ENTRIES-REQ-017` | code review (`pages/entries/index.vue` `AgentIcon size="sm"`, 8-column `<TableHead>`/`colspan="8"`); no automated test asserts the rendered icon pixel size or a 1280px no-scroll fit for this specific page found in this pass | not covered by an automated test found in this pass |

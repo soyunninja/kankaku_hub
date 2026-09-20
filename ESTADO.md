@@ -74,6 +74,23 @@ Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 > dueño). No añade migración ni endpoint nuevo, solo el fichero de hook —
 > se carga solo, igual que `favicon.pb.js`, al reiniciar `npm run dev:all`.
 
+> **Acción pendiente del dueño (cierre del pase de pulido, `session_dir`)**:
+> una migración más, `1758300016_task_entries_session_dir.js`, añade
+> `session_dir` (texto opcional, ≤1000, sin índice) a `task_entries` —
+> el directorio de sesión no-por-defecto de `pi`, cuando lo usó
+> (`pi [--session-dir <dir>] --session <id>`), con la misma nota de
+> privacidad que `repo_project` (ver
+> [`docs/contract.md`](docs/contract.md)). **El dueño debe reiniciar
+> `npm run dev:all` UNA VEZ** para que PocketBase aplique de un tirón las
+> migraciones que aún estén pendientes (`1758300013`–`1758300016`, si no
+> se reinició ya tras las notas anteriores de este fichero), y luego
+> **correr `npm run pb:seed`** para regenerar los datos de demo con
+> sesiones realistas (la semilla ahora agrupa las entradas de ejemplo en
+> sesiones multi-entrada coherentes en vez de filas sueltas). Mientras no
+> se reinicie, la web sigue funcionando con normalidad: `session_dir`
+> simplemente se lee vacío y el comando de retomado se genera igual, solo
+> sin el flag `--session-dir`.
+
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
 npm run dev:all      # PARA TRASTEAR: API en :8090 + web con recarga en caliente → http://localhost:3000
@@ -581,6 +598,73 @@ dashboard, desbordamiento a 390px) — presentes en el árbol de trabajo pero
 dedicada todavía, ni de unidad ni end-to-end: el fallback de retomado
 cuando una sesión tiene agentes mixtos en la hoja de detalle de tarea, y
 el contador compartido de la barra lateral/paleta de comandos.
+
+### Pase de pulido final — navegación, tablas, iconos y `session_dir` (2026-09-20)
+
+Cierre de una tanda de correcciones puntuales pedidas por el dueño tras
+revisar capturas y usar la app un rato, más el campo `session_dir` para
+que el comando de retomado sea exacto:
+
+1. **Breadcrumb robusto**: la cabecera (`Header.vue`) tenía su propio
+   mapa de segmento→etiqueta, copiado a mano y desincronizado del
+   registro real de navegación — "Sesiones sin tarea" se había añadido a
+   la barra lateral pero no a ese mapa, así que el breadcrumb mostraba el
+   slug crudo de la ruta. Ahora hay una única fuente de verdad
+   (`app/lib/nav-items.ts`, `NAV_ITEMS`) de la que beben la barra
+   lateral, la paleta de comandos y la cabecera; una ruta no registrada
+   cae al crumb del padre más cercano (con aviso en consola en
+   desarrollo) en vez de mostrar el slug. El breadcrumb de
+   `/sessions-without-task` muestra ahora el título completo de la
+   página, no la etiqueta corta de la barra lateral.
+2. **Etiqueta de la cola en la barra lateral**: "Sesiones sin tarea" se
+   acorta a "Sin tarea" (en/ja también acortados) para que nunca se
+   trunque junto al contador. La cola de "Sin determinar" recibe el mismo
+   contador en vivo que la de sesiones (`useUnassignedQueueCount`, mismo
+   patrón cacheado que `useSessionsQueueCount`).
+3. **Tabla de "Sesiones sin tarea"**: se quitaron las columnas de Tiempo
+   total y Tiempo de espera (ahora en un tooltip accesible por teclado
+   sobre el Tiempo de trabajo) para que la tabla quepa a 1280px sin
+   scroll horizontal.
+4. **Iconos de agente**: `AgentIcon`/`AgentBadge` pasan de tres tamaños
+   (`xs`/`sm`/`md`) a dos (`sm` = 20px, `md` = 24px) — el `xs` de 16px se
+   retira. Las tablas (registros, sesiones sin tarea) usan `sm`; las
+   hojas de detalle (registro, tarea) usan `md`. El recorte del disco
+   blanco de los iconos con fondo transparente baja de ~22% a ~15%, y los
+   iconos con fondo propio (p. ej. `opencode`) ganan un anillo más
+   visible en tema oscuro.
+5. **Semilla más realista**: `pocketbase/seed/seed.js` ahora agrupa las
+   entradas de demo en sesiones multi-entrada coherentes (varias
+   `task_entries` compartiendo `session_id`, con reinicios simulados) en
+   vez de una fila suelta por sesión.
+6. **Tabla de Clientes**: se quitan las columnas Web y Contacto (esa
+   información sigue en la hoja de detalle y en el diálogo de
+   crear/editar) — ver `CATMGMT-REQ-012` en
+   [`docs/specs/web-catalog-management.md`](docs/specs/web-catalog-management.md).
+7. **Acciones de fila con iconos compartidos**: nuevo componente
+   `web/app/components/common/RowActions.vue`, adoptado en las tablas de
+   Clientes, Proyectos y Tareas en vez de menús/botones de texto
+   duplicados por pantalla.
+8. **Tablero de Tareas — botones "Mover a" reemplazados**: el botón por
+   tarjeta se quita (pedido del dueño, `TASKS-REQ-004` marcado como
+   revertido) y se sustituye por dos vías igual de accesibles: un control
+   de estado dentro de la hoja de detalle de la tarea (`TASKS-REQ-011`) y
+   atajos de teclado sobre una tarjeta con foco — `Enter`/`Espacio` para
+   abrir, `←`/`→` (o `[`/`]`) para mover, con tope en los extremos
+   abierta/hecha y anuncio por `aria-live` (`TASKS-REQ-012`). El
+   arrastrar-y-soltar no se toca.
+9. **`session_dir`**: migración `1758300016` añade `task_entries.session_dir`
+   (texto opcional, ≤1000, sin índice) — el directorio de sesión
+   no-por-defecto de `pi`. El comando de retomado ahora puede llevar
+   `--session-dir <dir>` como flag propio de `pi`, independiente y
+   combinable con el `cd <repo> &&` que ya aportaba `repo_project`. Ver
+   `SCHEMA-REQ-018` en
+   [`docs/specs/hub-schema-and-access-rules.md`](docs/specs/hub-schema-and-access-rules.md)
+   y `SESSIONS-REQ-015`–`019` en
+   [`docs/specs/web-sessions.md`](docs/specs/web-sessions.md).
+
+**Acción del dueño**: ver la nota al principio de este fichero — reiniciar
+`npm run dev:all` una vez (migraciones `1758300013`–`1758300016`) y correr
+`npm run pb:seed` para las sesiones de demo realistas.
 
 ## kankaku-hub (parte PocketBase)
 

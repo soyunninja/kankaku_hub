@@ -101,6 +101,17 @@ surface captured from real requests.
     [`web-tasks.md`](web-tasks.md)). Outside this one hook-mediated
     transition, the `service` role SHALL still be unable to write `tasks`
     directly through the API.
+18. `SCHEMA-REQ-018` — `task_entries` SHALL support an optional
+    `session_dir` field (migration `1758300016`, text, max 1000, no
+    index — pi's non-default session directory, when it used one: `pi
+    [--session-dir <dir>] --session <id>`), writable on create **and**
+    update like `repo_project`, and subject to the same privacy category
+    as `repo_project` — an absolute local path that can expose the
+    machine's username/disk layout (see
+    [`../contract.md`](../contract.md)). `work_records` SHALL NOT get
+    this field: its rows are per-span, not per-session, and every span
+    within one task already shares one `session_dir`, so there is no
+    per-span resume path that would need it.
 
 ## Scenarios
 
@@ -201,6 +212,12 @@ surface captured from real requests.
 - **When** `task_entries_daily_totals` is queried for that project/client/day
 - **Then** it returns two rows, one per agent, each summing only its own agent's entries — never blended into a single row
 
+### Scenario: session_dir round-trips through migrate down/up (`SCHEMA-REQ-018`)
+
+- **Given** migration `1758300016_task_entries_session_dir.js` is reverted (`migrate down`)
+- **When** the schema is inspected
+- **Then** `session_dir` is gone from `task_entries` and every other field is untouched; re-applying (`migrate up`) restores exactly that one optional text field, and `work_records` never had it to begin with
+
 ## Configuration
 
 None — schema is fixed by migration, not runtime-configurable. See
@@ -255,3 +272,4 @@ full field tables per collection.
 | `SCHEMA-REQ-015` | migration `1758300014_ignored_sessions_collection.js` (unique index `idx_ignored_sessions_session_id`, owner-only write rules) | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-016` | migration `1758300015_task_entries_daily_totals_by_agent.js` | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-017` | `pocketbase/pb_hooks/task-auto-doing.pb.js`, `pocketbase/pb_hooks/lib/task-status-rule.js`; unit tests `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`) | partially covered — the unit tests prove the pure `open`→`doing` decision rule only; the hook integration (the actual PocketBase-level trigger on `task_entries` create/update, and the `service`-role `tasks` PATCH rejection) is covered by a manual/e2e check, not by these unit tests alone |
+| `SCHEMA-REQ-018` | migration `1758300016_task_entries_session_dir.js`; resume-command wiring proven by `web/tests/session-resume.test.ts`/`web/tests/session-aggregate.test.ts` (see `web-sessions.md` `SESSIONS-REQ-019`); migrate up/down round-trip not separately exercised by an automated test found in this pass | not covered by an automated test found in this pass |
