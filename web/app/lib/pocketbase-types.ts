@@ -18,6 +18,17 @@ export interface ClientRecord {
   contact_phone: string
   /** Optional — free-form multi-line text, empty string when unset. */
   notes: string
+  /**
+   * Optional — PocketBase `file` field, the stored filename when a
+   * favicon has been fetched, empty string otherwise. Build a URL with
+   * `pb.files.getURL(record, record.favicon)` (see
+   * `app/lib/client-avatar.ts`), never a raw path.
+   */
+  favicon: string
+  /** Optional — the URL the current favicon was fetched from, empty string when unset. */
+  favicon_source: string
+  /** Optional — ISO timestamp of the last favicon fetch attempt, empty string when never checked. */
+  favicon_checked_at: string
   created: string
   updated: string
 }

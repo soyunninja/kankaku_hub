@@ -37,6 +37,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-avatar-foreground: var(--avatar-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -90,6 +91,19 @@
   --chart-3: oklch(0.6 0.1 280);
   --chart-4: oklch(0.7 0.14 140);
   --chart-5: oklch(0.65 0.18 350);
+
+  /*
+   * ClientAvatar's initials text color. Deliberately declared ONLY here
+   * (not redefined under `.dark`, unlike every other token above) — the
+   * five `--chart-N` avatar backgrounds are mid-to-high lightness in
+   * BOTH themes (see app/lib/client-avatar.ts's CHART_OKLCH_BY_THEME),
+   * so a near-black foreground stays the correct, WCAG-AA-passing choice
+   * in both themes. `--foreground` itself is unusable for this — it
+   * flips to near-white in dark mode, which fails contrast against these
+   * same avatar backgrounds. Verified (not just asserted) in
+   * app/lib/client-avatar.test.ts.
+   */
+  --avatar-foreground: oklch(0.145 0 0);
 
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
