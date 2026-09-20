@@ -58,8 +58,9 @@ export default defineNuxtConfig({
     // app/plugins/locale.client.ts) ever changes it.
     detectBrowserLanguage: false,
     locales: [
-      { code: 'es', name: 'Español', file: 'es.json' },
-      { code: 'en', name: 'English', file: 'en.json' },
+      { code: 'es', language: 'es-ES', name: 'Español', file: 'es.json' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+      { code: 'ja', language: 'ja-JP', name: '日本語', file: 'ja.json' },
     ],
     langDir: 'locales/',
   },

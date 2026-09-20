@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { Languages } from '@lucide/vue'
+import { Check, Languages } from '@lucide/vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const { t, locale, locales, setLocale } = useI18n()
+
+function codeOf(l: (typeof locales.value)[number]): Parameters<typeof setLocale>[0] {
+  return (typeof l === 'string' ? l : l.code) as Parameters<typeof setLocale>[0]
+}
+function nameOf(l: (typeof locales.value)[number]): string {
+  return typeof l === 'string' ? l : (l.name ?? l.code)
+}
 </script>
 
 <template>
@@ -18,11 +25,15 @@ const { t, locale, locales, setLocale } = useI18n()
     <DropdownMenuContent align="end">
       <DropdownMenuItem
         v-for="l in locales"
-        :key="typeof l === 'string' ? l : l.code"
-        :class="locale === (typeof l === 'string' ? l : l.code) ? 'bg-accent text-accent-foreground' : ''"
-        @click="setLocale(typeof l === 'string' ? l : l.code)"
+        :key="codeOf(l)"
+        role="menuitemradio"
+        :aria-checked="locale === codeOf(l)"
+        :class="locale === codeOf(l) ? 'bg-accent text-accent-foreground' : ''"
+        class="justify-between gap-4"
+        @click="setLocale(codeOf(l))"
       >
-        {{ typeof l === 'string' ? l : l.name }}
+        {{ nameOf(l) }}
+        <Check v-if="locale === codeOf(l)" class="size-4" />
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

@@ -26,7 +26,7 @@ const hubUrl = useHubUrl()
         </CardTitle>
         <CardDescription>{{ t('theme.label') }}</CardDescription>
       </CardHeader>
-      <CardContent class="flex gap-2">
+      <CardContent class="flex flex-wrap gap-2">
         <Button
           v-for="opt in ['dark', 'light', 'system']" :key="opt"
           size="sm" :variant="colorMode.preference === opt ? 'default' : 'outline'"
@@ -43,7 +43,7 @@ const hubUrl = useHubUrl()
           {{ t('settings.language') }}
         </CardTitle>
       </CardHeader>
-      <CardContent class="flex gap-2">
+      <CardContent class="flex flex-wrap gap-2">
         <Button
           v-for="l in locales" :key="typeof l === 'string' ? l : l.code"
           size="sm" :variant="locale === (typeof l === 'string' ? l : l.code) ? 'default' : 'outline'"

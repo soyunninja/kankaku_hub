@@ -12,12 +12,22 @@ useHead({
 const LOCALE_STORAGE_KEY = 'kankaku-locale'
 const { locale, locales, setLocale } = useI18n()
 
+/**
+ * Keep `<html lang>` in sync with the active locale (nuxt.config.ts's
+ * `app.head.htmlAttrs.lang` only covers the pre-hydration default). This
+ * matters for screen readers and language-sensitive CSS such as the
+ * `:lang(ja)` rules in tailwind.css.
+ */
+useHead({
+  htmlAttrs: { lang: computed(() => locale.value) },
+})
+
 onMounted(() => {
   try {
     const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
     const validCodes: string[] = locales.value.map(l => (typeof l === 'string' ? l : l.code))
     if (stored && validCodes.includes(stored) && stored !== locale.value) {
-      setLocale(stored as 'es' | 'en')
+      setLocale(stored as 'es' | 'en' | 'ja')
     }
   }
   catch {
