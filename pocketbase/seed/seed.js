@@ -254,6 +254,48 @@ function buildSegments(workMs) {
   return segments;
 }
 
+// Repair for demo rows seeded before the fix above: they still carry the old
+// [{start,end}] array in `segments`. Uses its OWN generator, seeded from the
+// row's task_id, so it never advances the shared `rand` sequence (which
+// would change every value generated after it) and stays repeatable.
+function hashString(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function buildSegmentsFor(taskId, workMs) {
+  const local = mulberry32(hashString(taskId));
+  if (workMs <= 0 || local() < 0.45) return {};
+  const tagCount = 1 + Math.floor(local() * 2);
+  const tags = [...SEGMENT_TAGS].sort(() => local() - 0.5).slice(0, tagCount);
+  const segments = {};
+  let remaining = workMs;
+  for (const tag of tags) {
+    const ms = 1 + Math.floor(local() * Math.max(1, Math.floor(remaining * 0.6)));
+    segments[tag] = ms;
+    remaining -= ms;
+  }
+  return segments;
+}
+
+async function fetchLegacySegmentRows() {
+  const rows = [];
+  let page = 1;
+  for (;;) {
+    const data = await pbFetch(
+      `/api/collections/task_entries/records?page=${page}&perPage=500&fields=id,task_id,work_ms,segments&filter=${encodeURIComponent('task_id ~ "seed-te-"')}`
+    );
+    for (const item of data.items) if (Array.isArray(item.segments)) rows.push(item);
+    if (page >= data.totalPages) break;
+    page++;
+  }
+  return rows;
+}
+
 function randomStartedAt() {
   const now = Date.now();
   const offsetMs = randInt(0, WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -456,6 +498,20 @@ async function main() {
   const createdEntries = await batchCreate(entryCreates);
   for (const { key, record } of createdEntries) existingEntryIds.set(key, record);
   console.log(`task_entries: ${entryCreates.length} created`);
+
+  // 5b. Repair demo rows still holding the legacy array-shaped `segments`.
+  // Only seed rows (task_id "seed-te-…") with an ARRAY value are touched, so a
+  // real synced entry or an already-correct row is never modified.
+  const legacyRows = await fetchLegacySegmentRows();
+  await batchUpdate(
+    legacyRows.map((row) => ({
+      key: row.task_id,
+      collection: "task_entries",
+      id: row.id,
+      body: { segments: buildSegmentsFor(row.task_id, row.work_ms) },
+    }))
+  );
+  console.log(`task_entries: ${legacyRows.length} had legacy segments repaired`);
 
   // 6. work_records for entries with subagent_count > 0 -------------------
   const existingWorkRecordIds = await fetchAllValues("work_records", "kankaku_id");
