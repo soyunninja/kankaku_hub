@@ -182,6 +182,123 @@ test.describe('bulk assignment end-to-end', () => {
   })
 })
 
+test.describe('mobile viewport (390px) never overflows horizontally', () => {
+  test('dashboard, entries and unassigned pages fit inside the viewport', async ({ page }) => {
+    await login(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    for (const path of ['/', '/entries', '/unassigned']) {
+      await page.goto(path)
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(200)
+      const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }))
+      expect(scrollWidth, `${path} must not overflow the 390px viewport`).toBeLessThanOrEqual(innerWidth)
+    }
+  })
+
+  test('every table-in-card screen fits inside the viewport', async ({ page }) => {
+    await login(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    await page.goto('/projects')
+    await page.waitForLoadState('networkidle')
+    await page.locator('table tbody tr').first().click()
+    await page.waitForURL(/\/projects\/.+/)
+    const projectDetailUrl = page.url()
+
+    for (const path of ['/clients', '/projects', projectDetailUrl, '/tasks']) {
+      await page.goto(path)
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(200)
+      const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }))
+      expect(scrollWidth, `${path} must not overflow the 390px viewport`).toBeLessThanOrEqual(innerWidth)
+    }
+
+    // The tasks page defaults to the board view — switch to the list view
+    // (a plain <table>, the pattern this check targets) and re-check.
+    await page.goto('/tasks')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('tab', { name: /Lista|List/ }).click()
+    await page.waitForTimeout(200)
+    const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+    }))
+    expect(scrollWidth, 'tasks list view must not overflow the 390px viewport').toBeLessThanOrEqual(innerWidth)
+  })
+})
+
+test.describe('KPI labels never clip at any width', () => {
+  test('title and delta elements never scroll past their own box', async ({ page }) => {
+    await login(page)
+
+    for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(size)
+      await page.goto('/')
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(200)
+
+      const titles = page.locator('[data-testid="kpi-value"]').locator('..').locator('..').locator('[data-slot="card-title"]')
+      const titleCount = await titles.count()
+      expect(titleCount).toBeGreaterThan(0)
+      for (let i = 0; i < titleCount; i++) {
+        const el = titles.nth(i)
+        // Width: never horizontally truncated. Height: the title is
+        // line-clamped to 2 lines (see KpiCard.vue) — it must actually
+        // fit in those 2 lines, not get its own text cut off by the
+        // clamp's ellipsis (scrollHeight > clientHeight means a 3rd line
+        // of text exists but is hidden).
+        const box = await el.evaluate(node => ({ sw: node.scrollWidth, cw: node.clientWidth, sh: node.scrollHeight, ch: node.clientHeight }))
+        expect(box.sw - box.cw, `KPI title #${i} at ${size.width}px must not overflow its box horizontally`).toBeLessThanOrEqual(1)
+        expect(box.sh - box.ch, `KPI title #${i} at ${size.width}px must fit within its 2-line clamp`).toBeLessThanOrEqual(1)
+      }
+
+      const deltas = page.locator('[data-testid="kpi-delta"]')
+      const deltaCount = await deltas.count()
+      for (let i = 0; i < deltaCount; i++) {
+        const el = deltas.nth(i)
+        const overflow = await el.evaluate(node => node.scrollWidth - node.clientWidth)
+        expect(overflow, `KPI delta #${i} at ${size.width}px must not overflow its own box`).toBeLessThanOrEqual(1)
+      }
+    }
+  })
+})
+
+test.describe('mobile sidebar sheet', () => {
+  test('traps focus inside and closes on Escape', async ({ page }) => {
+    await login(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    await page.locator('header button.md\\:hidden').click()
+    const sheet = page.locator('[data-slot="sheet-content"]')
+    await expect(sheet).toBeVisible()
+
+    // Focus must have moved inside the sheet (reka-ui's Dialog focus scope).
+    const focusInsideSheet = await page.evaluate(() =>
+      document.activeElement?.closest('[data-slot="sheet-content"]') !== null)
+    expect(focusInsideSheet).toBe(true)
+
+    // Tabbing repeatedly must never move focus outside the sheet.
+    for (let i = 0; i < 15; i++) {
+      await page.keyboard.press('Tab')
+      const stillInside = await page.evaluate(() =>
+        document.activeElement?.closest('[data-slot="sheet-content"]') !== null)
+      expect(stillInside, `focus must stay trapped after ${i + 1} Tab presses`).toBe(true)
+    }
+
+    await page.keyboard.press('Escape')
+    await expect(sheet).toBeHidden()
+  })
+})
+
 test.describe('theme', () => {
   test('defaults to dark, switches to light and to system', async ({ page }) => {
     await page.goto('/login')
