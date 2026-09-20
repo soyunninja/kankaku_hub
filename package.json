@@ -15,6 +15,12 @@
     "web:build": "pnpm --dir web generate",
     "web:test": "pnpm --dir web test",
     "web:lint": "pnpm --dir web lint",
-    "web:typecheck": "pnpm --dir web typecheck"
+    "web:typecheck": "pnpm --dir web typecheck",
+    "site:install": "pnpm --dir site install",
+    "site:dev": "pnpm --dir site dev",
+    "site:build": "pnpm --dir site build",
+    "site:preview": "pnpm --dir site preview",
+    "site:test": "pnpm --dir site test:e2e",
+    "site:check": "pnpm --dir site check && pnpm --dir site run i18n:check"
   }
 }

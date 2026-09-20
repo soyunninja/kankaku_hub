@@ -722,3 +722,21 @@ se tocó el proceso del dueño en 8090/3000):
    "Sin determinar" para asignarlos en cuanto lleguen.
 3. Decidir despliegue (VPS): ni el backend ni el web tocan nada de
    infraestructura todavía, todo es local, sin remoto añadido.
+
+## Sitio público (`site/`)
+
+Nuevo proyecto Astro independiente en `site/` (fuera de `web/`, ver ADR
+correspondiente) con la cara pública de kankaku para desarrolladores: qué
+es, instalación, guía de uso, referencia de comandos generada desde el
+mismo dato curado que usa esta web (`web/app/lib/kankaku-commands.ts`),
+capturas del hub. Tres idiomas (es por defecto, en, ja — el japonés está
+marcado como traducción automática pendiente de revisión nativa), salida
+100% estática, sin servidor, con Nerd Font autoalojada (~88 KB) y sin
+peticiones a terceros. `pnpm build` limpio, 12 páginas, ~730 KB en total,
+Lighthouse 98-100 en las cuatro categorías, 37/37 tests (Playwright +
+axe-core) en verde. Todo lo del hub (catálogo, sync, backfill) se marca
+honestamente como "próximamente" — nada de eso está publicado en npm
+todavía. Antes de hacerlo público falta: un dominio real (`SITE_URL`, hoy
+usa un placeholder), un enlace a un repo público del hub cuando exista, y
+la revisión nativa del japonés. Ver `site/README.md` para desarrollo,
+build y cómo añadir una página/idioma.
