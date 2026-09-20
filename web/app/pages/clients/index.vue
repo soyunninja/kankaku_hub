@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe, Lock, Mail, Phone, Plus, RefreshCw, StickyNote } from '@lucide/vue'
+import { Archive, ArchiveRestore, Globe, Lock, Mail, Pencil, Phone, Plus, RefreshCw, StickyNote } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -339,12 +339,28 @@ async function onRefreshFavicon() {
                   {{ formatCost(totalsByClient[c.id]?.cost ?? 0) }}
                 </TableCell>
                 <TableCell class="text-right" @click.stop>
-                  <div class="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" :disabled="c.unassigned" @click="openEdit(c)">
-                      {{ t('common.edit') }}
+                  <div class="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="size-8"
+                      :disabled="c.unassigned"
+                      :aria-label="t('common.edit')"
+                      :title="t('common.edit')"
+                      @click="openEdit(c)"
+                    >
+                      <Pencil class="size-4" aria-hidden="true" />
                     </Button>
-                    <Button variant="ghost" size="sm" :disabled="c.unassigned" @click="toggleArchive(c)">
-                      {{ c.active ? t('common.archive') : t('common.unarchive') }}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="size-8"
+                      :disabled="c.unassigned"
+                      :aria-label="c.active ? t('common.archive') : t('common.unarchive')"
+                      :title="c.active ? t('common.archive') : t('common.unarchive')"
+                      @click="toggleArchive(c)"
+                    >
+                      <component :is="c.active ? Archive : ArchiveRestore" class="size-4" aria-hidden="true" />
                     </Button>
                   </div>
                 </TableCell>
