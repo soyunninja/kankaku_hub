@@ -2,6 +2,7 @@
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -92,6 +93,16 @@ async function saveAssignment() {
   catch {
     toast.error(t('common.error'))
   }
+}
+
+// The sheet's default initial-focus target is its first focusable element
+// (a link, e.g. the client/project links in the assignment section) —
+// override it to the sheet's own title instead (WCAG 2.4.3 / a11y spec
+// for this screen: focus lands somewhere meaningful, not mid-content).
+const detailSheet = ref<InstanceType<typeof EntryDetailSheet> | null>(null)
+function onDetailOpenAutoFocus(event: Event) {
+  event.preventDefault()
+  nextTick(() => detailSheet.value?.focusTitle())
 }
 </script>
 
@@ -189,50 +200,18 @@ v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options
     </Card>
 
     <Sheet v-model:open="detailOpen">
-      <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]">
-        <div v-if="detail" class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
-          <h2 class="text-base font-semibold">
-            {{ t('entries.detail.title') }}
-          </h2>
-
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div v-for="[k, v] in Object.entries(detail).filter(([k]) => !['expand'].includes(k))" :key="k" class="contents">
-              <span class="text-muted-foreground">{{ k }}</span>
-              <span class="truncate tabular-nums" :title="String(v)">{{ v === '' || v === null ? '—' : String(v) }}</span>
-            </div>
-          </div>
-
-          <div class="space-y-2 border-t border-border pt-4">
-            <h3 class="text-sm font-medium">
-              {{ t('entries.detail.assignment') }}
-            </h3>
-            <Select v-model="detailClient" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
-            <Select v-model="detailProject" :placeholder="t('common.none')" :options="[{ value: '', label: t('common.none') }, ...projects.filter(p => p.client === detailClient).map(p => ({ value: p.id, label: p.name }))]" />
-            <Button size="sm" class="self-start" @click="saveAssignment">
-              {{ t('common.save') }}
-            </Button>
-          </div>
-
-          <div class="space-y-2 border-t border-border pt-4">
-            <h3 class="text-sm font-medium">
-              {{ t('entries.detail.workRecords') }}
-            </h3>
-            <p class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
-              {{ t('entries.detail.workRecordsWarning') }}
-            </p>
-            <div v-if="detailWorkRecords.length === 0" class="text-xs text-muted-foreground">
-              {{ t('entries.detail.noWorkRecords') }}
-            </div>
-            <div v-for="wr in detailWorkRecords" :key="wr.id" class="rounded-md border border-border p-2 text-xs">
-              <p class="font-medium">
-                {{ wr.role }} · pid {{ wr.pid }}
-              </p>
-              <p class="text-muted-foreground">
-                {{ formatDuration(wr.work_ms) }} · {{ formatCost(wr.cost) }} · {{ t(`entries.status.${wr.status}`) }}
-              </p>
-            </div>
-          </div>
-        </div>
+      <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
+        <EntryDetailSheet
+          v-if="detail"
+          ref="detailSheet"
+          v-model:client="detailClient"
+          v-model:project="detailProject"
+          :entry="detail"
+          :work-records="detailWorkRecords"
+          :clients="clients"
+          :projects="projects"
+          @save="saveAssignment"
+        />
       </SheetContent>
     </Sheet>
   </div>

@@ -135,7 +135,7 @@ const LOAD_IN_PI_SNIPPET = 'pi -e /absolute/path/to/kankaku'
       </Card>
     </section>
 
-    <section class="flex flex-col gap-3">
+    <section id="config" class="flex flex-col gap-3">
       <h2 class="text-sm font-semibold tracking-tight text-foreground">
         {{ t('commands.config.title') }}
       </h2>

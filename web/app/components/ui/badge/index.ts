@@ -21,6 +21,12 @@ export const badgeVariants = cva(
         // --success token rather than forking the component markup.
         success:
           "border-transparent bg-success text-success-foreground [a&]:hover:bg-success/90",
+        // App-specific extension, same rationale as `success` above: the
+        // entry detail status badge (see EntryDetailSheet.vue) needs a
+        // third, distinct-from-red/green tone for "interrupted" that
+        // still passes contrast in both themes.
+        warning:
+          "border-transparent bg-warning text-warning-foreground [a&]:hover:bg-warning/90",
       },
     },
     defaultVariants: {
