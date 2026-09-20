@@ -2,6 +2,60 @@
 
 Fecha: 2026-09-20
 
+## Empieza aquí
+
+Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
+
+```bash
+cd ~/desarrollo/soyun.ninja/kankaku-hub
+npm run dev          # API + web en un solo proceso → http://127.0.0.1:8090
+```
+
+Entra con `david@kankaku.local` / `kankaku-dev-owner`. Arranca en **oscuro**;
+el botón de la cabecera cambia entre oscuro, claro y sistema.
+
+La base de datos local ya trae datos de ejemplo (6 clientes, 10 proyectos,
+25 tareas, 430 entradas en 60 días). Para vaciarla y empezar de cero: borra
+`pocketbase/pb_data/`, y luego `npm run dev`, `npm run pb:accounts` y, si
+quieres los datos de ejemplo otra vez, `npm run pb:seed`.
+
+Si cambias algo de la web, reconstruye con `npm run web:build` (el modo de un
+solo proceso sirve el build estático, no el código fuente).
+
+| Quiero… | Mira |
+|---|---|
+| Un resumen de todo en castellano | `docs/RESUMEN.es.md` |
+| El mapa de la documentación | `docs/README.md` |
+| Especificaciones por capacidad | `docs/specs/README.md` |
+| Por qué se decidió cada cosa (18 ADR) | `docs/adr/README.md` |
+| Fases y su estado real | `docs/phases/README.md` |
+| Conectar kankaku (pi) a este hub | `docs/runbooks/connect-kankaku-to-hub.md` |
+| Desplegar en el VPS (previsto, sin ejecutar) | `docs/runbooks/deploy-to-vps.md` |
+| Capturas de todas las pantallas | `web/docs/screenshots/` |
+
+Estado de la extensión de pi: `~/desarrollo/soyun.ninja/kankaku/ESTADO.md`.
+
+### Verificado al cerrar (2026-09-20)
+
+- Web: `pnpm lint` 0 errores, `pnpm typecheck` limpio, 66 tests unitarios,
+  15 pruebas de navegador (Playwright) contra el build servido por PocketBase.
+- El cliente de catálogo de kankaku lee este hub real: 6 clientes, 10
+  proyectos, «Sin determinar» fuera del selector.
+- La cuenta de servicio **no** puede crear clientes (reglas de acceso OK).
+
+### Pendiente / a decidir
+
+- Componentes `select` y `avatar` siguen escritos a mano; el resto son los
+  oficiales de shadcn-vue (tomados del registro, porque el CLI se cuelga con
+  pnpm 10.34).
+- 15 avisos de ESLint (`vue/require-default-prop`) que vienen del estilo de
+  los componentes del registro. No son errores.
+- Fases 4 y 5 (enlazar y crear tareas desde pi), despliegue en VPS y
+  publicación de kankaku: **previstas, sin empezar**.
+
+---
+
+
 ## Web (`./web`) — Nuxt 4 + PocketBase
 
 ### Cómo arrancarlo en desarrollo (dos procesos)
