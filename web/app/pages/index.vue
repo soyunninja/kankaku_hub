@@ -125,19 +125,43 @@ watch(range, load, { deep: true })
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-      <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs">
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral">
         <template #vsLabel>
           {{ t('dashboard.vsPrevious') }}
         </template>
       </KpiCard>
-      <KpiCard :title="t('dashboard.kpi.wallTime')" :value="formatDuration(totals.wallMs)" :current-value="totals.wallMs" :previous-value="previousTotals.wallMs" />
-      <KpiCard :title="t('dashboard.kpi.waitingTime')" :value="formatDuration(totals.waitingMs)" :current-value="totals.waitingMs" :previous-value="previousTotals.waitingMs" />
-      <KpiCard :title="t('dashboard.kpi.cost')" :value="formatCost(totals.cost)" :current-value="totals.cost" :previous-value="previousTotals.cost" />
-      <KpiCard :title="t('dashboard.kpi.tokensIn')" :value="formatTokensCompact(totals.input)" :current-value="totals.input" :previous-value="previousTotals.input" />
-      <KpiCard :title="t('dashboard.kpi.tokensOut')" :value="formatTokensCompact(totals.output)" :current-value="totals.output" :previous-value="previousTotals.output" />
-      <KpiCard :title="t('dashboard.kpi.tasks')" :value="String(totals.count)" :current-value="totals.count" :previous-value="previousTotals.count" />
-      <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(avgCostPerTask(totals))" />
+      <KpiCard :title="t('dashboard.kpi.wallTime')" :value="formatDuration(totals.wallMs)" :current-value="totals.wallMs" :previous-value="previousTotals.wallMs" polarity="neutral">
+        <template #vsLabel>
+          {{ t('dashboard.vsPrevious') }}
+        </template>
+      </KpiCard>
+      <KpiCard :title="t('dashboard.kpi.waitingTime')" :value="formatDuration(totals.waitingMs)" :current-value="totals.waitingMs" :previous-value="previousTotals.waitingMs" polarity="lowerIsBetter">
+        <template #vsLabel>
+          {{ t('dashboard.vsPrevious') }}
+        </template>
+      </KpiCard>
+      <KpiCard :title="t('dashboard.kpi.cost')" :value="formatCost(totals.cost)" :current-value="totals.cost" :previous-value="previousTotals.cost" polarity="lowerIsBetter">
+        <template #vsLabel>
+          {{ t('dashboard.vsPrevious') }} · USD
+        </template>
+      </KpiCard>
+      <KpiCard :title="t('dashboard.kpi.tokensIn')" :value="formatTokensCompact(totals.input)" :current-value="totals.input" :previous-value="previousTotals.input" polarity="neutral">
+        <template #vsLabel>
+          {{ t('dashboard.vsPrevious') }}
+        </template>
+      </KpiCard>
+      <KpiCard :title="t('dashboard.kpi.tokensOut')" :value="formatTokensCompact(totals.output)" :current-value="totals.output" :previous-value="previousTotals.output" polarity="neutral">
+        <template #vsLabel>
+          {{ t('dashboard.vsPrevious') }}
+        </template>
+      </KpiCard>
+      <KpiCard :title="t('dashboard.kpi.tasks')" :value="String(totals.count)" :current-value="totals.count" :previous-value="previousTotals.count" polarity="neutral">
+        <template #vsLabel>
+          {{ t('dashboard.vsPrevious') }}
+        </template>
+      </KpiCard>
+      <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(avgCostPerTask(totals))" polarity="lowerIsBetter" />
     </div>
 
     <Card>
@@ -176,7 +200,7 @@ v-model="stackBy" class="w-40" :options="[
     </Card>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <Card>
+      <Card data-testid="breakdown-by-client">
         <CardHeader><CardTitle class="text-sm font-medium text-foreground">
           {{ t('dashboard.byClient') }}
         </CardTitle></CardHeader>
