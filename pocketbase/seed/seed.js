@@ -12,6 +12,17 @@
 // work_records.kankaku_id) and the script looks up existing rows before
 // creating, so running it twice never duplicates data.
 //
+// Demo clients also carry plausible values for the four optional contact
+// fields (`website`, `contact_email`, `contact_phone`, `notes`). Unlike the
+// rest of this script (which only ever creates missing rows), the contact
+// fields ARE re-applied to already-existing demo clients on every run: they
+// are pure demo/display data, not something a script needs to treat as
+// owner-authored, so keeping them in sync with this file's canonical values
+// is more useful than leaving old runs stale after the fields are edited
+// here. The "Sin determinar" client is seeded by migration
+// `1758300008_seed_unassigned_client.js`, not by this script, and is never
+// touched here — its contact fields stay empty, same as its other fields.
+//
 // Usage:
 //   PB_URL=http://127.0.0.1:8090 node pocketbase/seed/seed.js
 
@@ -108,14 +119,71 @@ async function batchCreate(requests) {
   return results;
 }
 
+async function batchUpdate(requests) {
+  const results = [];
+  for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+    const chunk = requests.slice(i, i + BATCH_SIZE);
+    const body = {
+      requests: chunk.map((r) => ({
+        method: "PATCH",
+        url: `/api/collections/${r.collection}/records/${r.id}`,
+        body: r.body,
+      })),
+    };
+    const data = await pbFetch("/api/batch", { method: "POST", body: JSON.stringify(body) });
+    data.forEach((r, idx) => {
+      if (r.status < 200 || r.status >= 300) {
+        throw new Error(`batch update failed: ${JSON.stringify(r)}`);
+      }
+      results.push({ key: chunk[idx].key, record: r.body });
+    });
+  }
+  return results;
+}
+
 // --- demo catalog ------------------------------------------------------
 
 const CLIENTS = [
-  { name: "Cajamar", code: "cajamar" },
-  { name: "Turismo Níjar", code: "turismo-nijar" },
-  { name: "Acme", code: "acme" },
-  { name: "Ferretería Soto", code: "ferreteria-soto" },
-  { name: "Clínica Dental Vega", code: "clinica-dental-vega" },
+  {
+    name: "Cajamar",
+    code: "cajamar",
+    website: "https://www.cajamar.es",
+    contact_email: "proyectos@cajamar.es",
+    contact_phone: "+34 950 210 100",
+    notes: "Banca cooperativa.\nContacto habitual: departamento de sistemas.\nPrefieren reuniones los jueves.",
+  },
+  {
+    name: "Turismo Níjar",
+    code: "turismo-nijar",
+    website: "https://www.turismonijar.com",
+    contact_email: "info@turismonijar.com",
+    contact_phone: "+34 950 360 001",
+    notes: "Ayuntamiento / oficina de turismo.\nPicos de trabajo antes de Semana Santa y verano.",
+  },
+  {
+    name: "Acme",
+    code: "acme",
+    website: "https://acme.example",
+    contact_email: "dev@acme.example",
+    contact_phone: "+1 555 010 2020",
+    notes: "",
+  },
+  {
+    name: "Ferretería Soto",
+    code: "ferreteria-soto",
+    website: "https://ferreteriasoto.example",
+    contact_email: "pedidos@ferreteriasoto.example",
+    contact_phone: "+34 950 440 220",
+    notes: "Negocio familiar, un solo interlocutor (Manuel).",
+  },
+  {
+    name: "Clínica Dental Vega",
+    code: "clinica-dental-vega",
+    website: "https://clinicadentalvega.example",
+    contact_email: "administracion@clinicadentalvega.example",
+    contact_phone: "+34 950 550 330",
+    notes: "Datos de pacientes: extremar cuidado con capturas/demos.",
+  },
 ];
 
 const PROJECTS = [
@@ -233,12 +301,42 @@ async function main() {
   const clientCreates = CLIENTS.filter((c) => !existingClients.has(c.code)).map((c) => ({
     key: c.code,
     collection: "clients",
-    body: { name: c.name, code: c.code, active: true, unassigned: false },
+    body: {
+      name: c.name,
+      code: c.code,
+      active: true,
+      unassigned: false,
+      website: c.website || "",
+      contact_email: c.contact_email || "",
+      contact_phone: c.contact_phone || "",
+      notes: c.notes || "",
+    },
   }));
   const createdClients = await batchCreate(clientCreates);
   for (const { key, record } of createdClients) existingClients.set(key, record);
   const clientIdByCode = new Map([...existingClients].map(([code, rec]) => [code, rec.id]));
   console.log(`clients: ${clientCreates.length} created, ${CLIENTS.length} total expected`);
+
+  // Re-apply the four contact fields to demo clients that already existed
+  // (see the header comment above: this is the one exception to "create
+  // only, never touch existing rows" in this script, because contact
+  // fields on the demo clients are pure display data, not owner-authored
+  // state). Never touches "Sin determinar" (not in CLIENTS).
+  const clientContactUpdates = CLIENTS.filter((c) => existingClients.has(c.code) && !createdClients.some((cc) => cc.key === c.code)).map((c) => ({
+    key: c.code,
+    collection: "clients",
+    id: clientIdByCode.get(c.code),
+    body: {
+      website: c.website || "",
+      contact_email: c.contact_email || "",
+      contact_phone: c.contact_phone || "",
+      notes: c.notes || "",
+    },
+  }));
+  if (clientContactUpdates.length > 0) {
+    await batchUpdate(clientContactUpdates);
+  }
+  console.log(`clients: ${clientContactUpdates.length} had contact fields refreshed`);
 
   // 2. projects ------------------------------------------------------------
   const existingProjects = await fetchAllValues("projects", "code");
