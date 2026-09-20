@@ -456,27 +456,32 @@ async function onRefreshFavicon() {
       <Sheet v-model:open="detailOpen">
         <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
           <div v-if="detailClient" class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
-            <div class="space-y-1">
+            <div>
               <!-- pr-8 keeps the badge clear of the sheet's absolutely
                    positioned close (X) button in the top-right corner. -->
-              <div class="flex items-center gap-2 pr-8">
-                <ClientAvatar :client="detailClient" size="md" />
-                <h2
-                  ref="sheetTitleRef"
-                  data-testid="detail-client-name"
-                  tabindex="-1"
-                  class="min-w-0 flex-1 truncate text-base font-semibold outline-none"
-                >
-                  {{ detailClient.name }}
-                </h2>
-                <Badge data-testid="detail-client-status-badge" :variant="detailClient.active ? 'success' : 'outline'" class="shrink-0">
+              <!-- items-start (not center): the text block is two lines (name +
+                   code), and the badge must sit level with the NAME line. -->
+              <div class="flex items-start gap-3 pr-8">
+                <ClientAvatar :client="detailClient" size="md" class="mt-0.5" />
+                <div class="min-w-0 flex-1">
+                  <h2
+                    ref="sheetTitleRef"
+                    data-testid="detail-client-name"
+                    tabindex="-1"
+                    :title="detailClient.name"
+                    class="truncate text-base leading-6 font-semibold outline-none"
+                  >
+                    {{ detailClient.name }}
+                  </h2>
+                  <p data-testid="detail-client-code" class="truncate text-sm text-muted-foreground">
+                    {{ detailClient.code }}
+                  </p>
+                </div>
+                <Badge data-testid="detail-client-status-badge" :variant="detailClient.active ? 'success' : 'outline'" class="mt-0.5 shrink-0">
                   {{ detailClient.active ? t('common.active') : t('common.inactive') }}
                 </Badge>
-                <Lock v-if="detailClient.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
+                <Lock v-if="detailClient.unassigned" class="mt-1.5 size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
               </div>
-              <p class="text-sm text-muted-foreground">
-                {{ detailClient.code }}
-              </p>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
