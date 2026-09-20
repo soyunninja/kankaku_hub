@@ -83,6 +83,7 @@ export default defineNuxtConfig({
     head: {
       title: 'kankaku hub',
       htmlAttrs: { lang: 'es' },
+      link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
     },
   },
 
