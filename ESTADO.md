@@ -282,9 +282,9 @@ otra instalación de pnpm. `components.json` ya existía y es válido
   incorrecto — verificado con Playwright en perfil nuevo), selector
   oscuro/claro/sistema persistido en `localStorage`.
 - `@nuxtjs/i18n`: español por defecto (sin detección automática del
-  navegador — es un requisito explícito, ver `nuxt.config.ts`), inglés
-  como segundo idioma, selector persistido. Todo el copy de la UI pasa
-  por `t(...)`.
+  navegador — es un requisito explícito, ver `nuxt.config.ts`), inglés y
+  japonés como idiomas adicionales, selector persistido. Todo el copy de
+  la UI pasa por `t(...)`. Ver más abajo "Idioma japonés — parte web".
 - Componentes de UI genuinos de shadcn-vue en `app/components/ui/`
   (primitivas de `reka-ui` + `cva` + `tailwind-merge` + iconos
   `@lucide/vue`) — ver "Pase de pulido" más abajo para cómo se obtuvieron
@@ -448,6 +448,43 @@ nuevos `apiLogin`/`findClients`/`pbUrl`/`pbOrigin` en `e2e/helpers.ts`
 usados ahora por todas las llamadas directas a la API de `polish.spec.ts`.
 Verificado precisamente en el modo donde antes fallaba (`nuxt dev`,
 web y PocketBase en puertos distintos): las 63 specs en verde.
+
+### Idioma japonés — parte web (2026-09-20)
+
+Tercer idioma de la UI (`ja`, japonés), además de español/inglés:
+`web/i18n/locales/ja.json` (paridad exacta de claves con `es.json`, sin
+placeholders `{...}` perdidos ni añadidos, verificado en
+`tests/i18n.test.ts`) construido a partir de un glosario propio
+(`web/i18n/GLOSSARY.md`, ~50 términos, con una lista aparte de los que
+más conviene que revise alguien que conozca bien japonés). El selector de
+idioma de la cabecera ya era un desplegable genérico que itera
+`locales`, así que solo hizo falta registrar `ja` en `nuxt.config.ts`
+para que apareciera; se le añadió además un check visual en la opción
+activa. Duraciones ahora son conscientes del idioma
+(`app/lib/format.ts`/`useFormatters()`): en japonés `2時間30分` en vez de
+`2h 30m`; fechas y números compactos usan `Intl` con el locale activo
+(`ja-JP` da recuentos de tokens en base 万, p. ej. `81.7万`, que es lo
+correcto en japonés). Pila de fuentes CJK añadida (sin descarga de
+fuentes web) y reglas de salto de línea propias de `:lang(ja)`. El
+repaso de maquetación en japonés a 390/768/1440px encontró y corrigió
+dos problemas reales específicos del japonés (no presentes en
+es/en): los valores de las tarjetas KPI del dashboard se recortaban en
+el grid móvil de 2 columnas por lo anchos que son los kanji frente al
+inglés/español, y dos etiquetas del panel de detalle de entrada
+("サブエージェント", "リポジトリのパス") se partían a media palabra en
+columnas estrechas. El texto en `ja.json` está traducido por un agente,
+no revisado por hablante nativo — se documenta así, sin disimularlo, en
+`docs/specs/web-theming-and-i18n.md`.
+
+**Verificación**: `pnpm lint` 0 errores (mismos avisos preexistentes),
+`pnpm typecheck` verde, `pnpm test` **164/164 tests en verde** (141
+previos + 23 nuevos de i18n/formatters), `pnpm generate` verde. `pnpm
+test:e2e` completo contra la misma copia aislada + PocketBase en 8092 +
+servidor de fixture de favicons en 8099: **75/76 specs en verde**; el
+único fallo (`client-avatars.spec.ts`, foco inicial del panel de
+cliente) se reprodujo igual sobre un `git worktree` limpio del HEAD
+anterior a este trabajo — preexistente, no relacionado con japonés, no
+tocado aquí.
 
 ## kankaku-hub (parte PocketBase)
 
