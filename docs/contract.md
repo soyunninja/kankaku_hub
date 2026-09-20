@@ -280,6 +280,23 @@ Relation fields that have no value must be sent as `""` (empty string),
 **not omitted and not `null`** — PocketBase accepts either, but `""` is
 what this backend's own seed script and manual tests use.
 
+#### Side effects of writing `task_entries`
+
+Assigning `task` on a `task_entries` create or update can silently move the
+linked task's `status` from `open` to `doing`. This is not a new field, not
+a new endpoint, and not a change to the request/response shapes documented
+above — it happens server-side, with app privileges, in a PocketBase hook
+(`pocketbase/pb_hooks/task-auto-doing.pb.js`) that runs after the
+`task_entries` write has already succeeded. A `doing` task is left alone,
+and a `done` task is never reopened; `done` is never set automatically —
+closing a task stays the owner's call. A client `PATCH`ing
+`task_entries.task` (or creating a row with it set) should not assume the
+task's previously-known status still holds: refetch/resync `tasks` if the
+UI displays task status, rather than trusting a locally cached value. See
+[`specs/hub-schema-and-access-rules.md`](specs/hub-schema-and-access-rules.md)
+(`SCHEMA-REQ-017`) and [`specs/web-tasks.md`](specs/web-tasks.md)
+(`TASKS-REQ-010`).
+
 ### `work_records` — optional raw detail
 
 | field | type | notes |

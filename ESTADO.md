@@ -66,6 +66,14 @@ Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 > [`docs/specs/web-sessions.md`](docs/specs/web-sessions.md) y
 > [ADR 0024](docs/adr/0024-sessions-link-to-tasks-by-explicit-action.md).
 
+> **Nota (hook `task-auto-doing`)**: nuevo hook en
+> `pocketbase/pb_hooks/task-auto-doing.pb.js` — cuando una fila de
+> `task_entries` se crea o actualiza con `task` asignado, esa tarea pasa
+> sola de `open` a `doing` en el servidor; `done` nunca se reabre ni se
+> marca automáticamente (cerrar una tarea sigue siendo criterio del
+> dueño). No añade migración ni endpoint nuevo, solo el fichero de hook —
+> se carga solo, igual que `favicon.pb.js`, al reiniciar `npm run dev:all`.
+
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
 npm run dev:all      # PARA TRASTEAR: API en :8090 + web con recarga en caliente → http://localhost:3000

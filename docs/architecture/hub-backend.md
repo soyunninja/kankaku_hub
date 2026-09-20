@@ -226,6 +226,22 @@ Notable fields beyond the obvious measurement ones:
 - Relation fields with no value are sent/read as `""`, never `null`
   (a PocketBase convention, not a schema property).
 
+### The task-auto-doing hook (`pocketbase/pb_hooks/task-auto-doing.pb.js`)
+
+Registered on `task_entries`' `onRecordAfterCreateSuccess` and
+`onRecordAfterUpdateSuccess`: when a row is created with, or updated to, a
+non-empty `task`, the linked task's `status` moves from `open` to `doing`.
+A `doing` task is left alone and a `done` task is never reopened — `done`
+is never set automatically, closing a task stays the owner's judgement
+(pure decision rule in `pb_hooks/lib/task-status-rule.js`, unit tested by
+`pb_hooks/lib/task-status-rule.test.js`, `npm run hooks:test`). The hook
+runs with the app's own privileges, so it can update `tasks` even though
+the `service` account cannot (see [`hub-schema-and-access-rules.md`
+`SCHEMA-REQ-017`](../specs/hub-schema-and-access-rules.md)) — the same
+"runs with app privileges, everything needed is `require`d inside the
+handler" pattern as `favicon.pb.js` above. A failure in the hook is logged
+and swallowed; it never fails the `task_entries` write that triggered it.
+
 ### `work_records`
 
 Optional raw per-process detail, `rollup` always `false` (a standing

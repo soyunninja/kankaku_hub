@@ -90,6 +90,17 @@ surface captured from real requests.
     against the old shape SHALL continue to run without erroring against
     the new view (it simply won't see the new `agent` column) until the
     owner restarts PocketBase to pick up the current web build.
+17. `SCHEMA-REQ-017` — `pocketbase/pb_hooks/task-auto-doing.pb.js` (rule in
+    `pocketbase/pb_hooks/lib/task-status-rule.js`) SHALL be the sole
+    exception to `SCHEMA-REQ-004`'s `tasks` write restriction: it runs
+    with app/hook privileges, not through the `tasks` collection's normal
+    API rules, after a `task_entries` create or update succeeds, and MAY
+    move that entry's linked task from `status: "open"` to
+    `status: "doing"` — never to `done`, and never reopening a task that
+    is already `done` (see `TASKS-REQ-010`,
+    [`web-tasks.md`](web-tasks.md)). Outside this one hook-mediated
+    transition, the `service` role SHALL still be unable to write `tasks`
+    directly through the API.
 
 ## Scenarios
 
@@ -172,6 +183,18 @@ surface captured from real requests.
 - **When** it attempts `DELETE /api/collections/ignored_sessions/records/<id>`
 - **Then** the request fails with `403`, the same rule shape as every other owner-only write in this schema
 
+### Scenario: the task-auto-doing hook is the sole exception to the tasks write restriction (`SCHEMA-REQ-017`)
+
+- **Given** the request is authenticated as `role: "service"`
+- **When** it attempts `PATCH /api/collections/tasks/records/{id}` directly
+- **Then** the request still fails (`404`, the single-record rule-mismatch
+  shape — distinct from the generic `400` a rejected `create` returns, see
+  the `SCHEMA-REQ-004` scenario above); the only way that same `service`
+  account can move a task from `open` to `doing` is indirectly, by
+  creating or updating a `task_entries` row with that task's id in `task`,
+  which the hook then applies with its own app privileges (verified
+  manually end-to-end on an isolated copy, with the `service` account)
+
 ### Scenario: the reshaped view returns one row per agent within a day (`SCHEMA-REQ-008`, `SCHEMA-REQ-016`)
 
 - **Given** two `task_entries` rows share `project`/`client`/`started_at` day but have `agent: "pi"` and `agent: "opencode"` respectively
@@ -231,3 +254,4 @@ full field tables per collection.
 | `SCHEMA-REQ-014` | `pocketbase/pb_hooks/favicon.pb.js`, `pocketbase/pb_hooks/lib/favicon-*.js`; unit tests `pocketbase/pb_hooks/lib/*.test.js` (`npm run hooks:test`); reason codes verified manually against an isolated instance (no_website, blocked_host, and a real successful fetch) per `ESTADO.md` | covered |
 | `SCHEMA-REQ-015` | migration `1758300014_ignored_sessions_collection.js` (unique index `idx_ignored_sessions_session_id`, owner-only write rules) | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-016` | migration `1758300015_task_entries_daily_totals_by_agent.js` | not covered by an automated test found in this pass |
+| `SCHEMA-REQ-017` | `pocketbase/pb_hooks/task-auto-doing.pb.js`, `pocketbase/pb_hooks/lib/task-status-rule.js`; unit tests `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`) | partially covered — the unit tests prove the pure `open`→`doing` decision rule only; the hook integration (the actual PocketBase-level trigger on `task_entries` create/update, and the `service`-role `tasks` PATCH rejection) is covered by a manual/e2e check, not by these unit tests alone |

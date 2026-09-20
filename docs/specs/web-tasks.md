@@ -48,6 +48,16 @@ the future.
    distinct sessions linked to that task, so the owner can tell at a
    glance which tasks have session activity without opening the detail
    sheet.
+10. `TASKS-REQ-010` — The `open` → `doing` transition SHALL happen
+    automatically, server-side, when a `task_entries` row is created with,
+    or updated to, a non-empty `task` (`pocketbase/pb_hooks/task-auto-doing.pb.js`,
+    see [`hub-schema-and-access-rules.md`](hub-schema-and-access-rules.md)
+    `SCHEMA-REQ-017`). The web SHALL NOT attempt this transition itself —
+    it is not part of `useTasks`' write path — and SHALL reflect the
+    server's status whenever it re-reads a task rather than assuming the
+    status it last wrote is still current. `done` SHALL never be set
+    automatically by this mechanism and a `done` task SHALL never be
+    reopened by it.
 
 ## Scenarios
 
@@ -74,6 +84,16 @@ the future.
 - **Given** a task has zero `task_entries` rows with a `session_id`
 - **When** the board renders that task's card
 - **Then** no session-count chip is shown for it
+
+### Scenario: linking work to an open task moves it to doing without web involvement (`TASKS-REQ-010`)
+
+- **Given** a task has `status: "open"`
+- **When** a `task_entries` row is created (or updated) with that task's id
+  in its `task` field, by any writer (the web, the sync client, or the
+  `service` account) — never by the web itself calling a `tasks` update
+- **Then** the task's `status` becomes `doing` on the server, and the web
+  reflects this the next time it reads the task rather than showing a
+  stale `open`
 
 ### Scenario: opening a task shows its sessions with resume commands (`TASKS-REQ-007`, `TASKS-REQ-008`)
 
@@ -121,3 +141,4 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-007` | `web/e2e/session-resume.spec.ts` ("task detail sheet lists its sessions") | covered |
 | `TASKS-REQ-008` | `web/e2e/session-resume.spec.ts` (session totals + resume command asserted) | covered |
 | `TASKS-REQ-009` | code review (`pages/tasks/index.vue#sessionCountByTask`); the chip itself is not asserted by the e2e spec above | not covered by an automated test found in this pass |
+| `TASKS-REQ-010` | `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`) | partially covered — the unit tests prove the pure `open`→`doing` decision rule only; the hook integration (the actual PocketBase-level trigger on `task_entries` create/update) is covered by a manual/e2e check, not by these unit tests alone |
