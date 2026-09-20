@@ -33,6 +33,8 @@ const SUPERUSER_PASSWORD = process.env.PB_SUPERUSER_PASSWORD || "kankaku-dev-adm
 const BATCH_SIZE = 50;
 const REGULAR_ENTRY_COUNT = 400;
 const UNASSIGNED_ENTRY_COUNT = 30;
+const OPENCODE_ENTRY_COUNT = 7;
+const OPENCODE_SUBAGENT_LINKAGE = ["linked", "unlinked", "not_applicable", "not_applicable"];
 const WINDOW_DAYS = 60;
 
 // --- deterministic PRNG (mulberry32) so re-runs generate the exact same
@@ -353,6 +355,77 @@ function buildEntryPayload({ taskId, client, project, task, repoProject, legacyL
     legacy_client_label: legacyLabel || "",
     repo_project: repoProject || "",
     schema: 1,
+    // All rows this script creates directly are written by the pi package,
+    // whose measurement is the full one (mirrors migration 1758300013's
+    // backfill derivation for subagent_linkage).
+    agent: "pi",
+    plugin: "kankaku",
+    waiting_quality: "measured",
+    cost_quality: "measured",
+    subagent_linkage: subagentCount > 0 ? "linked" : "not_applicable",
+  };
+}
+
+// Demo rows for a second agent ("opencode"), to exercise agent/quality UI in
+// dev. Uses ITS OWN mulberry32 instance seeded from the row's task_id (same
+// isolation pattern as buildSegmentsFor above), so it never advances the
+// shared `rand` sequence — every existing seeded row's values stay stable
+// across reruns regardless of this batch's size.
+function buildOpencodeEntryPayload({ taskId, client, project, task, repoProject }) {
+  const local = mulberry32(hashString(`opencode-demo-${taskId}`));
+  const startedAt = new Date(Date.now() - Math.floor(local() * WINDOW_DAYS * 24 * 60 * 60 * 1000));
+  const wallMs = Math.floor(3 * 60 * 1000 + local() * (4 * 60 * 60 * 1000 - 3 * 60 * 1000));
+  // opencode's plugin exposes no waiting-time signal: work_ms == wall_ms is
+  // an upper bound, hence waiting_quality "unavailable" below.
+  const waitingMs = 0;
+  const workMs = wallMs;
+  const endedAt = new Date(startedAt.getTime() + wallMs);
+
+  const input = Math.floor(300 + local() * (9000 - 300));
+  const output = Math.floor(150 + local() * (4500 - 150));
+  const cacheRead = Math.floor(local() * 25000);
+  const cacheWrite = Math.floor(local() * 6000);
+  // cost_quality "estimated": computed from token counts, not provider-reported.
+  const cost = Number((input * 0.000004 + output * 0.000015 + cacheRead * 0.0000004 + cacheWrite * 0.0000045).toFixed(6));
+
+  const linkage = OPENCODE_SUBAGENT_LINKAGE[Math.floor(local() * OPENCODE_SUBAGENT_LINKAGE.length)];
+  const subagentCount = linkage === "not_applicable" ? 0 : 1 + Math.floor(local() * 2);
+
+  return {
+    task_id: taskId,
+    client,
+    project: project || "",
+    task: task || "",
+    started_at: toPbDate(startedAt),
+    ended_at: toPbDate(endedAt),
+    wall_ms: wallMs,
+    waiting_ms: waitingMs,
+    work_ms: workMs,
+    input,
+    output,
+    cache_read: cacheRead,
+    cache_write: cacheWrite,
+    cost,
+    segments: buildSegmentsFor(taskId, workMs),
+    subagent_count: subagentCount,
+    runs: 1 + Math.floor(local() * 5),
+    turns: 1 + Math.floor(local() * 19),
+    status: STATUSES[Math.floor(local() * STATUSES.length)],
+    session_id: `session-${taskId}`,
+    session_name: TASK_TITLES[Math.floor(local() * TASK_TITLES.length)],
+    machine: MACHINES[Math.floor(local() * MACHINES.length)],
+    model: "gpt-5-codex",
+    prompt: "",
+    legacy_client_label: "",
+    repo_project: repoProject || "",
+    schema: 1,
+    agent: "opencode",
+    agent_version: "0.1.0",
+    plugin: "kankaku-opencode",
+    plugin_version: "0.1.0",
+    waiting_quality: "unavailable",
+    cost_quality: "estimated",
+    subagent_linkage: linkage,
   };
 }
 
@@ -491,6 +564,31 @@ async function main() {
         task: null,
         repoProject: "",
         legacyLabel: pick(LEGACY_LABELS),
+      }),
+    });
+  }
+
+  // 5b. task_entries: demo rows for a second agent ("opencode"), to exercise
+  // agent/quality UI in dev. Small, clearly-labelled batch; deterministic
+  // task ids with a distinct prefix, reusing the first seeded project so no
+  // new client/project is invented for this.
+  const opencodeProject = PROJECTS[0];
+  const opencodeTasks = taskList.filter((t) => t.project === opencodeProject.code);
+  for (let i = 1; i <= OPENCODE_ENTRY_COUNT; i++) {
+    const taskId = `seed-te-oc-${String(i).padStart(3, "0")}`;
+    if (existingEntryIds.has(taskId)) continue;
+
+    const task = i % 2 === 0 && opencodeTasks.length > 0 ? opencodeTasks[i % opencodeTasks.length] : null;
+
+    entryCreates.push({
+      key: taskId,
+      collection: "task_entries",
+      body: buildOpencodeEntryPayload({
+        taskId,
+        client: clientIdByCode.get(opencodeProject.client),
+        project: projectIdByCode.get(opencodeProject.code),
+        task: task ? task.id : null,
+        repoProject: opencodeProject.repo,
       }),
     });
   }
