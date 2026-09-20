@@ -298,6 +298,147 @@ async function fetchLegacySegmentRows() {
   return rows;
 }
 
+// --- session grouping ----------------------------------------------------
+//
+// A "session" = several task_entries rows sharing one `session_id` (one
+// `pi --session <id>` run, possibly spanning several consolidated rows).
+// Before this, every entry got its own unique `session-${taskId}`, which
+// made the "sessions without a task" queue show N one-entry sessions —
+// unrealistic. Grouping decisions use their OWN generator, seeded from a
+// stable per-stream key, so they never advance the shared `rand`
+// sequence (same isolation pattern as `buildSegmentsFor` above).
+//
+// `makeSessionAssigner` streams: called once per candidate row IN TASK_ID
+// ORDER with a caller-computed `bucketKey` (see call sites below — the
+// task id when the row has one, else a client/project fallback), it keeps
+// ONE "open" session per bucket ALIVE FOR THE WHOLE STREAM (not just while
+// rows are consecutive) — every row asks for its bucket's currently-open
+// session and extends it if it still has room, or opens a fresh 1-6 row
+// one otherwise — so rows working the same task end up grouped together
+// regardless of how far apart they land in creation order (task implies
+// client/project, so this also keeps client/project consistent per
+// session, the realistic norm). A handful of sessions (every Nth one
+// opened) are deliberately flagged "mixed": once open, a mixed session
+// takes priority over every bucket and absorbs the next few rows
+// regardless of their bucket, so a few sessions realistically span more
+// than one task — and, since a task boundary implies a client/project
+// boundary here, sometimes client/project too (see
+// docs/specs/web-sessions.md, SESSIONS-REQ-002's `MIXED` sentinel).
+// Feeding it the same (taskId, bucketKey) tuples in the same order always
+// reproduces the same groupings — what makes both a fresh run and the
+// idempotent repair pass below deterministic.
+const SESSION_MAX_SIZE = 6;
+const MIXED_SESSION_EVERY = 18;
+
+function noTaskBucketKey(client, project) {
+  return `no-task:${client || ""}:${project || ""}`;
+}
+
+function makeSessionAssigner(streamKey) {
+  const local = mulberry32(hashString(streamKey));
+  const openByKey = new Map();
+  let activeMixed = null;
+  let sessionsOpened = 0;
+
+  function openSession(taskId) {
+    sessionsOpened++;
+    return {
+      sessionId: `session-${taskId}`,
+      sessionName: TASK_TITLES[Math.floor(local() * TASK_TITLES.length)],
+      machine: MACHINES[Math.floor(local() * MACHINES.length)],
+      mixed: sessionsOpened % MIXED_SESSION_EVERY === 0,
+      remaining: 1 + Math.floor(local() * SESSION_MAX_SIZE),
+    };
+  }
+
+  return function assignSession(taskId, bucketKey) {
+    let target;
+
+    if (activeMixed && activeMixed.remaining > 0) {
+      target = activeMixed;
+    } else {
+      let open = openByKey.get(bucketKey);
+      if (!open || open.remaining <= 0) {
+        open = openSession(taskId);
+        openByKey.set(bucketKey, open);
+        if (open.mixed) activeMixed = open;
+      }
+      target = open;
+    }
+
+    target.remaining--;
+    return { session_id: target.sessionId, session_name: target.sessionName, machine: target.machine };
+  };
+}
+
+async function fetchSessionRepairRows() {
+  const rows = [];
+  let page = 1;
+  for (;;) {
+    const data = await pbFetch(
+      `/api/collections/task_entries/records?page=${page}&perPage=500&fields=id,task_id,client,project,task,machine,session_id,session_name&filter=${encodeURIComponent('task_id ~ "seed-te-"')}`
+    );
+    rows.push(...data.items);
+    if (page >= data.totalPages) break;
+    page++;
+  }
+  return rows;
+}
+
+// Repairs session_id/session_name/machine for EVERY seed-te- row (freshly
+// created this run or left over from before this fix), so re-running the
+// script is idempotent and an already-seeded owner-facing dev DB gets
+// repaired in place too. Recomputes the same three streams
+// (regular/unassigned/opencode) used at creation time, sorted by task_id
+// so the recomputation always matches creation-time order, and only
+// returns rows whose stored value actually differs from the target.
+function computeSessionRepairUpdates(rows) {
+  const regular = [];
+  const unassigned = [];
+  const opencode = [];
+  for (const row of rows) {
+    if (row.task_id.startsWith("seed-te-un-")) unassigned.push(row);
+    else if (row.task_id.startsWith("seed-te-oc-")) opencode.push(row);
+    else regular.push(row);
+  }
+
+  const byTaskId = (a, b) => (a.task_id < b.task_id ? -1 : a.task_id > b.task_id ? 1 : 0);
+  regular.sort(byTaskId);
+  unassigned.sort(byTaskId);
+  opencode.sort(byTaskId);
+
+  const streams = [
+    { rows: regular, assign: makeSessionAssigner("session-groups-regular") },
+    { rows: unassigned, assign: makeSessionAssigner("session-groups-unassigned") },
+    { rows: opencode, assign: makeSessionAssigner("session-groups-opencode") },
+  ];
+
+  const updates = [];
+  for (const { rows: streamRows, assign } of streams) {
+    for (const row of streamRows) {
+      const bucketKey = row.task || noTaskBucketKey(row.client, row.project);
+      const session = assign(row.task_id, bucketKey);
+      if (
+        row.session_id !== session.session_id ||
+        row.session_name !== session.session_name ||
+        row.machine !== session.machine
+      ) {
+        updates.push({
+          key: row.task_id,
+          collection: "task_entries",
+          id: row.id,
+          body: {
+            session_id: session.session_id,
+            session_name: session.session_name,
+            machine: session.machine,
+          },
+        });
+      }
+    }
+  }
+  return updates;
+}
+
 function randomStartedAt() {
   const now = Date.now();
   const offsetMs = randInt(0, WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -308,7 +449,17 @@ function toPbDate(d) {
   return d.toISOString().replace("T", " ").replace("Z", "Z");
 }
 
-function buildEntryPayload({ taskId, client, project, task, repoProject, legacyLabel }) {
+function buildEntryPayload({
+  taskId,
+  client,
+  project,
+  task,
+  repoProject,
+  legacyLabel,
+  sessionId,
+  sessionName,
+  sessionMachine,
+}) {
   const startedAt = randomStartedAt();
   const wallMs = randInt(3 * 60 * 1000, 4 * 60 * 60 * 1000);
   const waitingMs = randInt(0, Math.floor(wallMs * 0.2));
@@ -327,6 +478,19 @@ function buildEntryPayload({ taskId, client, project, task, repoProject, legacyL
 
   const subagentCount = rand() < 0.22 ? randInt(1, 3) : 0;
 
+  // Always draw a value here, in the same order as an un-grouped run,
+  // even when a session-assignment param below overrides it — this keeps
+  // the shared `rand` sequence (and therefore every other field's value)
+  // identical to a pre-session-grouping run. See the session-grouping
+  // comment above `makeSessionAssigner`.
+  const segments = buildSegments(workMs);
+  const runsVal = randInt(1, 6);
+  const turnsVal = randInt(1, 20);
+  const statusVal = pick(STATUSES);
+  const drawnSessionName = pick(TASK_TITLES);
+  const drawnMachine = pick(MACHINES);
+  const modelVal = pick(MODELS);
+
   return {
     task_id: taskId,
     client,
@@ -342,15 +506,15 @@ function buildEntryPayload({ taskId, client, project, task, repoProject, legacyL
     cache_read: cacheRead,
     cache_write: cacheWrite,
     cost,
-    segments: buildSegments(workMs),
+    segments,
     subagent_count: subagentCount,
-    runs: randInt(1, 6),
-    turns: randInt(1, 20),
-    status: pick(STATUSES),
-    session_id: `session-${taskId}`,
-    session_name: pick(TASK_TITLES),
-    machine: pick(MACHINES),
-    model: pick(MODELS),
+    runs: runsVal,
+    turns: turnsVal,
+    status: statusVal,
+    session_id: sessionId || `session-${taskId}`,
+    session_name: sessionName || drawnSessionName,
+    machine: sessionMachine || drawnMachine,
+    model: modelVal,
     prompt: "",
     legacy_client_label: legacyLabel || "",
     repo_project: repoProject || "",
@@ -371,7 +535,16 @@ function buildEntryPayload({ taskId, client, project, task, repoProject, legacyL
 // isolation pattern as buildSegmentsFor above), so it never advances the
 // shared `rand` sequence — every existing seeded row's values stay stable
 // across reruns regardless of this batch's size.
-function buildOpencodeEntryPayload({ taskId, client, project, task, repoProject }) {
+function buildOpencodeEntryPayload({
+  taskId,
+  client,
+  project,
+  task,
+  repoProject,
+  sessionId,
+  sessionName,
+  sessionMachine,
+}) {
   const local = mulberry32(hashString(`opencode-demo-${taskId}`));
   const startedAt = new Date(Date.now() - Math.floor(local() * WINDOW_DAYS * 24 * 60 * 60 * 1000));
   const wallMs = Math.floor(3 * 60 * 1000 + local() * (4 * 60 * 60 * 1000 - 3 * 60 * 1000));
@@ -391,6 +564,17 @@ function buildOpencodeEntryPayload({ taskId, client, project, task, repoProject 
   const linkage = OPENCODE_SUBAGENT_LINKAGE[Math.floor(local() * OPENCODE_SUBAGENT_LINKAGE.length)];
   const subagentCount = linkage === "not_applicable" ? 0 : 1 + Math.floor(local() * 2);
 
+  // Same discipline as buildEntryPayload above: always draw these, in the
+  // same order, even when a session-assignment param overrides them, so
+  // this row's own isolated `local` sequence (and every other field) stays
+  // identical to a pre-session-grouping run.
+  const segments = buildSegmentsFor(taskId, workMs);
+  const runsVal = 1 + Math.floor(local() * 5);
+  const turnsVal = 1 + Math.floor(local() * 19);
+  const statusVal = STATUSES[Math.floor(local() * STATUSES.length)];
+  const drawnSessionName = TASK_TITLES[Math.floor(local() * TASK_TITLES.length)];
+  const drawnMachine = MACHINES[Math.floor(local() * MACHINES.length)];
+
   return {
     task_id: taskId,
     client,
@@ -406,14 +590,14 @@ function buildOpencodeEntryPayload({ taskId, client, project, task, repoProject 
     cache_read: cacheRead,
     cache_write: cacheWrite,
     cost,
-    segments: buildSegmentsFor(taskId, workMs),
+    segments,
     subagent_count: subagentCount,
-    runs: 1 + Math.floor(local() * 5),
-    turns: 1 + Math.floor(local() * 19),
-    status: STATUSES[Math.floor(local() * STATUSES.length)],
-    session_id: `session-${taskId}`,
-    session_name: TASK_TITLES[Math.floor(local() * TASK_TITLES.length)],
-    machine: MACHINES[Math.floor(local() * MACHINES.length)],
+    runs: runsVal,
+    turns: turnsVal,
+    status: statusVal,
+    session_id: sessionId || `session-${taskId}`,
+    session_name: sessionName || drawnSessionName,
+    machine: sessionMachine || drawnMachine,
     model: "gpt-5-codex",
     prompt: "",
     legacy_client_label: "",
@@ -522,6 +706,7 @@ async function main() {
   const existingEntryIds = await fetchAllValues("task_entries", "task_id");
   const entryCreates = [];
 
+  const assignRegularSession = makeSessionAssigner("session-groups-regular");
   for (let i = 1; i <= REGULAR_ENTRY_COUNT; i++) {
     const taskId = `seed-te-${String(i).padStart(4, "0")}`;
     if (existingEntryIds.has(taskId)) continue;
@@ -530,16 +715,23 @@ async function main() {
     const task = useTask ? pick(taskList) : null;
     const projectCode = task ? task.project : pick(PROJECTS).code;
     const project = PROJECTS.find((p) => p.code === projectCode);
+    const entryClient = clientIdByCode.get(project.client);
+    const entryProject = projectIdByCode.get(project.code);
+    const bucketKey = task ? task.id : noTaskBucketKey(entryClient, entryProject);
+    const session = assignRegularSession(taskId, bucketKey);
 
     entryCreates.push({
       key: taskId,
       collection: "task_entries",
       body: buildEntryPayload({
         taskId,
-        client: clientIdByCode.get(project.client),
-        project: projectIdByCode.get(project.code),
+        client: entryClient,
+        project: entryProject,
         task: task ? task.id : null,
         repoProject: project.repo,
+        sessionId: session.session_id,
+        sessionName: session.session_name,
+        sessionMachine: session.machine,
       }),
     });
   }
@@ -550,9 +742,12 @@ async function main() {
     throw new Error('"Sin determinar" client not found — did migrations run?');
   }
 
+  const assignUnassignedSession = makeSessionAssigner("session-groups-unassigned");
   for (let i = 1; i <= UNASSIGNED_ENTRY_COUNT; i++) {
     const taskId = `seed-te-un-${String(i).padStart(3, "0")}`;
     if (existingEntryIds.has(taskId)) continue;
+
+    const session = assignUnassignedSession(taskId, noTaskBucketKey(unassignedClientId, ""));
 
     entryCreates.push({
       key: taskId,
@@ -564,6 +759,9 @@ async function main() {
         task: null,
         repoProject: "",
         legacyLabel: pick(LEGACY_LABELS),
+        sessionId: session.session_id,
+        sessionName: session.session_name,
+        sessionMachine: session.machine,
       }),
     });
   }
@@ -574,21 +772,29 @@ async function main() {
   // new client/project is invented for this.
   const opencodeProject = PROJECTS[0];
   const opencodeTasks = taskList.filter((t) => t.project === opencodeProject.code);
+  const assignOpencodeSession = makeSessionAssigner("session-groups-opencode");
   for (let i = 1; i <= OPENCODE_ENTRY_COUNT; i++) {
     const taskId = `seed-te-oc-${String(i).padStart(3, "0")}`;
     if (existingEntryIds.has(taskId)) continue;
 
     const task = i % 2 === 0 && opencodeTasks.length > 0 ? opencodeTasks[i % opencodeTasks.length] : null;
+    const entryClient = clientIdByCode.get(opencodeProject.client);
+    const entryProject = projectIdByCode.get(opencodeProject.code);
+    const bucketKey = task ? task.id : noTaskBucketKey(entryClient, entryProject);
+    const session = assignOpencodeSession(taskId, bucketKey);
 
     entryCreates.push({
       key: taskId,
       collection: "task_entries",
       body: buildOpencodeEntryPayload({
         taskId,
-        client: clientIdByCode.get(opencodeProject.client),
-        project: projectIdByCode.get(opencodeProject.code),
+        client: entryClient,
+        project: entryProject,
         task: task ? task.id : null,
         repoProject: opencodeProject.repo,
+        sessionId: session.session_id,
+        sessionName: session.session_name,
+        sessionMachine: session.machine,
       }),
     });
   }
@@ -610,6 +816,17 @@ async function main() {
     }))
   );
   console.log(`task_entries: ${legacyRows.length} had legacy segments repaired`);
+
+  // 5c. Repair session_id/session_name/machine for every seed-te- row so
+  // sessions group realistically (several entries per session, consistent
+  // client/project/machine, a few crossing tasks) instead of the old
+  // one-entry-per-session scheme. Covers rows left over from before this
+  // fix as well as rows just created above — see the session-grouping
+  // comment near `makeSessionAssigner`.
+  const sessionRepairRows = await fetchSessionRepairRows();
+  const sessionUpdates = computeSessionRepairUpdates(sessionRepairRows);
+  await batchUpdate(sessionUpdates);
+  console.log(`task_entries: ${sessionUpdates.length} had session grouping repaired`);
 
   // 6. work_records for entries with subagent_count > 0 -------------------
   const existingWorkRecordIds = await fetchAllValues("work_records", "kankaku_id");
