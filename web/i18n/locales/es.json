@@ -131,6 +131,18 @@
     "invalidEmail": "Introduce un email válido.",
     "migrationPending": "Los campos de contacto no se han guardado: falta aplicar la migración de la base de datos (reinicia el servidor).",
     "viewDetail": "Ver detalle",
+    "favicon": {
+      "refresh": "Actualizar icono",
+      "toast": {
+        "ok": "Icono actualizado.",
+        "no_website": "Este cliente no tiene web: no hay icono que buscar.",
+        "fetch_failed": "No se pudo contactar con la web del cliente.",
+        "no_icon_found": "No se encontró ningún icono en esa web.",
+        "unsupported_type": "El icono de esa web no es un tipo de imagen admitido.",
+        "too_large": "El icono de esa web supera el tamaño máximo permitido.",
+        "blocked_host": "Esa dirección no está permitida por motivos de seguridad."
+      }
+    },
     "detail": {
       "contactTitle": "Contacto",
       "noWebsite": "Sin web",

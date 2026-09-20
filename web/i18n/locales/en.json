@@ -131,6 +131,18 @@
     "invalidEmail": "Enter a valid email.",
     "migrationPending": "Contact fields were not saved: the database migration hasn't been applied yet (restart the server).",
     "viewDetail": "View detail",
+    "favicon": {
+      "refresh": "Refresh icon",
+      "toast": {
+        "ok": "Icon updated.",
+        "no_website": "This client has no website — there's no icon to look for.",
+        "fetch_failed": "Couldn't reach the client's website.",
+        "no_icon_found": "No icon was found on that website.",
+        "unsupported_type": "That website's icon isn't a supported image type.",
+        "too_large": "That website's icon is larger than the allowed size.",
+        "blocked_host": "That address isn't allowed for security reasons."
+      }
+    },
     "detail": {
       "contactTitle": "Contact",
       "noWebsite": "No website",

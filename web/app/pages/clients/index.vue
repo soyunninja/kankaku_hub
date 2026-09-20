@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Globe, Lock, Mail, Phone, Plus, StickyNote } from '@lucide/vue'
+import { Globe, Lock, Mail, Phone, Plus, RefreshCw, StickyNote } from '@lucide/vue'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
+import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SkeletonRows from '@/components/common/SkeletonRows.vue'
 import { Badge } from '@/components/ui/badge'
@@ -30,10 +32,13 @@ import type { ClientRecord } from '@/lib/pocketbase-types'
 const { t } = useI18n()
 useHead({ title: computed(() => t('clients.title')) })
 
-const { clients, loading, ensureLoaded, create, update } = useClients()
+const { clients, loading, ensureLoaded, create, update, byId, refreshFavicon } = useClients()
 const { ensureLoaded: ensureProjects, byClient: projectsByClient } = useProjects()
 const { fetchRange } = useTaskEntries()
 const toast = useToast()
+const { user } = useAuth()
+
+const isOwner = computed(() => user.value?.role === 'owner')
 
 const totalsByClient = ref<Record<string, { cost: number, workMs: number }>>({})
 
@@ -116,9 +121,22 @@ async function onSubmit() {
   }
 
   try {
+    const oldWebsite = editing.value?.website ?? ''
     const saved = editing.value
       ? await update(editing.value.id, payload)
       : await create({ ...payload, unassigned: false })
+
+    // Fire-and-forget favicon fetch when `website` actually changed
+    // (including being cleared — the route clears the stored icon
+    // server-side for an empty website). Never awaited: the dialog
+    // closes immediately regardless of how the fetch turns out. Never
+    // triggered for the unassigned client (it has no website field in
+    // the UI at all) and swallows any error — a route 404 against a
+    // PocketBase instance that hasn't applied the favicon migration/hook
+    // yet must not surface as a page error.
+    if (!saved.unassigned && payload.website !== oldWebsite) {
+      refreshFavicon(saved.id).catch(() => {})
+    }
 
     // PocketBase silently drops unknown fields instead of erroring (see
     // AGENTS.md / docs/contract.md verification notes), so a create/update
@@ -168,6 +186,46 @@ function openDetail(client: ClientRecord) {
 }
 
 const detailProjects = computed(() => detailClient.value ? projectsByClient(detailClient.value.id) : [])
+
+// The website link right below is `inline-flex` (not `flex`) so its
+// initial-auto-focus ring hugs the link text instead of painting
+// full-width across the sheet. Redirecting focus to the sheet's own
+// title (tabindex="-1": focusable programmatically, never in the normal
+// Tab order) is the other half of that fix — normal manual Tab order
+// still reaches the link like any other focusable element.
+const sheetTitleRef = ref<HTMLElement | null>(null)
+function onDetailOpenAutoFocus(event: Event) {
+  event.preventDefault()
+  sheetTitleRef.value?.focus()
+}
+
+const faviconRefreshing = ref(false)
+
+async function onRefreshFavicon() {
+  if (!detailClient.value || faviconRefreshing.value) return
+  const id = detailClient.value.id
+  faviconRefreshing.value = true
+  try {
+    const result = await refreshFavicon(id)
+    const updated = byId(id)
+    if (updated) detailClient.value = updated
+    if (result.ok) {
+      toast.success(t('clients.favicon.toast.ok'))
+    }
+    else if (result.reason === 'no_website') {
+      toast.info(t('clients.favicon.toast.no_website'))
+    }
+    else {
+      toast.error(t(`clients.favicon.toast.${result.reason}`))
+    }
+  }
+  catch {
+    toast.error(t('common.error'))
+  }
+  finally {
+    faviconRefreshing.value = false
+  }
+}
 </script>
 
 <template>
@@ -217,18 +275,20 @@ const detailProjects = computed(() => detailClient.value ? projectsByClient(deta
                 @click="openDetail(c)"
               >
                 <TableCell class="font-medium">
-                  <span class="flex items-center gap-1.5">
-                    {{ c.name }}
-                    <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
-                    <Tooltip v-if="c.notes">
-                      <TooltipTrigger as-child>
-                        <StickyNote class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.hasNotes')" />
-                      </TooltipTrigger>
-                      <TooltipContent class="max-w-xs whitespace-pre-wrap">
-                        {{ c.notes }}
-                      </TooltipContent>
-                    </Tooltip>
-                  </span>
+                  <ClientName :client="c" class="max-w-48">
+                    <span class="flex min-w-0 items-center gap-1.5">
+                      <span class="truncate">{{ c.name }}</span>
+                      <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
+                      <Tooltip v-if="c.notes">
+                        <TooltipTrigger as-child>
+                          <StickyNote class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.hasNotes')" />
+                        </TooltipTrigger>
+                        <TooltipContent class="max-w-xs whitespace-pre-wrap">
+                          {{ c.notes }}
+                        </TooltipContent>
+                      </Tooltip>
+                    </span>
+                  </ClientName>
                 </TableCell>
                 <TableCell class="text-muted-foreground">
                   {{ c.code }}
@@ -378,19 +438,29 @@ const detailProjects = computed(() => detailClient.value ? projectsByClient(deta
       </Dialog>
 
       <Sheet v-model:open="detailOpen">
-        <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]">
+        <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
           <div v-if="detailClient" class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
             <div class="space-y-1">
-              <h2 class="flex items-center gap-1.5 text-base font-semibold">
-                {{ detailClient.name }}
-                <Lock v-if="detailClient.unassigned" class="size-3.5 text-muted-foreground" :title="t('clients.protected')" />
-              </h2>
+              <!-- pr-8 keeps the badge clear of the sheet's absolutely
+                   positioned close (X) button in the top-right corner. -->
+              <div class="flex items-center gap-2 pr-8">
+                <ClientAvatar :client="detailClient" size="md" />
+                <h2
+                  ref="sheetTitleRef"
+                  data-testid="detail-client-name"
+                  tabindex="-1"
+                  class="min-w-0 flex-1 truncate text-base font-semibold outline-none"
+                >
+                  {{ detailClient.name }}
+                </h2>
+                <Badge data-testid="detail-client-status-badge" :variant="detailClient.active ? 'success' : 'outline'" class="shrink-0">
+                  {{ detailClient.active ? t('common.active') : t('common.inactive') }}
+                </Badge>
+                <Lock v-if="detailClient.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
+              </div>
               <p class="text-sm text-muted-foreground">
                 {{ detailClient.code }}
               </p>
-              <Badge class="mt-1" :variant="detailClient.active ? 'success' : 'outline'">
-                {{ detailClient.active ? t('common.active') : t('common.inactive') }}
-              </Badge>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -413,15 +483,30 @@ const detailProjects = computed(() => detailClient.value ? projectsByClient(deta
             </div>
 
             <div class="space-y-2 border-t border-border pt-4">
-              <h3 class="text-sm font-medium">
-                {{ t('clients.detail.contactTitle') }}
-              </h3>
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-medium">
+                  {{ t('clients.detail.contactTitle') }}
+                </h3>
+                <Button
+                  v-if="isOwner && !detailClient.unassigned"
+                  data-testid="favicon-refresh-button"
+                  variant="ghost"
+                  size="icon"
+                  class="size-7"
+                  :disabled="faviconRefreshing"
+                  :aria-label="t('clients.favicon.refresh')"
+                  :title="t('clients.favicon.refresh')"
+                  @click="onRefreshFavicon"
+                >
+                  <RefreshCw data-testid="favicon-refresh-icon" class="size-3.5" :class="faviconRefreshing ? 'animate-spin' : ''" />
+                </Button>
+              </div>
               <a
                 v-if="isSafeLinkUrl(detailClient.website ?? '')"
                 :href="detailClient.website"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center gap-1.5 text-sm hover:underline"
+                class="inline-flex items-center gap-1.5 text-sm hover:underline"
               >
                 <Globe class="size-3.5 shrink-0" />
                 {{ displayUrlWithoutScheme(detailClient.website ?? '') }}
