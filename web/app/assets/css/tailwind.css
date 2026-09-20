@@ -6,7 +6,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /*
+   * Latin font stays first (unchanged for es/en, no visual regression
+   * there); the CJK fallbacks after it are OS-provided system fonts, in
+   * priority order across macOS (Hiragino), Windows (Yu Gothic/Meiryo)
+   * and Linux (Noto Sans CJK) — no web-font download, so this stays
+   * offline-friendly and makes no third-party request. Without these,
+   * Japanese text falls back to whatever generic sans-serif the OS picks
+   * for CJK, which is often visually mismatched with Inter's Latin
+   * glyphs sitting right next to it (mixed dates, IDs, code tokens).
+   */
+  --font-sans: "Inter", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans JP", "Noto Sans CJK JP", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
   --color-background: var(--background);
@@ -170,6 +180,41 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /*
+   * Japanese line-breaking: `line-break: strict` avoids breaking right
+   * before a closing bracket/punctuation mark (a common default-`normal`
+   * mistake with 「」（）、。); `word-break: normal` keeps Latin runs
+   * (IDs, code, product names) wrapping on word boundaries instead of
+   * mid-word; `overflow-wrap: anywhere` is the actual overflow guard for
+   * long unbroken Latin tokens (a session id, a URL) that would otherwise
+   * push a narrow card or table cell wider than its container — Japanese
+   * text itself can already break between any two characters, so this
+   * only ever engages for the Latin/code portions mixed into it. Body
+   * copy also gets a touch more line-height: kana/kanji need more
+   * vertical breathing room than Latin text at the same font-size to
+   * read comfortably. `tabular-nums` above is unaffected — it's a
+   * font-feature setting, not a script rule, and applies the same
+   * regardless of `:lang()`.
+   */
+  :lang(ja) {
+    line-break: strict;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+
+  :lang(ja) p,
+  :lang(ja) li {
+    line-height: 1.8;
+  }
+
+  /* Never italicize Japanese — most CJK fonts have no true italic face,
+     so the browser fake-slants the glyphs, which reads as broken, not
+     stylistic. */
+  :lang(ja) em,
+  :lang(ja) i {
+    font-style: normal;
+  }
+
   /* Tailwind v4 dropped the v3 default of `cursor: pointer` on buttons. Restore
      it for everything clickable; disabled controls keep the default cursor. */
   button:not(:disabled),
@@ -183,5 +228,28 @@
   label[for],
   select:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+/*
+ * Dashboard KPI cards at the 2-column mobile grid (app/pages/index.vue,
+ * `grid-cols-2` below `sm`): full-width kanji glyphs in a duration value
+ * like `337時間58分` are individually ~1.8x wider than the Latin
+ * digits/letters in `337h 58m`, and at the card's `text-xl`/`px-6` width
+ * that was just enough headroom for Latin values clips the Japanese ones
+ * (`.truncate`'s ellipsis kicking in for real, not just as a defensive
+ * fallback — verified via a docs screenshot). Only this one narrow range
+ * needs a smaller value size; `sm:` and up already give the card enough
+ * room (`grid-cols-4`) to keep `text-2xl` for every locale.
+ *
+ * Deliberately OUTSIDE `@layer base`: Tailwind v4's cascade layers put
+ * `utilities` (where `text-xl`/`sm:text-2xl` live) after `base`, so a
+ * layered `base` rule can never win over them regardless of selector
+ * specificity — this has to be unlayered to actually override `text-xl`.
+ */
+@media (max-width: 639px) {
+  :lang(ja) [data-testid="kpi-value"] {
+    font-size: 1.0625rem;
+    line-height: 1.3;
   }
 }

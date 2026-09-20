@@ -28,7 +28,6 @@ import {
   statusPresentation,
   truncateMiddle,
 } from '@/lib/entry-detail'
-import { formatCost, formatDateTime, formatDuration, formatTokens } from '@/lib/format'
 import type { ClientRecord, ProjectRecord, TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 
 const props = defineProps<{
@@ -43,7 +42,8 @@ const emit = defineEmits<{ save: [] }>()
 const client = defineModel<string>('client', { required: true })
 const project = defineModel<string>('project', { required: true })
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const { formatCost, formatDateTime, formatDuration, formatTokens } = useFormatters()
 
 // -- focus management: the page's SheetContent @open-auto-focus hands
 // focus here instead of the reka-ui default (first focusable = a link).
@@ -66,7 +66,7 @@ const titleTooltip = computed(() => titleSource.value.kind === 'prompt' && title
 const status = computed(() => statusPresentation(props.entry.status))
 const statusIcon = computed(() => ({ check: CircleCheck, x: CircleX, 'alert-triangle': TriangleAlert })[status.value.icon])
 
-const startedAtHuman = computed(() => formatDateTime(props.entry.started_at, locale.value))
+const startedAtHuman = computed(() => formatDateTime(props.entry.started_at))
 
 // -- summary --------------------------------------------------------------
 
@@ -132,9 +132,9 @@ const technicalFields = computed<TechnicalField[]>(() => {
     { key: 'session_id', label: t('entries.detail.fieldSessionId'), value: safeDisplayValue(e.session_id), copyable: !!e.session_id },
     { key: 'machine', label: t('entries.detail.fieldMachine'), value: safeDisplayValue(e.machine) },
     { key: 'schema', label: t('entries.detail.fieldSchema'), value: safeDisplayValue(e.schema) },
-    { key: 'created', label: t('entries.detail.fieldCreated'), value: e.created ? formatDateTime(e.created, locale.value) : '—', iso: e.created },
-    { key: 'updated', label: t('entries.detail.fieldUpdated'), value: e.updated ? formatDateTime(e.updated, locale.value) : '—', iso: e.updated },
-    { key: 'ended_at', label: t('entries.detail.fieldEndedAt'), value: e.ended_at ? formatDateTime(e.ended_at, locale.value) : '—', iso: e.ended_at },
+    { key: 'created', label: t('entries.detail.fieldCreated'), value: e.created ? formatDateTime(e.created) : '—', iso: e.created },
+    { key: 'updated', label: t('entries.detail.fieldUpdated'), value: e.updated ? formatDateTime(e.updated) : '—', iso: e.updated },
+    { key: 'ended_at', label: t('entries.detail.fieldEndedAt'), value: e.ended_at ? formatDateTime(e.ended_at) : '—', iso: e.ended_at },
   ]
 })
 
@@ -210,32 +210,32 @@ defineOptions({ inheritAttrs: false })
         </div>
 
         <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          <div>
-            <p class="text-xs text-muted-foreground">
+          <div class="min-w-0">
+            <p class="truncate text-xs text-muted-foreground" :title="t('dashboard.kpi.cost')">
               {{ t('dashboard.kpi.cost') }}
             </p>
             <p class="font-medium tabular-nums">
               {{ formatCost(entry.cost) }}
             </p>
           </div>
-          <div>
-            <p class="text-xs text-muted-foreground">
+          <div class="min-w-0">
+            <p class="truncate text-xs text-muted-foreground" :title="t('entries.detail.runs')">
               {{ t('entries.detail.runs') }}
             </p>
             <p class="font-medium tabular-nums">
               {{ entry.runs }}
             </p>
           </div>
-          <div>
-            <p class="text-xs text-muted-foreground">
+          <div class="min-w-0">
+            <p class="truncate text-xs text-muted-foreground" :title="t('entries.detail.turns')">
               {{ t('entries.detail.turns') }}
             </p>
             <p class="font-medium tabular-nums">
               {{ entry.turns }}
             </p>
           </div>
-          <div>
-            <p class="text-xs text-muted-foreground">
+          <div class="min-w-0">
+            <p class="truncate text-xs text-muted-foreground" :title="t('entries.detail.subagents')">
               {{ t('entries.detail.subagents') }}
             </p>
             <p class="font-medium tabular-nums">
@@ -253,7 +253,7 @@ defineOptions({ inheritAttrs: false })
 
         <dl class="space-y-2 text-sm">
           <div class="flex items-center justify-between gap-2">
-            <dt class="text-xs text-muted-foreground">
+            <dt class="shrink-0 text-xs text-muted-foreground">
               {{ t('common.client') }}
             </dt>
             <dd class="min-w-0">
@@ -266,7 +266,7 @@ defineOptions({ inheritAttrs: false })
             </dd>
           </div>
           <div class="flex items-center justify-between gap-2">
-            <dt class="text-xs text-muted-foreground">
+            <dt class="shrink-0 text-xs text-muted-foreground">
               {{ t('common.project') }}
             </dt>
             <dd class="min-w-0 truncate text-right">
@@ -278,7 +278,7 @@ defineOptions({ inheritAttrs: false })
             </dd>
           </div>
           <div class="flex items-center justify-between gap-2">
-            <dt class="text-xs text-muted-foreground">
+            <dt class="shrink-0 text-xs text-muted-foreground">
               {{ t('common.task') }}
             </dt>
             <dd class="min-w-0 truncate text-right">
@@ -290,7 +290,7 @@ defineOptions({ inheritAttrs: false })
             </dd>
           </div>
           <div v-if="entry.legacy_client_label" class="flex items-center justify-between gap-2">
-            <dt class="text-xs text-muted-foreground">
+            <dt class="shrink-0 text-xs text-muted-foreground">
               {{ t('entries.detail.legacyLabel') }}
             </dt>
             <dd class="min-w-0 truncate text-right">
@@ -298,7 +298,7 @@ defineOptions({ inheritAttrs: false })
             </dd>
           </div>
           <div v-if="entry.repo_project" class="flex items-center justify-between gap-2">
-            <dt class="text-xs text-muted-foreground">
+            <dt class="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
               {{ t('entries.detail.repoPath') }}
             </dt>
             <dd class="flex min-w-0 items-center gap-1.5">
