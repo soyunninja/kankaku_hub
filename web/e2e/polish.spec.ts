@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { login, OWNER_EMAIL, OWNER_PASSWORD, setTheme } from './helpers'
+import { apiLogin, findClients, login, pbUrl, setTheme } from './helpers'
 
 /**
  * Targeted regression checks for the visual/UX polish pass (see
@@ -7,30 +7,6 @@ import { login, OWNER_EMAIL, OWNER_PASSWORD, setTheme } from './helpers'
  * failure here points straight at a specific defect class instead of a
  * generic smoke failure.
  */
-
-interface ClientRecord { id: string, name: string, unassigned: boolean, active: boolean }
-
-async function apiLogin(request: import('@playwright/test').APIRequestContext) {
-  const res = await request.post('/api/collections/users/auth-with-password', {
-    data: { identity: OWNER_EMAIL, password: OWNER_PASSWORD },
-  })
-  expect(res.ok(), await res.text()).toBeTruthy()
-  const body = await res.json()
-  return body.token as string
-}
-
-async function findClients(request: import('@playwright/test').APIRequestContext, token: string) {
-  const res = await request.get('/api/collections/clients/records?perPage=200', {
-    headers: { Authorization: token },
-  })
-  expect(res.ok()).toBeTruthy()
-  const body = await res.json()
-  const items = body.items as ClientRecord[]
-  const unassigned = items.find(c => c.unassigned)
-  const target = items.find(c => !c.unassigned && c.active)
-  if (!unassigned || !target) throw new Error('Seed data must include an unassigned client and at least one active client')
-  return { unassigned, target }
-}
 
 test.describe('KPI cards never clip their value', () => {
   test('at desktop and mobile widths', async ({ page }) => {
@@ -100,7 +76,7 @@ test.describe('bulk assignment end-to-end', () => {
     // bulk-assign flow has a real, isolated group to work on without
     // touching the seeded demo data.
     for (let i = 0; i < 2; i++) {
-      const res = await request.post('/api/collections/task_entries/records', {
+      const res = await request.post(pbUrl('/api/collections/task_entries/records'), {
         headers: { Authorization: token },
         data: {
           task_id: `${runId}-${i}`,
@@ -176,7 +152,7 @@ test.describe('bulk assignment end-to-end', () => {
       // Clean up regardless of outcome — never leave e2e rows in the
       // seeded demo data.
       for (const id of createdIds) {
-        await request.delete(`/api/collections/task_entries/records/${id}`, { headers: { Authorization: token } })
+        await request.delete(pbUrl(`/api/collections/task_entries/records/${id}`), { headers: { Authorization: token } })
       }
     }
   })

@@ -1,12 +1,69 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
 export const screenshotsDir = path.join(fileURLToPath(new URL('.', import.meta.url)), '..', 'docs', 'screenshots')
 
 export const OWNER_EMAIL = 'david@kankaku.local'
 export const OWNER_PASSWORD = 'kankaku-dev-owner'
+
+/**
+ * PocketBase's own absolute origin — mirrors the base-URL resolution
+ * `app/plugins/pocketbase.client.ts` does client-side
+ * (`NUXT_PUBLIC_PB_URL`, else `http://127.0.0.1:8090`), but re-derived
+ * here from `process.env` because this Node-side test code has no
+ * `useNuxtApp()`/`useRuntimeConfig()` to read it from.
+ *
+ * Every raw PocketBase API call from a spec (auth, seeding/cleanup
+ * fixtures, etc.) MUST go through this absolute origin, never through
+ * `request.post('/api/...')` relative to Playwright's `baseURL`.
+ * `baseURL` is the WEB origin (e.g. `localhost:3000` under `nuxt dev`,
+ * where Nuxt's dev server and PocketBase are two different ports) — a
+ * relative call there silently 404s or hits the wrong server. Under the
+ * single-process prod-like mode (`npm run dev`, static build served BY
+ * PocketBase) both origins happen to coincide, which is exactly why this
+ * class of bug can pass unnoticed in one mode and fail in the other; see
+ * ESTADO.md.
+ */
+export function pbOrigin(): string {
+  return (process.env.NUXT_PUBLIC_PB_URL || 'http://127.0.0.1:8090').replace(/\/+$/, '')
+}
+
+/** Builds an absolute PocketBase API URL from a path starting with `/api/...`. */
+export function pbUrl(apiPath: string): string {
+  return `${pbOrigin()}${apiPath.startsWith('/') ? '' : '/'}${apiPath}`
+}
+
+/** Authenticates as the seeded owner directly against PocketBase (not
+ * through the web app) and returns the auth token, for specs that need
+ * to seed/clean up fixture data via the API. */
+export async function apiLogin(request: APIRequestContext): Promise<string> {
+  const res = await request.post(pbUrl('/api/collections/users/auth-with-password'), {
+    data: { identity: OWNER_EMAIL, password: OWNER_PASSWORD },
+  })
+  expect(res.ok(), await res.text()).toBeTruthy()
+  const body = await res.json()
+  return body.token as string
+}
+
+export interface ApiClientRecord { id: string, name: string, unassigned: boolean, active: boolean }
+
+/** Finds the protected "Sin determinar" client and one active, assignable
+ * client from the seeded demo data — the pair most fixture-driven specs
+ * need (a safe assignment destination, and the unassigned bucket). */
+export async function findClients(request: APIRequestContext, token: string): Promise<{ unassigned: ApiClientRecord, target: ApiClientRecord }> {
+  const res = await request.get(pbUrl('/api/collections/clients/records?perPage=200'), {
+    headers: { Authorization: token },
+  })
+  expect(res.ok()).toBeTruthy()
+  const body = await res.json()
+  const items = body.items as ApiClientRecord[]
+  const unassigned = items.find(c => c.unassigned)
+  const target = items.find(c => !c.unassigned && c.active)
+  if (!unassigned || !target) throw new Error('Seed data must include an unassigned client and at least one active client')
+  return { unassigned, target }
+}
 
 export async function login(page: Page) {
   await page.goto('/login')
