@@ -427,7 +427,7 @@ defineOptions({ inheritAttrs: false })
               {{ t('entries.detail.quality.agent') }}
             </dt>
             <dd class="flex min-w-0 items-center justify-end gap-1.5 text-right">
-              <AgentBadge :agent="entry.agent" size="xs" />
+              <AgentBadge :agent="entry.agent" size="md" />
               <template v-if="agentVersionDisplay !== '—'">
                 <span class="shrink-0 text-muted-foreground">({{ agentVersionDisplay }})</span>
               </template>

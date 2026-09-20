@@ -11,11 +11,14 @@
  * both so a white disc doesn't glare on dark and doesn't vanish on
  * light:
  * - `background: 'white'` (marks that are a dark glyph on transparent,
- *   e.g. `pi`): a white disc with the mark inset ~22% so it stays
+ *   e.g. `pi`): a white disc with the mark inset ~15% so it stays
  *   legible on the dark theme.
  * - `background: 'own'` (icons that bring their own background, e.g.
  *   `opencode`): the image fills the disc (`object-cover`, clipped to
- *   the circle).
+ *   the circle). These also get a brighter `dark:ring-white/25` ring so
+ *   the disc edge stays perceivable against a dark table row — a plain
+ *   white disc already has enough contrast on its own and doesn't need
+ *   it.
  *
  * Never a broken image or an empty gap: an unresolved agent (empty,
  * legacy, or a slug not in the registry) and a failed image load
@@ -36,17 +39,20 @@ import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
   agent?: string
-  size?: 'xs' | 'sm' | 'md'
+  size?: 'sm' | 'md'
 }>(), {
   size: 'sm',
 })
 
 const { t } = useI18n()
 
-const sizeClass: Record<'xs' | 'sm' | 'md', string> = {
-  xs: 'size-4',
+const sizeClass: Record<'sm' | 'md', string> = {
   sm: 'size-5',
   md: 'size-6',
+}
+const sizePx: Record<'sm' | 'md', number> = {
+  sm: 20,
+  md: 24,
 }
 
 const resolved = computed(() => resolveAgent(props.agent))
@@ -75,6 +81,7 @@ const accessibleLabel = computed(() => {
       'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border',
       sizeClass[size],
       showImage && resolved!.background === 'white' ? 'bg-white' : '',
+      showImage && resolved!.background === 'own' ? 'dark:ring-white/25' : '',
       !showImage ? 'bg-muted' : '',
     )"
   >
@@ -84,7 +91,9 @@ const accessibleLabel = computed(() => {
       alt=""
       loading="lazy"
       decoding="async"
-      :class="resolved!.background === 'white' ? 'size-full object-contain p-[22%]' : 'size-full object-cover'"
+      :width="sizePx[size]"
+      :height="sizePx[size]"
+      :class="resolved!.background === 'white' ? 'size-full object-contain p-[15%]' : 'size-full object-cover'"
       @error="imageFailed = true"
     >
     <Bot v-else class="size-2/3 text-muted-foreground" aria-hidden="true" />

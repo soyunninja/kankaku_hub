@@ -211,7 +211,7 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
               <TableCell>{{ projectName(e.project) }}</TableCell>
               <TableCell>{{ t(`entries.status.${e.status}`) }}</TableCell>
               <TableCell>
-                <AgentIcon :agent="e.agent" size="xs" />
+                <AgentIcon :agent="e.agent" size="sm" />
               </TableCell>
               <TableCell class="text-muted-foreground">
                 {{ e.model }}

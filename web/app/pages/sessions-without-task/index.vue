@@ -355,7 +355,7 @@ async function confirmIgnore() {
                     <span class="max-w-32 truncate">{{ session.machine || '—' }}</span>
                     <span aria-hidden="true">·</span>
                     <span v-if="session.agent === MIXED">{{ t('sessionsQueue.mixed') }}</span>
-                    <AgentIcon v-else :agent="session.agent" size="xs" />
+                    <AgentIcon v-else :agent="session.agent" size="sm" />
                   </span>
                 </div>
               </TableCell>

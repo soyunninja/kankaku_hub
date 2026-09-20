@@ -19,15 +19,14 @@ import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
   agent?: string
-  size?: 'xs' | 'sm' | 'md'
+  size?: 'sm' | 'md'
 }>(), {
   size: 'sm',
 })
 
 const { t } = useI18n()
 
-const textSizeClass: Record<'xs' | 'sm' | 'md', string> = {
-  xs: 'text-xs',
+const textSizeClass: Record<'sm' | 'md', string> = {
   sm: 'text-sm',
   md: 'text-sm',
 }

@@ -185,7 +185,7 @@ defineOptions({ inheritAttrs: false })
               </dt>
               <dd class="min-w-0 truncate">
                 <span v-if="row.session.agent === MIXED">{{ t('tasks.detail.sessions.agentMixed') }}</span>
-                <AgentBadge v-else :agent="row.session.agent" size="xs" />
+                <AgentBadge v-else :agent="row.session.agent" size="md" />
               </dd>
             </div>
           </dl>
