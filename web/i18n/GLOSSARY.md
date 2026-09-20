@@ -74,6 +74,9 @@ translation.
 | Agente | Agent | エージェント | established loanword, the AI agent that ran a session (`entry.agent` / `SessionSummary.agent`, e.g. `"pi"`) |
 | Mixto | Mixed | 混在 | native term, for the `MIXED` sentinel (`app/lib/session-aggregate.ts`) shown when a session's entries disagree on a field (client/project/task/agent) |
 | Primera actividad / Última actividad | First activity / Last activity | 最初のアクティビティ / 最新のアクティビティ | native term, a session's earliest/most-recent `task_entries.started_at` (`SessionSummary.firstActivity`/`lastActivity`) |
+| Convertir en tarea | Convert to (new) task | 新規タスクに変換 | native term, the "sessions without a task" queue's explicit action that creates a task from a session (ADR 0024 — never automatic) |
+| Adjuntar (a tarea existente) | Attach (to existing task) | 既存タスクに追加 | native term ("add to an existing task"), the queue's other explicit linking action — reuses 既存 ("existing") rather than a literal "attach" loanword, which reads awkwardly in Japanese for a data-record action |
+| Ignorar (sesión) | Ignore (session) | 無視 | native term, dismissing a session from the "without a task" queue without creating a task (`ignored_sessions`, ADR 0024) |
 
 ## Conventions applied throughout `ja.json`
 

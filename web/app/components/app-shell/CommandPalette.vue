@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Boxes, Gauge, Inbox, ListTodo, Search, Settings, Terminal, Users } from '@lucide/vue'
+import { Boxes, Gauge, Inbox, Link2Off, ListTodo, Search, Settings, Terminal, Users } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
+import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { ClientRecord } from '@/lib/pocketbase-types'
@@ -12,6 +13,7 @@ const router = useRouter()
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, ensureLoaded: ensureTasks } = useTasks()
+const { count: sessionsQueueCount, ensureLoaded: ensureSessionsQueueCount } = useSessionsQueueCount()
 
 const query = ref('')
 /** Index into `items` of the option the arrow keys are on; Enter opens it. */
@@ -22,11 +24,11 @@ watch(open, async (v) => {
   if (v) {
     query.value = ''
     activeIndex.value = 0
-    await Promise.all([ensureClients(), ensureProjects(), ensureTasks()])
+    await Promise.all([ensureClients(), ensureProjects(), ensureTasks(), ensureSessionsQueueCount()])
   }
 })
 
-interface Entry { id: string, label: string, to: string, icon: typeof Users, client?: ClientRecord }
+interface Entry { id: string, label: string, to: string, icon: typeof Users, client?: ClientRecord, badge?: number }
 
 /** Every page of the app, so the palette also works as plain keyboard navigation. */
 const pages = computed<Entry[]>(() => [
@@ -35,6 +37,7 @@ const pages = computed<Entry[]>(() => [
   { id: 'page-projects', label: t('nav.projects'), to: '/projects', icon: Boxes },
   { id: 'page-tasks', label: t('nav.tasks'), to: '/tasks', icon: ListTodo },
   { id: 'page-unassigned', label: t('nav.unassigned'), to: '/unassigned', icon: Inbox },
+  { id: 'page-sessions-queue', label: t('nav.sessionsQueue'), to: '/sessions-without-task', icon: Link2Off, badge: sessionsQueueCount.value || undefined },
   { id: 'page-entries', label: t('nav.entries'), to: '/entries', icon: Search },
   { id: 'page-commands', label: t('nav.commands'), to: '/commands', icon: Terminal },
   { id: 'page-settings', label: t('nav.settings'), to: '/settings', icon: Settings },
@@ -161,7 +164,10 @@ function onKeydown(e: KeyboardEvent) {
         >
           <ClientAvatar v-if="item.client" :client="item.client" size="xs" />
           <component :is="item.icon" v-else class="size-4 shrink-0 text-muted-foreground" />
-          <span class="min-w-0 truncate">{{ item.label }}</span>
+          <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+          <Badge v-if="item.badge" variant="secondary" class="ml-auto shrink-0 tabular-nums">
+            {{ item.badge }}
+          </Badge>
         </div>
         <p v-if="items.length === 0" class="px-3 py-6 text-center text-sm text-muted-foreground">
           {{ t('palette.empty') }}
