@@ -54,13 +54,13 @@ const arrowIcon = computed(() => direction.value === 'up' ? ArrowUp : direction.
 </script>
 
 <template>
-  <Card class="min-w-0">
-    <CardHeader class="pb-1">
-      <CardTitle class="line-clamp-2 min-h-10 text-sm leading-snug font-semibold" :title="title">
+  <Card class="min-w-0 gap-1.5 py-5">
+    <CardHeader class="pb-0">
+      <CardTitle class="line-clamp-2 text-sm leading-snug font-semibold" :title="title">
         {{ title }}
       </CardTitle>
     </CardHeader>
-    <CardContent class="min-w-0 pt-0">
+    <CardContent class="mt-auto min-w-0 pt-0">
       <p data-testid="kpi-value" class="truncate text-xl font-semibold tabular-nums sm:text-2xl" :title="value">
         {{ value }}
       </p>
@@ -78,6 +78,8 @@ const arrowIcon = computed(() => direction.value === 'up' ? ArrowUp : direction.
           {{ vsLabel }}
         </span>
       </p>
+      <!-- Keeps the value at the same height as sibling cards that do show a delta. -->
+      <p v-else class="mt-1 text-xs" aria-hidden="true">&nbsp;</p>
     </CardContent>
   </Card>
 </template>
