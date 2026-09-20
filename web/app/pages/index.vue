@@ -137,13 +137,13 @@ watch(range, load, { deep: true })
     </div>
 
     <Card>
-      <CardHeader class="flex-row items-center justify-between gap-3 pb-2">
+      <CardHeader class="flex-row flex-wrap items-center justify-between gap-3 pb-2">
         <CardTitle class="text-sm font-medium text-foreground">
           {{ t('dashboard.chart.title') }}
         </CardTitle>
-        <div class="flex items-center gap-2">
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
           <Select
-v-model="metric" class="min-w-[12.5rem]" :options="[
+v-model="metric" class="min-w-0 sm:min-w-[12.5rem]" :options="[
             { value: 'work', label: t('dashboard.chart.work') },
             { value: 'cost', label: t('dashboard.chart.cost') },
           ]"
