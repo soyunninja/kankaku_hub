@@ -12,7 +12,7 @@
  * keeps driving `useEntriesExplorer().updateAssignment` from there — this
  * component never talks to PocketBase directly.
  */
-import { ChevronDown, CircleCheck, CircleX, TriangleAlert } from '@lucide/vue'
+import { ChevronDown, CircleCheck, CircleX, Info, TriangleAlert } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import { Badge } from '@/components/ui/badge'
@@ -28,7 +28,9 @@ import {
   statusPresentation,
   truncateMiddle,
 } from '@/lib/entry-detail'
+import { describeEntryQuality, normalizeAgentInfo } from '@/lib/measurement-quality'
 import type { ClientRecord, ProjectRecord, TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
+import { buildResumeCommand } from '@/lib/session-resume'
 
 const props = defineProps<{
   entry: TaskEntryRecord
@@ -75,6 +77,27 @@ const workWaitBarLabel = computed(() => t('entries.detail.workWaitBarLabel', {
   work: formatDuration(props.entry.work_ms),
   wait: formatDuration(props.entry.waiting_ms),
   wall: formatDuration(props.entry.wall_ms),
+}))
+
+// -- agent + measurement quality --------------------------------------------
+
+const quality = computed(() => describeEntryQuality(props.entry))
+const agentInfo = computed(() => normalizeAgentInfo(props.entry))
+
+const agentDisplay = computed(() => agentInfo.value.isLegacy ? t('entries.detail.quality.agentLegacy') : agentInfo.value.agent)
+const agentVersionDisplay = computed(() => safeDisplayValue(agentInfo.value.agentVersion))
+const pluginDisplay = computed(() => safeDisplayValue(agentInfo.value.plugin))
+const pluginVersionDisplay = computed(() => safeDisplayValue(agentInfo.value.pluginVersion))
+
+const costApproxLabel = computed(() => quality.value.costIsApprox === 'estimated' ? t('entries.detail.quality.costEstimated') : t('entries.detail.quality.costUnknown'))
+const costApproxHint = computed(() => quality.value.costIsApprox === 'estimated' ? t('entries.detail.quality.costEstimatedHint') : t('entries.detail.quality.costUnknownHint'))
+
+// -- resume session -----------------------------------------------------------
+
+const resumeCommand = computed(() => buildResumeCommand({
+  sessionId: props.entry.session_id,
+  repoProject: props.entry.repo_project || undefined,
+  agent: props.entry.agent || undefined,
 }))
 
 // -- assignment -------------------------------------------------------------
@@ -176,8 +199,18 @@ defineOptions({ inheritAttrs: false })
             <p class="text-xs text-muted-foreground">
               {{ t('dashboard.kpi.workTime') }}
             </p>
-            <p class="font-medium tabular-nums">
-              {{ formatDuration(entry.work_ms) }}
+            <p class="inline-flex items-center gap-1 font-medium tabular-nums">
+              <span>{{ quality.workTimeIsUpperBound ? `≤ ${formatDuration(entry.work_ms)}` : formatDuration(entry.work_ms) }}</span>
+              <Tooltip v-if="quality.workTimeIsUpperBound">
+                <TooltipTrigger as-child>
+                  <button type="button" class="text-muted-foreground" :aria-label="t('entries.detail.quality.upperBoundHint')">
+                    <Info class="size-3.5" aria-hidden="true" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent class="max-w-xs">
+                  {{ t('entries.detail.quality.upperBoundHint') }}
+                </TooltipContent>
+              </Tooltip>
             </p>
           </div>
           <div>
@@ -214,8 +247,23 @@ defineOptions({ inheritAttrs: false })
             <p class="truncate text-xs text-muted-foreground" :title="t('dashboard.kpi.cost')">
               {{ t('dashboard.kpi.cost') }}
             </p>
-            <p class="font-medium tabular-nums">
-              {{ formatCost(entry.cost) }}
+            <p class="inline-flex flex-wrap items-center gap-1 font-medium tabular-nums">
+              <span>{{ formatCost(entry.cost) }}</span>
+              <Tooltip v-if="quality.costIsApprox !== 'measured'">
+                <TooltipTrigger as-child>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-full border border-current px-1.5 py-0 text-[10px] font-normal normal-case text-muted-foreground"
+                    :aria-label="costApproxHint"
+                  >
+                    <Info class="size-3" aria-hidden="true" />
+                    {{ costApproxLabel }}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent class="max-w-xs">
+                  {{ costApproxHint }}
+                </TooltipContent>
+              </Tooltip>
             </p>
           </div>
           <div class="min-w-0">
@@ -315,6 +363,81 @@ defineOptions({ inheritAttrs: false })
             {{ t('common.save') }}
           </Button>
         </div>
+      </section>
+
+      <!-- Resume session -->
+      <section v-if="entry.session_id" class="space-y-3 border-t border-border pt-4">
+        <h3 class="text-sm font-medium">
+          {{ t('entries.detail.session.title') }}
+        </h3>
+
+        <p class="text-sm font-medium">
+          {{ entry.session_name || t('entries.detail.session.nameFallback') }}
+        </p>
+
+        <div v-if="resumeCommand.ok" class="flex items-start gap-1.5">
+          <pre class="min-w-0 flex-1 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap break-words text-foreground">{{ resumeCommand.command }}</pre>
+          <CopyButton :text="resumeCommand.command" />
+        </div>
+        <p v-else-if="resumeCommand.reason === 'unsupported-agent'" class="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+          {{ t('entries.detail.session.unsupportedAgent') }}
+        </p>
+
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between gap-2">
+            <dt class="shrink-0 text-xs text-muted-foreground">
+              {{ t('entries.detail.fieldMachine') }}
+            </dt>
+            <dd class="min-w-0 truncate text-right">
+              {{ safeDisplayValue(entry.machine) }}
+            </dd>
+          </div>
+        </dl>
+
+        <p class="text-xs text-muted-foreground">
+          {{ t('entries.detail.session.machineNote') }}
+        </p>
+      </section>
+
+      <!-- Agent & measurement quality -->
+      <section class="space-y-3 border-t border-border pt-4">
+        <h3 class="text-sm font-medium">
+          {{ t('entries.detail.quality.title') }}
+        </h3>
+
+        <div v-if="quality.showsUnlinkedWarning" class="flex items-start gap-2 rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
+          <TriangleAlert class="size-3.5 shrink-0" aria-hidden="true" />
+          <span class="flex-1">{{ t('entries.detail.quality.unlinkedWarning') }}</span>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button type="button" class="shrink-0" :aria-label="t('entries.detail.quality.unlinkedHint')">
+                <Info class="size-3.5" aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent class="max-w-xs">
+              {{ t('entries.detail.quality.unlinkedHint') }}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between gap-2">
+            <dt class="shrink-0 text-xs text-muted-foreground">
+              {{ t('entries.detail.quality.agent') }}
+            </dt>
+            <dd class="min-w-0 truncate text-right">
+              {{ agentDisplay }}<template v-if="agentVersionDisplay !== '—'"> ({{ agentVersionDisplay }})</template>
+            </dd>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <dt class="shrink-0 text-xs text-muted-foreground">
+              {{ t('entries.detail.quality.plugin') }}
+            </dt>
+            <dd class="min-w-0 truncate text-right">
+              {{ pluginDisplay }}<template v-if="pluginVersionDisplay !== '—'"> ({{ pluginVersionDisplay }})</template>
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <!-- Tokens -->

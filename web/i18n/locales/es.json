@@ -253,7 +253,26 @@
       "fieldSchema": "Versión de esquema",
       "fieldCreated": "Creado",
       "fieldUpdated": "Actualizado",
-      "fieldEndedAt": "Fin"
+      "fieldEndedAt": "Fin",
+      "session": {
+        "title": "Reanudar sesión",
+        "nameFallback": "esta sesión",
+        "unsupportedAgent": "Reanudar sesión aún no es compatible con este agente.",
+        "machineNote": "Este comando solo funciona en esa máquina y en esa ruta del repositorio, porque el archivo de la sesión nunca sale de allí (kankaku-hub no almacena ni sube el contenido de la conversación)."
+      },
+      "quality": {
+        "title": "Agente y calidad de medición",
+        "agent": "Agente",
+        "agentLegacy": "Heredado (no reportado)",
+        "plugin": "Integración",
+        "unlinkedWarning": "Esta fila puede estar incompleta: parte del trabajo de subagentes no se pudo enlazar.",
+        "unlinkedHint": "Se detectó trabajo de subagentes que no pudo integrarse en el total de esta fila, así que el tiempo y el coste mostrados podrían ser menores que los reales.",
+        "upperBoundHint": "Este agente no informa el tiempo de espera por separado, así que el tiempo de trabajo mostrado aquí es un límite superior.",
+        "costEstimated": "Estimado",
+        "costEstimatedHint": "Este coste se calculó a partir del recuento de tokens y una tabla de precios, no lo informó el proveedor directamente.",
+        "costUnknown": "Desconocido, no contabilizado",
+        "costUnknownHint": "El coste no se pudo determinar, por eso se muestra como 0 y se excluye de los promedios de coste."
+      }
     }
   },
   "settings": {

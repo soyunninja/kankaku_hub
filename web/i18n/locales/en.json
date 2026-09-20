@@ -253,7 +253,26 @@
       "fieldSchema": "Schema version",
       "fieldCreated": "Created",
       "fieldUpdated": "Updated",
-      "fieldEndedAt": "Ended"
+      "fieldEndedAt": "Ended",
+      "session": {
+        "title": "Resume session",
+        "nameFallback": "this session",
+        "unsupportedAgent": "Resuming a session isn't supported for this agent yet.",
+        "machineNote": "This command only works on that machine and at that repository path, because the session file itself never leaves it (kankaku-hub does not store or upload any conversation content)."
+      },
+      "quality": {
+        "title": "Agent and measurement quality",
+        "agent": "Agent",
+        "agentLegacy": "Legacy (not reported)",
+        "plugin": "Plugin",
+        "unlinkedWarning": "This row may under-report: some sub-agent work could not be linked in.",
+        "unlinkedHint": "Sub-agent work was detected that couldn't be folded into this row's total, so the time and cost shown here may be lower than the real figures.",
+        "upperBoundHint": "This agent doesn't report waiting time separately, so the work time shown here is an upper bound.",
+        "costEstimated": "Estimated",
+        "costEstimatedHint": "This cost was computed from token counts and a price table, not reported directly by the provider.",
+        "costUnknown": "Unknown, not counted",
+        "costUnknownHint": "Cost could not be determined, so it's shown as 0 and excluded from cost averages."
+      }
     }
   },
   "settings": {

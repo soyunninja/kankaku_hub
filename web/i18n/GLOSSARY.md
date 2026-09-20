@@ -64,6 +64,13 @@ translation.
 | Sugerido | Suggested | 候補 / 提案 | native term ("candidate"/"suggestion"), context-dependent |
 | Ruta (repo path) | Path | パス | established loanword |
 | Copiar / Copiado | Copy / Copied | コピー / コピーしました！ | established loanword + polite past form |
+| Reanudar sesión | Resume session | セッションを再開 | native term, "resume the session" — pairs with the established セッション loanword |
+| Calidad de medición | Measurement quality | 測定品質 | native term |
+| Integración (plugin) | Plugin | プラグイン | established loanword; `plugin` is the integration name that wrote a `task_entries` row (e.g. `"kankaku"`), labelled 統合 in prose but プラグイン as the short UI label to match the field name |
+| Heredado (no reportado) | Legacy (not reported) | レガシー（未報告） | native/loanword mix, for an `agent`-less row written before the agent field existed |
+| Límite superior (upper bound) | Upper bound | 上限値 | native term, used when `work_ms` is not a true measurement |
+| Estimado | Estimated | 概算 | native term, for `cost_quality: "estimated"` |
+| Enlazado / sin enlazar (subagent linkage) | Linked / unlinked | 紐づけ済み / 未紐づけ | native term ("linked/tied together"), for `subagent_linkage` |
 
 ## Conventions applied throughout `ja.json`
 
