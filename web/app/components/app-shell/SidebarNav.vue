@@ -11,34 +11,55 @@ import {
   Users,
 } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
+import { NAV_ITEMS } from '@/lib/nav-items'
 
 defineEmits<{ (e: 'navigate'): void }>()
 
 const { t } = useI18n()
 const route = useRoute()
 const { count: sessionsQueueCount, ensureLoaded: ensureSessionsQueueCount, refresh: refreshSessionsQueueCount } = useSessionsQueueCount()
+const { count: unassignedQueueCount, ensureLoaded: ensureUnassignedQueueCount, refresh: refreshUnassignedQueueCount } = useUnassignedQueueCount()
 
 onMounted(() => {
   ensureSessionsQueueCount()
+  ensureUnassignedQueueCount()
 })
 // A cheap re-check on every SPA navigation (not polling) — good enough to
-// keep the badge from going stale after the queue is worked from its own
-// page, without a realtime subscription for a single-user internal tool.
+// keep the badges from going stale after either queue is worked from its
+// own page, without a realtime subscription for a single-user internal
+// tool.
 watch(() => route.path, () => {
   refreshSessionsQueueCount()
+  refreshUnassignedQueueCount()
 })
 
-const nav = computed(() => [
-  { to: '/', label: t('nav.dashboard'), icon: Gauge },
-  { to: '/clients', label: t('nav.clients'), icon: Users },
-  { to: '/projects', label: t('nav.projects'), icon: Boxes },
-  { to: '/tasks', label: t('nav.tasks'), icon: ListTodo },
-  { to: '/unassigned', label: t('nav.unassigned'), icon: Inbox },
-  { to: '/sessions-without-task', label: t('nav.sessionsQueue'), icon: Link2Off, badge: sessionsQueueCount.value },
-  { to: '/entries', label: t('nav.entries'), icon: Search },
-  { to: '/commands', label: t('nav.commands'), icon: Terminal },
-  { to: '/settings', label: t('nav.settings'), icon: Settings },
-])
+// Icons and badges are presentation concerns and stay local to this
+// component; the route + label key come from the shared NAV_ITEMS
+// registry (app/lib/nav-items.ts) so the header breadcrumb can never
+// drift out of sync with what's actually in the nav.
+const ICONS: Record<string, typeof Users> = {
+  '/': Gauge,
+  '/clients': Users,
+  '/projects': Boxes,
+  '/tasks': ListTodo,
+  '/unassigned': Inbox,
+  '/sessions-without-task': Link2Off,
+  '/entries': Search,
+  '/commands': Terminal,
+  '/settings': Settings,
+}
+function badgeFor(to: string): number | undefined {
+  if (to === '/unassigned') return unassignedQueueCount.value
+  if (to === '/sessions-without-task') return sessionsQueueCount.value
+  return undefined
+}
+
+const nav = computed(() => NAV_ITEMS.map(item => ({
+  to: item.to,
+  label: t(item.labelKey),
+  icon: ICONS[item.to]!,
+  badge: badgeFor(item.to),
+})))
 
 function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)

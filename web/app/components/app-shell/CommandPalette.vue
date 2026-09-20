@@ -4,6 +4,7 @@ import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { NAV_ITEMS } from '@/lib/nav-items'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const open = defineModel<boolean>('open', { default: false })
@@ -14,6 +15,7 @@ const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, ensureLoaded: ensureTasks } = useTasks()
 const { count: sessionsQueueCount, ensureLoaded: ensureSessionsQueueCount } = useSessionsQueueCount()
+const { count: unassignedQueueCount, ensureLoaded: ensureUnassignedQueueCount } = useUnassignedQueueCount()
 
 const query = ref('')
 /** Index into `items` of the option the arrow keys are on; Enter opens it. */
@@ -24,24 +26,40 @@ watch(open, async (v) => {
   if (v) {
     query.value = ''
     activeIndex.value = 0
-    await Promise.all([ensureClients(), ensureProjects(), ensureTasks(), ensureSessionsQueueCount()])
+    await Promise.all([ensureClients(), ensureProjects(), ensureTasks(), ensureSessionsQueueCount(), ensureUnassignedQueueCount()])
   }
 })
 
 interface Entry { id: string, label: string, to: string, icon: typeof Users, client?: ClientRecord, badge?: number }
 
+// Icons and badges are presentation concerns and stay local to this
+// component; the route + label key come from the shared NAV_ITEMS
+// registry (app/lib/nav-items.ts).
+const ICONS: Record<string, typeof Users> = {
+  '/': Gauge,
+  '/clients': Users,
+  '/projects': Boxes,
+  '/tasks': ListTodo,
+  '/unassigned': Inbox,
+  '/sessions-without-task': Link2Off,
+  '/entries': Search,
+  '/commands': Terminal,
+  '/settings': Settings,
+}
+function badgeFor(to: string): number | undefined {
+  if (to === '/unassigned') return unassignedQueueCount.value || undefined
+  if (to === '/sessions-without-task') return sessionsQueueCount.value || undefined
+  return undefined
+}
+
 /** Every page of the app, so the palette also works as plain keyboard navigation. */
-const pages = computed<Entry[]>(() => [
-  { id: 'page-dashboard', label: t('nav.dashboard'), to: '/', icon: Gauge },
-  { id: 'page-clients', label: t('nav.clients'), to: '/clients', icon: Users },
-  { id: 'page-projects', label: t('nav.projects'), to: '/projects', icon: Boxes },
-  { id: 'page-tasks', label: t('nav.tasks'), to: '/tasks', icon: ListTodo },
-  { id: 'page-unassigned', label: t('nav.unassigned'), to: '/unassigned', icon: Inbox },
-  { id: 'page-sessions-queue', label: t('nav.sessionsQueue'), to: '/sessions-without-task', icon: Link2Off, badge: sessionsQueueCount.value || undefined },
-  { id: 'page-entries', label: t('nav.entries'), to: '/entries', icon: Search },
-  { id: 'page-commands', label: t('nav.commands'), to: '/commands', icon: Terminal },
-  { id: 'page-settings', label: t('nav.settings'), to: '/settings', icon: Settings },
-])
+const pages = computed<Entry[]>(() => NAV_ITEMS.map(item => ({
+  id: `page-${item.to === '/' ? 'dashboard' : item.to.slice(1)}`,
+  label: t(item.labelKey),
+  to: item.to,
+  icon: ICONS[item.to]!,
+  badge: badgeFor(item.to),
+})))
 
 const items = computed<Entry[]>(() => {
   const q = query.value.trim().toLowerCase()

@@ -24,6 +24,7 @@ translation.
 | Tiempo total (wall) | Wall time | 合計時間 | native term ("total time"), avoids a confusing literal "wall clock" |
 | Coste | Cost | コスト | picked over 費用 and used everywhere money-ish is shown, per the instruction to pick one and stay consistent |
 | Sin determinar (queue label) | Unassigned | 未割り当て | UI label only — the protected client's stored `name` field itself stays `"Sin determinar"` in every locale, never translated (see below) |
+| Sin tarea (nav label, `nav.sessionsQueue`) | No task | タスク未設定 | short sidebar/palette label for the "sessions without a task" queue, distinct from its full page title `sessionsQueue.title` ("Sesiones sin tarea" / "Sessions without a task" / "タスク未設定のセッション") — chosen to fit the sidebar next to a count badge without truncating |
 | Archivar | Archive | アーカイブ | established loanword |
 | Reactivar (unarchive) | Unarchive | 復元 | "restore" — reads more naturally in a Japanese UI than a literal "un-archive"; flagged for owner review |
 | Activo | Active | 有効 | native term, standard for a toggle state (vs. アクティブ, which reads more marketing-ish) |

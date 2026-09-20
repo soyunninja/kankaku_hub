@@ -2,6 +2,7 @@
 import { LogOut, Menu, Search } from '@lucide/vue'
 import { Avatar } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { resolveBreadcrumbLabels } from '@/lib/nav-items'
 import LocaleSwitcher from './LocaleSwitcher.vue'
 import ThemeToggle from './ThemeToggle.vue'
 
@@ -12,21 +13,11 @@ const route = useRoute()
 const { user, logout } = useAuth()
 const router = useRouter()
 
-const SEGMENT_LABELS: Record<string, string> = {
-  clients: 'nav.clients',
-  projects: 'nav.projects',
-  tasks: 'nav.tasks',
-  unassigned: 'nav.unassigned',
-  entries: 'nav.entries',
-  commands: 'nav.commands',
-  settings: 'nav.settings',
-}
-
-const crumbs = computed(() => {
-  const parts = route.path.split('/').filter(Boolean)
-  if (parts.length === 0) return [t('nav.dashboard')]
-  return parts.map(p => SEGMENT_LABELS[p] ? t(SEGMENT_LABELS[p]) : p)
-})
+// Segment -> label comes from the shared NAV_ITEMS registry
+// (app/lib/nav-items.ts), not a locally-maintained map, so a route added
+// to nav can never again be missing from the breadcrumb — see
+// `resolveBreadcrumbLabels` for the unmapped-segment fallback.
+const crumbs = computed(() => resolveBreadcrumbLabels(route.path, t))
 
 async function onLogout() {
   logout()
