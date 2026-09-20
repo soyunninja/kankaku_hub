@@ -14,7 +14,7 @@ const paletteOpen = ref(false)
 <template>
   <div class="flex h-dvh bg-background">
     <aside class="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar md:flex">
-      <div class="flex h-14 shrink-0 items-center gap-2 px-4">
+      <div class="flex h-[4.5rem] shrink-0 items-center gap-2 px-4">
         <Gauge class="size-5 text-primary" />
         <span class="font-semibold tracking-tight">{{ t('app.name') }}</span>
       </div>
