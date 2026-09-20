@@ -231,6 +231,28 @@ const STATUSES = ["completed", "completed", "completed", "completed", "aborted",
 const MODELS = ["claude-sonnet-5", "claude-opus-4.5", "claude-haiku-4.5"];
 const MACHINES = ["MacBook-Pro-David.local", "vps-kankaku-01"];
 const LEGACY_LABELS = ["cajamar", "Cajamar", "Caja Mar", "cjamar", "turismo nijar", "TurismoNijar", "acme sl", "ACME"];
+const SEGMENT_TAGS = ["review", "test", "build"];
+
+// kankaku's real `segments` shape is a tag -> milliseconds map (see
+// src/domain/hub-entry.ts in the kankaku repo), NOT the [{start,end}]
+// interval shape this script used to emit — that mismatch meant the web
+// dashboard's entry detail sheet could never be exercised against
+// realistic segments data locally. ~55% of rows get one or two tags whose
+// total never exceeds workMs; the rest get {} (an entry with no tagged
+// segments is also a real, common case worth seeding).
+function buildSegments(workMs) {
+  if (workMs <= 0 || rand() < 0.45) return {};
+  const tagCount = randInt(1, 2);
+  const tags = [...SEGMENT_TAGS].sort(() => rand() - 0.5).slice(0, tagCount);
+  const segments = {};
+  let remaining = workMs;
+  for (const tag of tags) {
+    const ms = randInt(1, Math.max(1, Math.floor(remaining * 0.6)));
+    segments[tag] = ms;
+    remaining -= ms;
+  }
+  return segments;
+}
 
 function randomStartedAt() {
   const now = Date.now();
@@ -276,7 +298,7 @@ function buildEntryPayload({ taskId, client, project, task, repoProject, legacyL
     cache_read: cacheRead,
     cache_write: cacheWrite,
     cost,
-    segments: [{ start: toPbDate(startedAt), end: toPbDate(endedAt) }],
+    segments: buildSegments(workMs),
     subagent_count: subagentCount,
     runs: randInt(1, 6),
     turns: randInt(1, 20),
