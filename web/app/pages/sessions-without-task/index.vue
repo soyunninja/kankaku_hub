@@ -12,6 +12,7 @@
  * below is an explicit, confirmed owner action.
  */
 import { Check, FilePlus2, Link2, Loader2, MoreHorizontal, Search } from '@lucide/vue'
+import AgentIcon from '@/components/agents/AgentIcon.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -65,10 +66,6 @@ function restoreSessions(restored: SessionSummary[]) {
 
 function sessionName(session: SessionSummary) {
   return session.sessionName || t('sessionsQueue.nameFallback')
-}
-function agentLabel(session: SessionSummary) {
-  if (session.agent === MIXED) return t('sessionsQueue.mixed')
-  return session.agent || '—'
 }
 function clientLabel(session: SessionSummary) {
   if (session.client === MIXED) return t('sessionsQueue.mixed')
@@ -352,10 +349,13 @@ async function confirmIgnore() {
                 <Checkbox :model-value="selected.has(session.sessionId)" @update:model-value="toggleSession(session.sessionId)" />
               </TableCell>
               <TableCell class="font-medium">
-                <div class="flex flex-col">
+                <div class="flex flex-col gap-0.5">
                   <span class="max-w-48 truncate">{{ sessionName(session) }}</span>
-                  <span class="text-xs font-normal text-muted-foreground">
-                    {{ session.machine || '—' }} · {{ agentLabel(session) }}
+                  <span class="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                    <span class="max-w-32 truncate">{{ session.machine || '—' }}</span>
+                    <span aria-hidden="true">·</span>
+                    <span v-if="session.agent === MIXED">{{ t('sessionsQueue.mixed') }}</span>
+                    <AgentIcon v-else :agent="session.agent" size="xs" />
                   </span>
                 </div>
               </TableCell>

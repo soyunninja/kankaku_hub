@@ -68,7 +68,8 @@
     "started": "開始",
     "externalRef": "外部参照",
     "description": "説明",
-    "userMenu": "ユーザーメニュー"
+    "userMenu": "ユーザーメニュー",
+    "agentUnknown": "レガシー（未報告）"
   },
   "dashboard": {
     "title": "ダッシュボード",

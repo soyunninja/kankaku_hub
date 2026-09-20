@@ -14,6 +14,7 @@
  * directly.
  */
 import { Pencil } from '@lucide/vue'
+import AgentBadge from '@/components/agents/AgentBadge.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Badge } from '@/components/ui/badge'
@@ -45,11 +46,6 @@ defineExpose({ focusTitle })
 
 function sessionName(session: SessionSummary) {
   return session.sessionName || t('tasks.detail.sessions.nameFallback')
-}
-
-function sessionAgentLabel(session: SessionSummary) {
-  if (session.agent === MIXED) return t('tasks.detail.sessions.agentMixed')
-  return session.agent || '—'
 }
 
 /**
@@ -186,8 +182,9 @@ defineOptions({ inheritAttrs: false })
               <dt class="text-muted-foreground">
                 {{ t('tasks.detail.sessions.agent') }}
               </dt>
-              <dd class="truncate">
-                {{ sessionAgentLabel(row.session) }}
+              <dd class="min-w-0 truncate">
+                <span v-if="row.session.agent === MIXED">{{ t('tasks.detail.sessions.agentMixed') }}</span>
+                <AgentBadge v-else :agent="row.session.agent" size="xs" />
               </dd>
             </div>
           </dl>

@@ -68,7 +68,8 @@
     "started": "Inicio",
     "externalRef": "Referencia externa",
     "description": "Descripción",
-    "userMenu": "Menú de usuario"
+    "userMenu": "Menú de usuario",
+    "agentUnknown": "Heredado (no reportado)"
   },
   "dashboard": {
     "title": "Panel",

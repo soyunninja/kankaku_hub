@@ -13,6 +13,7 @@
  * component never talks to PocketBase directly.
  */
 import { ChevronDown, CircleCheck, CircleX, Info, TriangleAlert } from '@lucide/vue'
+import AgentBadge from '@/components/agents/AgentBadge.vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import { Badge } from '@/components/ui/badge'
@@ -84,7 +85,6 @@ const workWaitBarLabel = computed(() => t('entries.detail.workWaitBarLabel', {
 const quality = computed(() => describeEntryQuality(props.entry))
 const agentInfo = computed(() => normalizeAgentInfo(props.entry))
 
-const agentDisplay = computed(() => agentInfo.value.isLegacy ? t('entries.detail.quality.agentLegacy') : agentInfo.value.agent)
 const agentVersionDisplay = computed(() => safeDisplayValue(agentInfo.value.agentVersion))
 const pluginDisplay = computed(() => safeDisplayValue(agentInfo.value.plugin))
 const pluginVersionDisplay = computed(() => safeDisplayValue(agentInfo.value.pluginVersion))
@@ -425,8 +425,11 @@ defineOptions({ inheritAttrs: false })
             <dt class="shrink-0 text-xs text-muted-foreground">
               {{ t('entries.detail.quality.agent') }}
             </dt>
-            <dd class="min-w-0 truncate text-right">
-              {{ agentDisplay }}<template v-if="agentVersionDisplay !== '—'"> ({{ agentVersionDisplay }})</template>
+            <dd class="flex min-w-0 items-center justify-end gap-1.5 text-right">
+              <AgentBadge :agent="entry.agent" size="xs" />
+              <template v-if="agentVersionDisplay !== '—'">
+                <span class="shrink-0 text-muted-foreground">({{ agentVersionDisplay }})</span>
+              </template>
             </dd>
           </div>
           <div class="flex items-center justify-between gap-2">

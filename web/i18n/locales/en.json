@@ -68,7 +68,8 @@
     "started": "Started",
     "externalRef": "External ref",
     "description": "Description",
-    "userMenu": "User menu"
+    "userMenu": "User menu",
+    "agentUnknown": "Legacy (not reported)"
   },
   "dashboard": {
     "title": "Dashboard",
