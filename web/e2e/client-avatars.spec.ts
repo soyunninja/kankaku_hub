@@ -86,6 +86,14 @@ let token: string
 let fixtureClient: CreatedClient
 let unreachableClient: CreatedClient
 let fixtureClientWithFavicon: CreatedClient
+/**
+ * Set when the hub under test refuses to fetch the fixture (it lives on
+ * localhost, which the favicon SSRF guard blocks unless PocketBase was started
+ * with `KANKAKU_FAVICON_ALLOW_PRIVATE=1`). That refusal is the guard working,
+ * not a product defect, so the suite SKIPS with this reason instead of failing:
+ * a missing environment override must never turn the suite red.
+ */
+let skipReason: string | undefined
 
 test.beforeAll(async ({ request }) => {
   const fixtureOrigin = await startFixtureServer()
@@ -95,7 +103,15 @@ test.beforeAll(async ({ request }) => {
   unreachableClient = await createClientRecord(request, token, { name: `E2E Avatar Unreachable ${suffix}`, code: `e2e-avatar-unreachable-${suffix}`, website: `${UNREACHABLE_ORIGIN}/` })
   fixtureClientWithFavicon = await createClientRecord(request, token, { name: `E2E Avatar Broken Image ${suffix}`, code: `e2e-avatar-broken-${suffix}`, website: `${fixtureOrigin}/` })
   const result = await refreshFaviconViaApi(request, token, fixtureClientWithFavicon.id)
+  if (!result.ok && result.reason === 'blocked_host') {
+    skipReason = 'the hub blocks private hosts (SSRF guard); start PocketBase with KANKAKU_FAVICON_ALLOW_PRIVATE=1 to run the favicon fixture tests'
+    return
+  }
   expect(result.ok, 'the fixture server must yield a real favicon for the broken-image test to be meaningful').toBe(true)
+})
+
+test.beforeEach(() => {
+  test.skip(skipReason !== undefined, skipReason)
 })
 
 test.afterAll(async ({ request }) => {

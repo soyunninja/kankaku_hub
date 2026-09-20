@@ -175,6 +175,9 @@ export async function setTheme(page: Page, theme: 'dark' | 'light' | 'system') {
  * so it still renders full-height in the screenshot.
  */
 export async function shoot(page: Page, name: string) {
+  // Screenshots end up in the docs and on the public site: never include the
+  // Nuxt DevTools pill that `nuxt dev` injects at the bottom of the page.
+  await page.addStyleTag({ content: '#nuxt-devtools-container, nuxt-devtools-frame { display: none !important; }' })
   await page.waitForTimeout(300)
   const original = page.viewportSize()
   const contentHeight = await page.evaluate(() => {
