@@ -235,6 +235,7 @@
     "nameFallback": "名前のないセッション",
     "mixed": "混在",
     "entries": "エントリー",
+    "wallWaitingTooltip": "合計: {wall} ・ 待機: {waiting}",
     "machine": "マシン",
     "agent": "エージェント",
     "firstActivity": "最初のアクティビティ",

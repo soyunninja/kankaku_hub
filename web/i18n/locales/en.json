@@ -235,6 +235,7 @@
     "nameFallback": "Unnamed session",
     "mixed": "Mixed",
     "entries": "Entries",
+    "wallWaitingTooltip": "Wall: {wall} · Waiting: {waiting}",
     "machine": "Machine",
     "agent": "Agent",
     "firstActivity": "First activity",

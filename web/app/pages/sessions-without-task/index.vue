@@ -11,7 +11,7 @@
  * kankaku/hub never links a session to a task on its own; every path
  * below is an explicit, confirmed owner action.
  */
-import { Check, FilePlus2, Link2, Loader2, MoreHorizontal, Search } from '@lucide/vue'
+import { Check, FilePlus2, Info, Link2, Loader2, MoreHorizontal, Search } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MIXED, type SessionSummary } from '@/lib/session-aggregate'
 
 const { t } = useI18n()
@@ -74,6 +75,10 @@ function clientLabel(session: SessionSummary) {
 function projectLabel(session: SessionSummary) {
   if (session.project === MIXED) return t('sessionsQueue.mixed')
   return session.project ? (projects.value.find(p => p.id === session.project)?.name ?? session.project) : '—'
+}
+/** Wall/waiting time no longer get their own always-visible columns (they fit poorly at 1280px) — this is their tooltip text on the Work time cell instead. */
+function wallWaitingTooltip(session: SessionSummary) {
+  return t('sessionsQueue.wallWaitingTooltip', { wall: formatDuration(session.wallMs), waiting: formatDuration(session.waitingMs) })
 }
 
 // -- Selection --------------------------------------------------------
@@ -311,7 +316,8 @@ async function confirmIgnore() {
           <Skeleton class="h-10 w-full" />
           <Skeleton class="h-10 w-full" />
         </div>
-        <Table v-else-if="sessions.length > 0">
+        <TooltipProvider v-else-if="sessions.length > 0">
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead class="w-8">
@@ -325,12 +331,6 @@ async function confirmIgnore() {
               </TableHead>
               <TableHead class="text-right">
                 {{ t('dashboard.kpi.workTime') }}
-              </TableHead>
-              <TableHead class="text-right">
-                {{ t('dashboard.kpi.wallTime') }}
-              </TableHead>
-              <TableHead class="text-right">
-                {{ t('dashboard.kpi.waitingTime') }}
               </TableHead>
               <TableHead class="text-right">
                 {{ t('common.cost') }}
@@ -369,13 +369,19 @@ async function confirmIgnore() {
                 {{ session.entryCount }}
               </TableCell>
               <TableCell class="text-right tabular-nums">
-                {{ formatDuration(session.workMs) }}
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatDuration(session.wallMs) }}
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatDuration(session.waitingMs) }}
+                <span class="inline-flex items-center justify-end gap-1">
+                  {{ formatDuration(session.workMs) }}
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <button type="button" class="text-muted-foreground" :aria-label="wallWaitingTooltip(session)">
+                        <Info class="size-3.5" aria-hidden="true" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-xs">
+                      {{ wallWaitingTooltip(session) }}
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
               </TableCell>
               <TableCell class="text-right tabular-nums">
                 {{ formatCost(session.cost) }}
@@ -408,6 +414,7 @@ async function confirmIgnore() {
             </TableRow>
           </TableBody>
         </Table>
+        </TooltipProvider>
         <EmptyState v-else :title="t('sessionsQueue.empty')" class="m-4" />
       </CardContent>
     </Card>

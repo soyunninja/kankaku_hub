@@ -235,6 +235,7 @@
     "nameFallback": "Sesión sin nombre",
     "mixed": "Mixto",
     "entries": "Registros",
+    "wallWaitingTooltip": "Total: {wall} · Espera: {waiting}",
     "machine": "Máquina",
     "agent": "Agente",
     "firstActivity": "Primera actividad",
