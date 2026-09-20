@@ -1,0 +1,425 @@
+{
+  "app": {
+    "name": "kankaku hub"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "clients": "クライアント",
+    "projects": "プロジェクト",
+    "tasks": "タスク",
+    "unassigned": "未割り当て",
+    "entries": "エントリー",
+    "commands": "コマンド",
+    "settings": "設定",
+    "logout": "ログアウト"
+  },
+  "theme": {
+    "label": "テーマ",
+    "dark": "ダーク",
+    "light": "ライト",
+    "system": "システム"
+  },
+  "palette": {
+    "trigger": "検索",
+    "title": "コマンドパレット",
+    "placeholder": "クライアント、プロジェクト、タスクを検索…",
+    "empty": "該当なし"
+  },
+  "login": {
+    "subtitle": "プロジェクトごとのAI時間とコスト",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "submit": "ログイン",
+    "error": "メールアドレスまたはパスワードが正しくありません"
+  },
+  "common": {
+    "loading": "読み込み中…",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "create": "作成",
+    "edit": "編集",
+    "delete": "削除",
+    "archive": "アーカイブ",
+    "unarchive": "復元",
+    "active": "有効",
+    "inactive": "無効",
+    "actions": "操作",
+    "name": "名前",
+    "code": "コード",
+    "client": "クライアント",
+    "project": "プロジェクト",
+    "task": "タスク",
+    "status": "ステータス",
+    "all": "すべて",
+    "none": "なし",
+    "search": "検索",
+    "close": "閉じる",
+    "confirm": "確認",
+    "saved": "保存しました",
+    "error": "エラーが発生しました",
+    "back": "戻る",
+    "select": "選択…",
+    "work": "作業",
+    "cost": "コスト",
+    "count": "件数",
+    "model": "モデル",
+    "prompt": "プロンプト",
+    "started": "開始",
+    "externalRef": "外部参照",
+    "description": "説明",
+    "userMenu": "ユーザーメニュー"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "period": "期間",
+    "presets": {
+      "today": "今日",
+      "7d": "7日間",
+      "30d": "30日間",
+      "thisMonth": "今月",
+      "lastMonth": "先月",
+      "custom": "カスタム"
+    },
+    "includeUnassigned": "未割り当てを含める",
+    "kpi": {
+      "workTime": "作業時間",
+      "wallTime": "合計時間",
+      "waitingTime": "待機時間",
+      "cost": "コスト",
+      "tokensIn": "入力トークン",
+      "tokensOut": "出力トークン",
+      "tokensCache": "キャッシュトークン",
+      "tasks": "タスク",
+      "avgCostPerTask": "タスクあたりの平均コスト"
+    },
+    "vsPrevious": "前期間比",
+    "chart": {
+      "title": "時系列",
+      "metric": "指標",
+      "work": "作業時間",
+      "cost": "コスト",
+      "stackBy": "グループ化",
+      "none": "グループ化なし",
+      "client": "クライアント",
+      "project": "プロジェクト"
+    },
+    "byClient": "クライアント別",
+    "byProject": "プロジェクト別",
+    "topExpensive": "コストの高いエントリー",
+    "share": "割合",
+    "noData": "この期間のデータはありません",
+    "liveUpdate": "リアルタイム更新"
+  },
+  "clients": {
+    "title": "クライアント",
+    "new": "新規クライアント",
+    "edit": "クライアントを編集",
+    "protected": "保護されたクライアントです。名前の変更、アーカイブ、削除はできません。",
+    "unassignedHint": "クライアントが未割り当ての過去のエントリーの保存先です。",
+    "totalCost": "合計コスト",
+    "totalTime": "作業時間",
+    "empty": "クライアントはまだありません。",
+    "codeHint": "短く一意な識別子（例:「cajamar」）。",
+    "website": "ウェブサイト",
+    "contact": "連絡先",
+    "contactEmail": "連絡先メールアドレス",
+    "contactPhone": "連絡先電話番号",
+    "notes": "メモ",
+    "notesHint": "クライアント詳細画面にのみ表示され、テーブルには表示されません。",
+    "hasNotes": "メモあり",
+    "invalidWebsite": "有効なURLを入力してください（例: https://example.com）。",
+    "invalidEmail": "有効なメールアドレスを入力してください。",
+    "migrationPending": "連絡先項目は保存されませんでした。データベースのマイグレーションが未適用です（サーバーを再起動してください）。",
+    "viewDetail": "詳細を見る",
+    "favicon": {
+      "refresh": "アイコンを更新",
+      "toast": {
+        "ok": "アイコンを更新しました。",
+        "no_website": "このクライアントにはウェブサイトが設定されていないため、アイコンを取得できません。",
+        "fetch_failed": "クライアントのウェブサイトに接続できませんでした。",
+        "no_icon_found": "そのウェブサイトにアイコンが見つかりませんでした。",
+        "unsupported_type": "そのウェブサイトのアイコンは対応していない画像形式です。",
+        "too_large": "そのウェブサイトのアイコンは許容サイズを超えています。",
+        "blocked_host": "セキュリティ上の理由によりそのアドレスは許可されていません。"
+      }
+    },
+    "detail": {
+      "contactTitle": "連絡先",
+      "noWebsite": "ウェブサイトなし",
+      "noContactEmail": "連絡先メールアドレスなし",
+      "noContactPhone": "連絡先電話番号なし",
+      "noNotes": "メモなし",
+      "projectsTitle": "プロジェクト",
+      "noProjects": "プロジェクトなし"
+    }
+  },
+  "projects": {
+    "title": "プロジェクト",
+    "new": "新規プロジェクト",
+    "edit": "プロジェクトを編集",
+    "filterByClient": "クライアントで絞り込み",
+    "repoPaths": "リポジトリのパス",
+    "repoPathsHint": "各マシン上のリポジトリの絶対パスです。kankakuはこのパスを使って、そのディレクトリでセッションを開始した際にプロジェクトを自動選択します。",
+    "addPath": "パスを追加",
+    "empty": "プロジェクトはまだありません。",
+    "detail": {
+      "trend": "推移",
+      "tasksTitle": "タスク",
+      "entriesTitle": "エントリー",
+      "topPrompts": "コストの高いプロンプト",
+      "byModel": "モデル別"
+    }
+  },
+  "tasks": {
+    "title": "タスク",
+    "new": "新規タスク",
+    "edit": "タスクを編集",
+    "board": "ボード",
+    "list": "リスト",
+    "status": {
+      "open": "未着手",
+      "doing": "進行中",
+      "done": "完了"
+    },
+    "empty": "タスクはありません。",
+    "cost": "AIコスト",
+    "time": "AI時間",
+    "moveTo": "移動先"
+  },
+  "unassigned": {
+    "title": "未割り当て",
+    "subtitle": "実際のクライアントとプロジェクトの割り当てを待っている過去のエントリーです。",
+    "group": "グループ",
+    "legacyLabel": "元のラベル",
+    "repoProject": "ローカルプロジェクト",
+    "entries": "エントリー",
+    "selectAll": "すべて選択",
+    "assignSelected": "選択項目を割り当て",
+    "assignGroup": "グループを割り当て",
+    "assignTo": "割り当て先",
+    "empty": "割り当て待ちのエントリーはありません。",
+    "progress": "{done} / {total} 件を割り当て中…",
+    "done": "完了: {succeeded}件を割り当て、{failed}件が失敗しました。",
+    "selected": "{count}件を選択中",
+    "suggested": "候補: {client}",
+    "movedTo": "{count}件のエントリーを{client}に移動しました。",
+    "failedCount": "{count}件のエントリーを割り当てできませんでした。"
+  },
+  "entries": {
+    "title": "エントリー",
+    "filters": "フィルター",
+    "filtersFields": {
+      "machine": "マシン"
+    },
+    "searchPrompt": "プロンプトを検索…",
+    "empty": "この条件に一致するエントリーはありません。",
+    "status": {
+      "completed": "完了",
+      "aborted": "中止",
+      "interrupted": "中断"
+    },
+    "detail": {
+      "title": "エントリー詳細",
+      "fallbackTitle": "エントリー {id}",
+      "summary": "概要",
+      "waiting": "待機",
+      "runs": "実行回数",
+      "turns": "ターン数",
+      "subagents": "サブエージェント",
+      "workWaitBarLabel": "作業{work}、待機{wait}（合計{wall}中）",
+      "tokens": "トークン",
+      "tokensIn": "入力トークン",
+      "tokensOut": "出力トークン",
+      "tokensCacheRead": "キャッシュ（読み取り）",
+      "tokensCacheWrite": "キャッシュ（書き込み）",
+      "assignment": "割り当て",
+      "relationDeleted": "（削除済み）",
+      "legacyLabel": "元のラベル",
+      "repoPath": "リポジトリのパス",
+      "duration": "所要時間",
+      "segments": "セグメント",
+      "segmentsHint": "このエントリー内でセグメント（ツールまたはフェーズ）ごとに集計した時間です。",
+      "promptEmpty": "プロンプトの送信はデフォルトで無効です（「KANKAKU_SYNC_PROMPT」）。",
+      "promptEmptyLink": "コマンドページで設定を確認",
+      "workRecords": "作業レコード（work_records）",
+      "workRecordsWarning": "生の詳細データです。合計には決して使用しません。合計は常にtask_entriesから取得します。",
+      "workRecordsRole": "ロール",
+      "noWorkRecords": "このエントリーに紐づくwork_recordsはありません。",
+      "technical": "技術詳細",
+      "fieldId": "レコードID",
+      "fieldTaskId": "タスクID（kankaku）",
+      "fieldSessionId": "セッションID",
+      "fieldMachine": "マシン",
+      "fieldSchema": "スキーマバージョン",
+      "fieldCreated": "作成日時",
+      "fieldUpdated": "更新日時",
+      "fieldEndedAt": "終了日時"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "appearance": "外観",
+    "language": "言語",
+    "connection": "接続",
+    "hubUrl": "ハブURL",
+    "signedInAs": "ログイン中のアカウント",
+    "currency": "通貨",
+    "currencyNote": "すべてのコストは米ドル（USD）で表示されます。",
+    "schema": "スキーマ概要",
+    "version": "バージョン"
+  },
+  "commands": {
+    "title": "コマンド",
+    "subtitle": "pi内のすべての/kankakuサブコマンドのリファレンスです。",
+    "filterPlaceholder": "コマンドを絞り込み…",
+    "filterEmpty": "検索条件に一致するコマンドはありません。",
+    "copy": "コピー",
+    "copied": "コピーしました！",
+    "copyAria": "「{syntax}」をクリップボードにコピー",
+    "requiresHub": "ハブが必要",
+    "groups": {
+      "reports": "レポート",
+      "clientTarget": "クライアントと対象",
+      "hub": "Hub",
+      "export": "エクスポート"
+    },
+    "workflow": {
+      "title": "基本的な使い方",
+      "firstRun": {
+        "title": "初回起動時",
+        "body": "新しいプロジェクトでpiを起動し、ハブが設定されている場合、kankakuはクライアントとプロジェクトを尋ねます（スキップも可能です）。「このリポジトリで記憶しますか？」に「はい」と答えると、選択内容が「KANKAKU_DIR/config.json」に保存され、以後は尋ねられません。"
+      },
+      "dailyUse": {
+        "title": "日常的な使用",
+        "body": "kankakuはプロンプトをブロックすることなく自動的に同期します。セッション開始時とエージェントの応答ごとに、最短でも5分間隔（「KANKAKU_SYNC_MIN_INTERVAL_MINUTES」）で実行されます。新しいエントリーは、何もしなくてもこのハブのダッシュボードに表示されます。"
+      },
+      "reassigning": {
+        "title": "過去のデータを再割り当て",
+        "body": "「/kankaku backfill」を実行すると完全な同期が強制され、どれだけのタスクが「Sin determinar」に振り分けられたかがわかります。このWebアプリの未割り当てキューから再割り当てしてください。"
+      },
+      "keyRule": "重要なルール: このWebアプリで一度タスクを再割り当てすると、その後のkankakuの同期がその割り当てを元に戻すことはありません。同期が更新するのは測定項目（時間、コスト、ステータス）だけで、クライアントやプロジェクトは変更されません。"
+    },
+    "config": {
+      "title": "設定",
+      "envTitle": "環境変数",
+      "envColumns": {
+        "name": "変数",
+        "default": "デフォルト",
+        "meaning": "説明"
+      },
+      "env": {
+        "dir": "作業ログ（`worklog.jsonl`）とクラッシュ復旧用チェックポイントのディレクトリです。絶対パスでない限り、プロジェクトのcwdからの相対パスとして扱われます。",
+        "interactiveTools": "実行時間が待機時間としてカウントされるツール名を、カンマ区切りで指定するリストです。",
+        "segments": "タグ付きセグメント用の「tag=tool:regex」ルールを「;」区切りで指定します（デフォルトは「review」ルール1件のみ）。",
+        "client": "このプロジェクトのデフォルトの請求先クライアントです。「/kankaku client」より優先度は低く、プロジェクトの「config.json」より優先度は高くなります。",
+        "pbUrl": "PocketBaseハブのURLです。localhost/127.0.0.1/::1を指す場合を除き、HTTPSである必要があります。",
+        "pbEmail": "ハブのサービスアカウントのメールアドレスです。",
+        "pbPassword": "ハブのサービスアカウントのパスワードです。",
+        "machine": "このマシンの表示名です。ハブが設定されると、すべてのレコードに「machine」として付加されます。",
+        "syncPrompt": "同期時のプロンプトのプライバシー設定です。「none」（送信しない）、「truncated」（先頭120文字）、「full」のいずれかです。",
+        "syncWindowHours": "同期のウォーターマークから何時間さかのぼって再評価するかを指定します。遅れて完了するサブエージェントを捕捉するためのものです。",
+        "syncRecords": "「0」にすると「work_records」（生の詳細データ）のアップロードを無効化します。「task_entries」は常にアップロードされます。",
+        "syncAuto": "「0」にすると「session_start」「agent_settled」時の自動同期を無効化します。「/kankaku sync」は引き続き使用できます。",
+        "syncMinInterval": "自動同期の最短間隔（分）です。「0」で間隔制限を無効化します。手動同期には影響しません。"
+      },
+      "credentialsTitle": "認証情報ファイル",
+      "credentialsBody": "環境変数の代わりに、kankakuは「~/.kankaku/credentials.json」も読み込みます（「chmod 600」を推奨）。環境変数はフィールドごとにこのファイルより優先されます。",
+      "connectTitle": "このハブにkankakuを接続",
+      "connectBody": "piを使用しているターミナルでこれをコピーして実行してください。パスワードは実際のサービスアカウントのもの（オーナーアカウントは絶対に使用しないでください）に置き換え、このハブの管理者に発行を依頼してください。",
+      "loadInPiTitle": "このブランチのビルドをpiで読み込む",
+      "loadInPiBody": "公開・インストールせずにこのビルドを試すには:",
+      "loadInPiNote": "公開版（pi install npm:kankaku）が既にインストールされている場合は、先にアンインストールしてください。そうしないとkankakuが二重に読み込まれ、すべてのプロンプトが重複して記録されます。-eオプションを使うと拡張機能はサブエージェントに届きません。届かせるには、ローカルのチェックアウトを絶対パスでpi installしてください。",
+      "serviceAccountNote": "常にサービスアカウント（「role: \"service\"」）を使用してください。オーナーアカウントは使用しないでください。「task_entries」「work_records」への書き込みが許可されているのはサービスアカウントのみです。"
+    },
+    "items": {
+      "summary-today": {
+        "description": "ロール別の今日の合計（作業、待機、レコード数）と、区間の和集合に基づくタスクのセグメントを、それぞれの推定コストとともに表示します。",
+        "whenToUse": "piを離れることなく、今日どれくらい作業してコストがいくらかを一目で確認するために使います。"
+      },
+      "summary-all": {
+        "description": "「/kankaku」と同様ですが、今日分だけでなく過去の全レコードを合計します。",
+        "whenToUse": "全体の累計利用状況を確認したいときなどに使います。"
+      },
+      "tasks": {
+        "description": "現在のpiセッションについて、タスクごとに1行（時間、作業/待機の和集合、コスト、サブエージェント数、省略されたプロンプト）を表示します。",
+        "whenToUse": "現在のセッションでどのタスクが実行され、コストがいくらだったかを確認するために使います。"
+      },
+      "tasks-all": {
+        "description": "「tasks」と同様ですが、現在のセッションだけでなく全セッションを対象にします。",
+        "whenToUse": "このセッションだけでなく、タスクの全履歴を確認するために使います。"
+      },
+      "sessions": {
+        "description": "今日のセッションごとに1行（ID、時間帯、作業/待機の和集合、コスト、タスク数）を表示します。",
+        "whenToUse": "今日piを何回起動し、その合計コストがいくらだったかを確認するために使います。"
+      },
+      "sessions-all": {
+        "description": "「sessions」と同様ですが、今日だけでなく全日程を対象にします。",
+        "whenToUse": "記録された全セッションの履歴を振り返るために使います。"
+      },
+      "clients": {
+        "description": "今日の合計（作業、待機、合計時間、コスト、タスク数）を請求先クライアントごとに集計します。クライアントが確定していないタスクは「(none)」にまとめられます。",
+        "whenToUse": "ハブの設定有無にかかわらず、今日の時間がどのクライアントに使われたかを確認するために使います。"
+      },
+      "clients-all": {
+        "description": "「clients」と同様ですが、全日程を合計します。",
+        "whenToUse": "クライアント別の全履歴の内訳を確認するために使います。"
+      },
+      "projects": {
+        "description": "「clients」と同じ形式で、今日の合計をプロジェクトごとに集計します。ハブが設定されている場合のみ利用できます。",
+        "whenToUse": "今日の時間がどのプロジェクトに使われたかを確認するために使います。"
+      },
+      "projects-all": {
+        "description": "「projects」と同様ですが、全日程を合計します。",
+        "whenToUse": "プロジェクト別の全履歴の内訳を確認するために使います。"
+      },
+      "client-show": {
+        "description": "現在のセッションで有効な請求先クライアントと、その情報元（セッション、「KANKAKU_CLIENT」、またはプロジェクトの「config.json」）を表示します。",
+        "whenToUse": "kankakuがこれ以上作業を記録する前に、適用されているクライアントを確認するために使います。"
+      },
+      "client-set": {
+        "description": "現在のセッションの請求先クライアントを設定します。ハブが設定されている場合、名前はカタログ上のクライアントのコードまたは名前と一致する必要があり（大文字小文字を区別しません）、プロジェクトなしの対象も同時に設定されます。",
+        "whenToUse": "誤ったクライアントで作業が記録される前に、セッションのクライアントを修正・強制するために使います。"
+      },
+      "client-clear": {
+        "description": "セッション単位で設定したクライアントを解除し、優先順位に基づいて次の情報元に解決を戻します。",
+        "whenToUse": "このセッションで「/kankaku client」により設定したクライアントを取り消すために使います。"
+      },
+      "target-show": {
+        "description": "ハブの有効な対象（クライアント＋プロジェクト）と、その情報元（セッション、プロジェクトの「config.json」、「repo_paths」、または選択画面）を表示します。ハブが設定されている場合のみ利用できます。",
+        "whenToUse": "同期前に、作業がどのクライアント・プロジェクトに紐づけられているかを確認するために使います。"
+      },
+      "target-pick": {
+        "description": "既に対象が解決済みであっても、クライアント／プロジェクトの選択画面を再表示します。新しい対象は、このコマンド実行後に確定したレコードに適用されます。",
+        "whenToUse": "piを再起動せずに、セッション途中でクライアントやプロジェクトを切り替えるために使います。"
+      },
+      "target-clear": {
+        "description": "セッション単位で設定した対象を解除し、解決先を「config.json」「repo_paths」または選択画面に戻します。",
+        "whenToUse": "このセッションで以前設定した「/kankaku target pick」を取り消すために使います。"
+      },
+      "catalog-refresh": {
+        "description": "6時間のキャッシュ期限を待たずに、ハブからクライアント／プロジェクトのカタログを強制的に再取得し、受信件数を報告します。",
+        "whenToUse": "このWebアプリでクライアントやプロジェクトを作成・編集した直後に、kankakuにすぐ反映させるために使います。"
+      },
+      "sync": {
+        "description": "保留中のタスクをハブに送信します。新規タスクに加え、再評価ウィンドウ（「KANKAKU_SYNC_WINDOW_HOURS」、デフォルト24時間）内で変更のあったタスクも対象です。",
+        "whenToUse": "各プロンプト後の自動同期を待たずに、手動で同期を強制するために使います。"
+      },
+      "sync-all": {
+        "description": "直近のウィンドウだけでなく、全タスクを再評価する完全な同期です。コンテンツハッシュにより、変更がなくても低コストで実行できます。",
+        "whenToUse": "何かがハブに届いていないと疑われるとき、または同期設定を変更した後に使います。"
+      },
+      "sync-status": {
+        "description": "同期のウォーターマーク（「syncedThrough」）、ローカルで計算した保留件数（ネットワーク通信なし）、直近の同期エラー（あれば）を表示します。",
+        "whenToUse": "同期を実行せずに、自動同期が最新かどうかを確認するために使います。"
+      },
+      "backfill": {
+        "description": "完全な同期を実行し、その結果を旧来の自由記述ラベル（「legacy_client_label」）ごとに集計します。何件のタスクが「Sin determinar」に振り分けられ、どの名前の下に入ったかがわかります。",
+        "whenToUse": "過去のプロジェクトを初めてハブに接続する際、後で未割り当てキューから何を再割り当てすべきかを把握するために使います。"
+      },
+      "export": {
+        "description": "タスク1件につき1行（デフォルトは今日分、「all」で全件）をCSVまたはJSON形式で「KANKAKU_DIR/export/」に書き出します。",
+        "whenToUse": "piの外にデータを持ち出す、例えば表計算ソフトに取り込む際に使います。"
+      }
+    }
+  }
+}

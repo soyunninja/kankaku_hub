@@ -25,12 +25,12 @@ import {
   normalizePhone,
   normalizeWebsiteUrl,
 } from '@/lib/client-contact'
-import { formatCost, formatDuration } from '@/lib/format'
 import { resolvePreset } from '@/lib/period'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('clients.title')) })
+const { formatCost, formatDuration } = useFormatters()
 
 const { clients, loading, ensureLoaded, create, update, byId, refreshFavicon } = useClients()
 const { ensureLoaded: ensureProjects, byClient: projectsByClient } = useProjects()
