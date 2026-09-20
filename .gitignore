@@ -9,3 +9,6 @@ node_modules/
 .output
 dist
 pocketbase/dev.log
+
+# CodeGraph local index
+.codegraph/
