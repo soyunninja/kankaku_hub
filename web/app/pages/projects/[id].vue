@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByModel, sumTaskEntries } from '@/lib/aggregate'
-import { formatCost, formatDuration } from '@/lib/format'
 import { resolvePreset } from '@/lib/period'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
+const { formatCost, formatDuration } = useFormatters()
 const route = useRoute()
 const projectId = route.params.id as string
 

@@ -11,11 +11,11 @@ import { Select } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { groupByKey } from '@/lib/aggregate'
-import { formatCost, formatDuration } from '@/lib/format'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('tasks.title')) })
+const { formatCost, formatDuration } = useFormatters()
 
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, loading, ensureLoaded, create, update, remove, setStatus, moveStatus } = useTasks()

@@ -10,13 +10,13 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { avgCostPerTask, groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
-import { formatCost, formatDuration, formatTokensCompact } from '@/lib/format'
 import type { DateRange, PresetKey } from '@/lib/period'
 import { previousEquivalentPeriod, resolvePreset } from '@/lib/period'
 import type { ClientRecord, TaskEntryRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('dashboard.title')) })
+const { formatCost, formatDuration, formatTokensCompact } = useFormatters()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()

@@ -13,11 +13,11 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByProject } from '@/lib/aggregate'
-import { formatCost, formatDuration } from '@/lib/format'
 import { resolvePreset } from '@/lib/period'
 import type { ProjectRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
+const { formatCost, formatDuration } = useFormatters()
 useHead({ title: computed(() => t('projects.title')) })
 
 const { clients, ensureLoaded: ensureClients } = useClients()

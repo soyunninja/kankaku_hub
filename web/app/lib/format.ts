@@ -5,9 +5,33 @@
  * context.
  */
 
-/** Format a millisecond duration as `1h 23m`, `45m`, `12s`, or `0s`. */
-export function formatDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+/**
+ * Locale-specific duration unit labels. Every non-Japanese locale (the
+ * `default` entry) keeps the original Latin unit letters (`h`/`m`/`s`),
+ * joined with a space in the non-compact form — this is what
+ * `formatDuration`/`formatDurationCompact` always produced before locale
+ * awareness was added, so existing call sites and tests that don't pass a
+ * `locale` keep their exact output.
+ */
+const DURATION_UNITS: Record<string, { h: string, m: string, s: string, join: string }> = {
+  default: { h: 'h', m: 'm', s: 's', join: ' ' },
+  ja: { h: '時間', m: '分', s: '秒', join: '' },
+}
+
+function durationUnitsFor(locale: string) {
+  return DURATION_UNITS[locale.split('-')[0] ?? ''] ?? DURATION_UNITS.default!
+}
+
+/**
+ * Format a millisecond duration as `1h 30m`, `2h`, `45m`, `12s`, `0s`
+ * (default/`en`/`es`), or the Japanese equivalent (`1時間30分`, `2時間`,
+ * `45分`, `12秒`, `0秒`) when `locale` is `ja`/`ja-JP`. `locale` defaults to
+ * `'en'` (Latin units) so existing callers that don't pass one see no
+ * behavior change.
+ */
+export function formatDuration(ms: number, locale = 'en'): string {
+  const u = durationUnitsFor(locale)
+  if (!Number.isFinite(ms) || ms <= 0) return `0${u.s}`
 
   const totalSeconds = Math.round(ms / 1000)
   const hours = Math.floor(totalSeconds / 3600)
@@ -15,27 +39,30 @@ export function formatDuration(ms: number): string {
   const seconds = totalSeconds % 60
 
   if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+    return minutes > 0 ? `${hours}${u.h}${u.join}${minutes}${u.m}` : `${hours}${u.h}`
   }
   if (minutes > 0) {
-    return `${minutes}m`
+    return `${minutes}${u.m}`
   }
-  return `${seconds}s`
+  return `${seconds}${u.s}`
 }
 
 /**
  * Format a compact duration for tight spaces (charts/tables): `1h23m`,
- * `45m`, `12s`.
+ * `45m`, `12s` (default/`en`/`es`), or `1時間23分` / `45分` / `12秒` for
+ * `ja`. Always joined with no separator, which is also already Japanese's
+ * natural form, so `locale` only changes the unit labels here.
  */
-export function formatDurationCompact(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+export function formatDurationCompact(ms: number, locale = 'en'): string {
+  const u = durationUnitsFor(locale)
+  if (!Number.isFinite(ms) || ms <= 0) return `0${u.s}`
   const totalSeconds = Math.round(ms / 1000)
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
-  if (hours > 0) return `${hours}h${minutes}m`
-  if (minutes > 0) return `${minutes}m`
-  return `${seconds}s`
+  if (hours > 0) return `${hours}${u.h}${minutes}${u.m}`
+  if (minutes > 0) return `${minutes}${u.m}`
+  return `${seconds}${u.s}`
 }
 
 /**
@@ -60,25 +87,35 @@ export function formatCost(usd: number): string {
   return formatter.format(value)
 }
 
-/** Format a raw token count with thousands separators, e.g. `12,345`. */
-export function formatTokens(count: number): string {
+/**
+ * Format a raw token count with thousands separators, e.g. `12,345`
+ * (default/`en-US`) or `12,345` grouped per `locale`'s own convention
+ * (e.g. `ja-JP` still groups by thousands — only the compact form below
+ * switches to 万-based grouping).
+ */
+export function formatTokens(count: number, locale = 'en-US'): string {
   const value = Number.isFinite(count) ? Math.round(count) : 0
-  return new Intl.NumberFormat('en-US').format(value)
+  return new Intl.NumberFormat(locale).format(value)
 }
 
-/** Format a token count compactly for tight spaces: `12.3k`, `1.2M`. */
-export function formatTokensCompact(count: number): string {
+/**
+ * Format a token count compactly for tight spaces: `12.3K`, `1.2M`
+ * (default/`en-US`), or `ja-JP`'s native 万-based compact notation (e.g.
+ * `81.7万`) when `locale` is `ja`/`ja-JP` — this is correct, idiomatic
+ * Japanese for a large count, not a bug to normalize away.
+ */
+export function formatTokensCompact(count: number, locale = 'en-US'): string {
   const value = Number.isFinite(count) ? count : 0
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(value)
 }
 
 /** Format a ratio (0..1 or beyond) as a percentage with one decimal. */
-export function formatPercent(ratio: number): string {
+export function formatPercent(ratio: number, locale = 'en-US'): string {
   const value = Number.isFinite(ratio) ? ratio : 0
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     style: 'percent',
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,

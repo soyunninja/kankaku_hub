@@ -2,10 +2,10 @@
 import ClientName from '@/components/clients/ClientName.vue'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { GroupTotals } from '@/lib/aggregate'
-import { formatCost, formatDuration, formatPercent } from '@/lib/format'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
+const { formatCost, formatDuration, formatPercent } = useFormatters()
 
 defineProps<{
   rows: (GroupTotals & { label: string })[]

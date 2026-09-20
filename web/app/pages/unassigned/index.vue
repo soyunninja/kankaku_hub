@@ -10,12 +10,12 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupUnassigned } from '@/lib/aggregate'
-import { formatCost, formatDate, formatDuration } from '@/lib/format'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
 import { suggestClient } from '@/lib/suggest-client'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('unassigned.title')) })
+const { formatCost, formatDate, formatDuration } = useFormatters()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()

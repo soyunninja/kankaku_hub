@@ -3,6 +3,7 @@ import {
   deltaDirection,
   deltaTone,
   formatCost,
+  formatDate,
   formatDelta,
   formatDuration,
   formatDurationCompact,
@@ -29,11 +30,41 @@ describe('formatDuration', () => {
     expect(formatDuration(-5)).toBe('0s')
     expect(formatDuration(Number.NaN)).toBe('0s')
   })
+  it('defaults to Latin units when no locale is passed (backward compatible)', () => {
+    expect(formatDuration(90 * 60 * 1000)).toBe(formatDuration(90 * 60 * 1000, 'en'))
+  })
+  it('keeps Latin units for es and en', () => {
+    expect(formatDuration(90 * 60 * 1000, 'es')).toBe('1h 30m')
+    expect(formatDuration(90 * 60 * 1000, 'en-US')).toBe('1h 30m')
+  })
+  it('formats hours and minutes in Japanese units for ja', () => {
+    expect(formatDuration(90 * 60 * 1000, 'ja')).toBe('1時間30分')
+    expect(formatDuration(90 * 60 * 1000, 'ja-JP')).toBe('1時間30分')
+  })
+  it('formats whole hours without minutes in Japanese', () => {
+    expect(formatDuration(2 * 60 * 60 * 1000, 'ja')).toBe('2時間')
+  })
+  it('formats minutes only in Japanese', () => {
+    expect(formatDuration(45 * 60 * 1000, 'ja')).toBe('45分')
+  })
+  it('formats seconds only in Japanese', () => {
+    expect(formatDuration(30_000, 'ja')).toBe('30秒')
+  })
+  it('treats zero/negative/NaN as 0秒 in Japanese', () => {
+    expect(formatDuration(0, 'ja')).toBe('0秒')
+    expect(formatDuration(-5, 'ja')).toBe('0秒')
+    expect(formatDuration(Number.NaN, 'ja')).toBe('0秒')
+  })
 })
 
 describe('formatDurationCompact', () => {
   it('has no space between hours and minutes', () => {
     expect(formatDurationCompact(90 * 60 * 1000)).toBe('1h30m')
+  })
+  it('uses Japanese units with no separator for ja', () => {
+    expect(formatDurationCompact(90 * 60 * 1000, 'ja')).toBe('1時間30分')
+    expect(formatDurationCompact(45 * 60 * 1000, 'ja')).toBe('45分')
+    expect(formatDurationCompact(12_000, 'ja')).toBe('12秒')
   })
 })
 
@@ -63,11 +94,30 @@ describe('formatTokensCompact', () => {
   it('compacts large numbers', () => {
     expect(formatTokensCompact(12345)).toBe('12.3K')
   })
+  it('uses 万-based compact notation for ja-JP, correct idiomatic Japanese', () => {
+    expect(formatTokensCompact(12345, 'ja-JP')).toBe('1.2万')
+    expect(formatTokensCompact(817000, 'ja-JP')).toBe('81.7万')
+  })
+})
+
+describe('formatTokens', () => {
+  it('still groups by thousands for ja-JP (only the compact form uses 万)', () => {
+    expect(formatTokens(1234567, 'ja-JP')).toBe('1,234,567')
+  })
 })
 
 describe('formatPercent', () => {
   it('formats a ratio as a percentage', () => {
     expect(formatPercent(0.4321)).toBe('43.2%')
+  })
+  it('formats the same way for ja-JP', () => {
+    expect(formatPercent(0.4321, 'ja-JP')).toBe('43.2%')
+  })
+})
+
+describe('formatDate / formatDateTime locale awareness', () => {
+  it('formats a ja-JP date using Intl, not a hardcoded es-ES/en-US default', () => {
+    expect(formatDate('2026-03-05', 'ja-JP')).toBe('2026/03/05')
   })
 })
 

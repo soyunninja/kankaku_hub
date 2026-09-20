@@ -10,12 +10,12 @@ import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatCost, formatDateTime, formatDuration } from '@/lib/format'
 import type { EntriesExplorerFilters } from '@/composables/useEntriesExplorer'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('entries.title')) })
+const { formatCost, formatDateTime, formatDuration } = useFormatters()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
