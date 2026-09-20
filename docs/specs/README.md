@@ -23,6 +23,7 @@ configuration, edge cases, out-of-scope, and a traceability table to tests.
 | Web tasks | kankaku-hub | phase-3 | implemented | [web-tasks.md](web-tasks.md) |
 | Web unassigned queue | kankaku-hub | phase-3 | implemented | [web-unassigned-queue.md](web-unassigned-queue.md) |
 | Web entries explorer | kankaku-hub | phase-3 | implemented | [web-entries-explorer.md](web-entries-explorer.md) |
+| Web sessions | kankaku-hub | phase-3 | implemented | [web-sessions.md](web-sessions.md) |
 | Web theming and i18n | kankaku-hub | phase-3 | implemented | [web-theming-and-i18n.md](web-theming-and-i18n.md) |
 | Web commands reference | kankaku-hub | phase-3 | implemented | [web-commands-reference.md](web-commands-reference.md) |
 | Security and privacy | kankaku, kankaku-hub | phase-2 | implemented | [security-and-privacy.md](security-and-privacy.md) |
@@ -30,8 +31,9 @@ configuration, edge cases, out-of-scope, and a traceability table to tests.
 | Subagent detection | kankaku | phase-6 | planned | [subagent-detection.md](subagent-detection.md) |
 
 Planned capabilities (no implementation yet — tracked as phases, not specs
-until built): task linkage from kankaku
-([phase-4](../phases/phase-4-task-linkage.md)), task creation from kankaku
+until built): a `/kankaku task` picker inside kankaku itself
+([phase-4](../phases/phase-4-task-linkage.md), superseded in practice — see
+that phase file), task creation from kankaku
 ([phase-5](../phases/phase-5-task-creation-from-pi.md)), VPS deployment
 ([phase-deployment-to-vps](../phases/phase-deployment-to-vps.md)), and
 publishing a kankaku release

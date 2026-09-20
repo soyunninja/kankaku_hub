@@ -39,6 +39,33 @@ Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 > buscárselo. Ver
 > [`docs/specs/client-favicons.md`](docs/specs/client-favicons.md).
 
+> **Acción pendiente del dueño (sesiones y calidad de medición)**: dos
+> migraciones nuevas más. `1758300013_task_entries_agent_and_quality.js`
+> añade `agent`/`agent_version`/`plugin`/`plugin_version` y tres campos de
+> calidad de medición a `task_entries` (las filas existentes se
+> retro-rellenan como `agent: "pi"`, medición completa).
+> `1758300014_ignored_sessions_collection.js` añade la colección
+> `ignored_sessions` (para descartar una sesión de la cola sin crear una
+> tarea falsa) y `1758300015_task_entries_daily_totals_by_agent.js`
+> reforma la vista `task_entries_daily_totals` para agrupar también por
+> `agent` (cambio de forma: hasta una fila por proyecto/cliente/día/agente
+> en vez de por proyecto/cliente/día — ver
+> [`docs/contract.md`](docs/contract.md) "Agent and measurement quality"
+> y [`docs/specs/hub-schema-and-access-rules.md`](docs/specs/hub-schema-and-access-rules.md)
+> `SCHEMA-REQ-016`). Reinicia `npm run dev:all` una vez para que
+> PocketBase aplique las tres. Si quieres ver la nueva UI de calidad con
+> datos de un segundo agente, vuelve a ejecutar `npm run pb:seed` después
+> (añade ~7 filas de demo con `agent: "opencode"`; es idempotente, no
+> duplica nada). Mientras no reinicies, la web sigue funcionando: esas
+> filas simplemente se leen como si fueran de `pi` con medición completa,
+> que es justo el retro-relleno que hace la migración. Hay una entrada de
+> navegación nueva, "Sesiones sin tarea" (con contador en la barra
+> lateral y en la paleta de comandos Ctrl/Cmd+K), y el detalle de una
+> tarea o de un registro ahora muestra las sesiones de kankaku vinculadas
+> con un comando para retomarlas (`pi --session <id>`, copiable). Ver
+> [`docs/specs/web-sessions.md`](docs/specs/web-sessions.md) y
+> [ADR 0024](docs/adr/0024-sessions-link-to-tasks-by-explicit-action.md).
+
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
 npm run dev:all      # PARA TRASTEAR: API en :8090 + web con recarga en caliente → http://localhost:3000
@@ -485,6 +512,67 @@ servidor de fixture de favicons en 8099: **75/76 specs en verde**; el
 cliente) se reprodujo igual sobre un `git worktree` limpio del HEAD
 anterior a este trabajo — preexistente, no relacionado con japonés, no
 tocado aquí.
+
+### Sesiones y calidad de medición — parte web (2026-09-20)
+
+El hub deja de asumir un único agente: cada `task_entries` ahora declara
+qué agente lo produjo y qué tan fiable es cada cifra (migración
+`1758300013` — ver "Agent and measurement quality" en
+`docs/contract.md`). Sobre esa base se construyó un flujo centrado en
+**sesiones** (todas las `task_entries` que comparten `session_id`, es
+decir, una ejecución de kankaku) en vez de en prompts sueltos:
+
+- **Cola "Sesiones sin tarea"** (`/sessions-without-task`, entrada nueva
+  en la barra lateral y en la paleta de comandos, con contador en vivo):
+  lista toda sesión cuyas entradas están **todas** sin tarea asignada, y
+  ofrece exactamente tres acciones explícitas por sesión (nunca
+  automáticas) — convertir en tarea nueva, adjuntar a una tarea
+  existente, o ignorar. "Ignorar" crea una fila en la colección nueva
+  `ignored_sessions` (migración `1758300014`) en vez de una tarea falsa o
+  un flag en `localStorage`, así que la decisión sobrevive entre
+  máquinas del dueño. Ver [ADR
+  0024](docs/adr/0024-sessions-link-to-tasks-by-explicit-action.md).
+- **Retomar sesión**: un comando `pi --session <id>` (con `cd` al repo si
+  se conoce) calculado al vuelo, nunca guardado en ningún sitio — visible
+  con botón de copiar en el detalle de un registro (`app/pages/entries`)
+  y en el detalle de una tarea (`app/pages/tasks`, que ahora lista todas
+  las sesiones vinculadas a esa tarea con sus totales). Solo `pi` tiene
+  comando de retomado hoy; otro agente reportado muestra un aviso claro
+  en vez de un comando inventado.
+- **Identidad de agente e indicadores de calidad**: icono/insignia por
+  agente (`app/lib/agents.ts` + `web/public/agents/` — para añadir un
+  agente nuevo: soltar su icono en `web/public/agents/` y añadir una
+  línea al registro), columna y filtro de agente en el explorador de
+  registros, filtro de calidad (`waitingUnavailable`/`costUnknown`), y en
+  el dashboard: filtro de agente, aviso de honestidad cuando el tiempo de
+  trabajo visible incluye alguna cota superior (con enlace de un clic al
+  explorador filtrado), y coste medio/tarea que excluye las filas de
+  coste desconocido (las sumas totales las siguen incluyendo).
+- La vista `task_entries_daily_totals` ahora agrupa también por `agent`
+  (migración `1758300015` — cambio de forma que rompe la anterior; ver el
+  aviso al principio de este fichero).
+- La semilla (`pocketbase/seed/seed.js`) añade ~7 filas de demo con
+  `agent: "opencode"` (PRNG propio y aislado) para que la UI de calidad
+  tenga algo que mostrar sin tocar los datos de `pi` existentes.
+
+Documentación normativa completa en
+[`docs/specs/web-sessions.md`](docs/specs/web-sessions.md) (specs
+`web-tasks.md`/`web-entries-explorer.md`/`web-dashboard.md` también
+actualizadas con los requisitos nuevos).
+
+**Verificación**: los helpers puros (agrupación de sesiones, derivación
+del comando de retomado, registro de agentes, calidad de medición) tienen
+cobertura de Vitest (`session-aggregate.test.ts`, `session-resume.test.ts`,
+`agents.test.ts`, `measurement-quality.test.ts`). Un trabajo paralelo
+añadió además cobertura de Playwright de los flujos de UI —
+`web/e2e/session-resume.spec.ts` (bloque de retomado + hoja de detalle de
+tarea), `web/e2e/sessions-queue.spec.ts` (convertir/adjuntar/ignorar) y
+`web/e2e/agent-quality.spec.ts` (filtro de agente, aviso de honestidad del
+dashboard, desbordamiento a 390px) — presentes en el árbol de trabajo pero
+**todavía sin commitear** en el momento de escribir esto. Sin cobertura
+dedicada todavía, ni de unidad ni end-to-end: el fallback de retomado
+cuando una sesión tiene agentes mixtos en la hoja de detalle de tarea, y
+el contador compartido de la barra lateral/paleta de comandos.
 
 ## kankaku-hub (parte PocketBase)
 

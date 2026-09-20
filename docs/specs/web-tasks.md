@@ -5,16 +5,18 @@
 | Status | implemented |
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
-| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md) |
-| Code | `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts` |
-| Tests | `web/e2e/polish.spec.ts` |
+| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
+| Code | `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/components/tasks/TaskDetailSheet.vue` |
+| Tests | `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts` |
 
 ## Purpose
 
 Lets the owner create and track tasks (title, project, status,
-external_ref, description) that kankaku will later link to
-([phase 4, planned](../phases/phase-4-task-linkage.md)) — the minimum CRUD
-needed for kankaku's picker to have something to point at.
+external_ref, description) and see the kankaku sessions linked to each one
+— the minimum CRUD, plus the session-centric linkage flow described in
+[`web-sessions.md`](web-sessions.md), that a `/kankaku task` picker
+([phase 4, planned](../phases/phase-4-task-linkage.md)) could point at in
+the future.
 
 ## Requirements
 
@@ -33,6 +35,19 @@ needed for kankaku's picker to have something to point at.
 6. `TASKS-REQ-006` — Each task SHALL show its accumulated cost/time,
    derived from its linked `task_entries` rows via the D6-guarded
    aggregation module.
+7. `TASKS-REQ-007` — Clicking a board card SHALL open a task detail sheet
+   showing the task's title/project/status and every kankaku session that
+   touched it, grouped by `session_id` from that task's `task_entries`
+   rows (never `work_records`) — see
+   [`web-sessions.md`](web-sessions.md).
+8. `TASKS-REQ-008` — Each session listed in the task detail sheet SHALL
+   show its per-session totals (work/wall/waiting time, cost, entry
+   count, machine, agent) and its derived resume command, or an
+   unsupported-agent notice when none can be derived.
+9. `TASKS-REQ-009` — Each board card SHALL show a chip with the count of
+   distinct sessions linked to that task, so the owner can tell at a
+   glance which tasks have session activity without opening the detail
+   sheet.
 
 ## Scenarios
 
@@ -54,6 +69,22 @@ needed for kankaku's picker to have something to point at.
 - **When** its accumulated cost is computed
 - **Then** it sums only the `task_entries` rows' `cost` field
 
+### Scenario: a task with no linked sessions shows no chip (`TASKS-REQ-009`)
+
+- **Given** a task has zero `task_entries` rows with a `session_id`
+- **When** the board renders that task's card
+- **Then** no session-count chip is shown for it
+
+### Scenario: opening a task shows its sessions with resume commands (`TASKS-REQ-007`, `TASKS-REQ-008`)
+
+- **Given** a task has two sessions linked to it, one from `pi` and one
+  whose entries disagree on `agent`
+- **When** the owner clicks the board card
+- **Then** the detail sheet lists both sessions with their totals, the
+  `pi` session shows a copyable resume command, and the mixed-agent
+  session shows a best-effort resume command per
+  [`web-sessions.md`](web-sessions.md) (`SESSIONS-REQ-008`)
+
 ## Configuration
 
 None beyond the shared PocketBase connection.
@@ -72,8 +103,10 @@ None beyond the shared PocketBase connection.
 
 - Task creation from kankaku (`/kankaku task new`) — see
   [phase-5-task-creation-from-pi](../phases/phase-5-task-creation-from-pi.md), planned.
-- Task linkage from kankaku's picker — see
-  [phase-4-task-linkage](../phases/phase-4-task-linkage.md), planned.
+- A `/kankaku task` picker inside kankaku itself — see
+  [phase-4-task-linkage](../phases/phase-4-task-linkage.md) (superseded in
+  practice by the session-centric flow in
+  [`web-sessions.md`](web-sessions.md), see that phase file).
 
 ## Traceability
 
@@ -85,3 +118,6 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-004` | `web/e2e/polish.spec.ts` | covered |
 | `TASKS-REQ-005` | `web/e2e/smoke.spec.ts` | covered |
 | `TASKS-REQ-006` | `web/tests/aggregate.test.ts` | covered |
+| `TASKS-REQ-007` | `web/e2e/session-resume.spec.ts` ("task detail sheet lists its sessions") | covered |
+| `TASKS-REQ-008` | `web/e2e/session-resume.spec.ts` (session totals + resume command asserted) | covered |
+| `TASKS-REQ-009` | code review (`pages/tasks/index.vue#sessionCountByTask`); the chip itself is not asserted by the e2e spec above | not covered by an automated test found in this pass |

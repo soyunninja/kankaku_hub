@@ -87,7 +87,7 @@ the backend, same origin — no `NUXT_PUBLIC_PB_URL` needed.
 | `pnpm lint` | ESLint (`eslint .`) |
 | `pnpm typecheck` | `nuxt typecheck` (vue-tsc) |
 | `pnpm test` | Vitest unit tests (`app/lib/*`, i18n parity) |
-| `pnpm test:e2e` | Playwright e2e (`e2e/smoke.spec.ts`, `e2e/polish.spec.ts`) — run once against `nuxt dev` (`localhost:3000`) and once against the production build (`PW_BASE_URL=http://127.0.0.1:8090 pnpm test:e2e`), since some bugs (see [`troubleshooting.md`](troubleshooting.md)) only appear in the single-process build. |
+| `E2E_ALLOW_PB_WRITES=1 pnpm test:e2e` | Playwright e2e (`e2e/smoke.spec.ts`, `e2e/polish.spec.ts`) — run once against `nuxt dev` (`localhost:3000`) and once against the production build (`E2E_ALLOW_PB_WRITES=1 PW_BASE_URL=http://127.0.0.1:8090 pnpm test:e2e`), since some bugs (see [`troubleshooting.md`](troubleshooting.md)) only appear in the single-process build. `E2E_ALLOW_PB_WRITES=1` is a required, explicit opt-in — without it every write-performing e2e helper refuses, so a stray run never accidentally writes to the owner's live PocketBase. |
 | `pnpm generate` | Static build succeeds |
 
 ## kankaku — the pi extension

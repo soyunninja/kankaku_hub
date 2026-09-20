@@ -12,7 +12,7 @@ section.
 | [2 — Sync push](phase-2-sync-push.md) | Idempotent upsert of consolidated tasks to the hub | done | 12 kankaku commits incl. hardening; opt-in e2e |
 | [2b — Backfill](phase-2b-backfill.md) | "Sin determinar" routing + `/kankaku backfill` | done | shipped with phase 2 |
 | [3 — Web](phase-3-web.md) | Dashboard, catalog mgmt, tasks, unassigned queue, entries, settings | done | 12 kankaku-hub `web/` commits; 59 unit + 11 e2e specs green |
-| [4 — Task linkage](phase-4-task-linkage.md) | `/kankaku task` picks an existing task | **planned** | none |
+| [4 — Task linkage](phase-4-task-linkage.md) | Originally `/kankaku task`; delivered instead as a session-centric web flow (queue, resume, agent/quality) | **superseded** — kankaku-hub side delivered incl. e2e (not yet committed); original CLI picker not started | 7 kankaku-hub commits + 3 uncommitted e2e specs (see phase file) |
 | [5 — Task creation from pi](phase-5-task-creation-from-pi.md) | `/kankaku task new` | **planned**, conditional on phase 4 | none |
 | [Deployment to VPS](phase-deployment-to-vps.md) | Run the hub on a real server over HTTPS | **planned**, operational | none |
 | [Publish kankaku release](phase-publish-kankaku-release.md) | Merge branch, version bump, npm publish | **planned**, operational | none |

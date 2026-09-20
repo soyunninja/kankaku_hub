@@ -256,9 +256,12 @@ Rules:
   `waiting_quality: "measured"`, `cost_quality: "measured"`, and
   `subagent_linkage` = `linked` when `subagent_count > 0`, else
   `not_applicable`.
-- The `task_entries_daily_totals` view does **not** group by `agent` yet, so
-  its sums mix agents and qualities; a consumer that must separate them
-  reads `task_entries` directly until the view is extended.
+- The `task_entries_daily_totals` view now groups by `agent` too
+  (migration `1758300015`): up to one row per `(project, client, day,
+  agent)` instead of one row per `(project, client, day)`. This is a
+  breaking shape change for any consumer built against the old shape —
+  see [`specs/hub-schema-and-access-rules.md`](specs/hub-schema-and-access-rules.md)
+  (`SCHEMA-REQ-008`, `SCHEMA-REQ-016`).
 
 Captured against PocketBase 0.40.4 on an isolated copy, authenticated as the
 `service` account, 2026-09-20:
@@ -425,13 +428,16 @@ paginating; there is no realistic scenario with hundreds of clients.
 
 `task_entries_daily_totals` (a PocketBase **view** collection) sums
 **only** `task_entries` — never `work_records` — per project per client
-per day. Read-only (`listRule`/`viewRule` only, no create/update/delete —
-view collections are inherently read-only in PocketBase). Fields:
-`project`, `client`, `day` (text `YYYY-MM-DD`), `wall_ms`, `work_ms`,
-`waiting_ms`, `input`, `output`, `cache_read`, `cache_write`, `cost`,
-`entries`. The web app should treat this as a starting point, not the only
-possible aggregation — add more view collections the same way if needed,
-always querying `task_entries`.
+per day per agent (migration `1758300015`; grouping added `agent` on top
+of the original `(project, client, day)` shape — a breaking shape change,
+see `specs/hub-schema-and-access-rules.md` `SCHEMA-REQ-016`). Read-only
+(`listRule`/`viewRule` only, no create/update/delete — view collections
+are inherently read-only in PocketBase). Fields: `project`, `client`,
+`day` (text `YYYY-MM-DD`), `agent`, `wall_ms`, `work_ms`, `waiting_ms`,
+`input`, `output`, `cache_read`, `cache_write`, `cost`, `entries`. The web
+app should treat this as a starting point, not the only possible
+aggregation — add more view collections the same way if needed, always
+querying `task_entries`.
 
 ## Gotchas for the sync client author
 

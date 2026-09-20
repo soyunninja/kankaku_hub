@@ -54,8 +54,11 @@ same origin — no `NUXT_PUBLIC_PB_URL` needed in this mode.
 pnpm lint
 pnpm typecheck
 pnpm test          # Vitest — pure helpers in app/lib/*, incl. the D6 fixture guard
-pnpm test:e2e       # Playwright — requires the app running (dev or single-process),
-                    # set PW_BASE_URL to point at it (default http://localhost:3000)
+E2E_ALLOW_PB_WRITES=1 pnpm test:e2e   # Playwright — requires the app running (dev or single-process),
+                    # set PW_BASE_URL to point at it (default http://localhost:3000).
+                    # E2E_ALLOW_PB_WRITES=1 is a required, explicit opt-in — without it every
+                    # write-performing e2e helper refuses, so a stray run can never accidentally
+                    # write to the owner's live PocketBase.
 ```
 
 The e2e smoke test also saves screenshots of the main screens, in both

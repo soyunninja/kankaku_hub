@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0007](../adr/0007-web-is-a-view-layer.md), [0014](../adr/0014-dependency-free-charts.md) |
-| Code | `web/app/pages/index.vue`, `web/app/lib/aggregate.ts`, `web/app/lib/format.ts`, `web/app/components/charts/StackedBarChart.vue`, `web/app/components/dashboard/*.vue` |
-| Tests | `web/tests/aggregate.test.ts`, `web/tests/format.test.ts`, `web/e2e/polish.spec.ts` |
+| Code | `web/app/pages/index.vue`, `web/app/lib/aggregate.ts`, `web/app/lib/format.ts`, `web/app/lib/measurement-quality.ts`, `web/app/lib/agents.ts`, `web/app/components/charts/StackedBarChart.vue`, `web/app/components/dashboard/*.vue` |
+| Tests | `web/tests/aggregate.test.ts`, `web/tests/format.test.ts`, `web/tests/measurement-quality.test.ts`, `web/e2e/polish.spec.ts`, `web/e2e/agent-quality.spec.ts` |
 
 ## Purpose
 
@@ -40,6 +40,23 @@ kankaku already resolved.
    realtime subscription on `task_entries` when kankaku syncs new data.
 9. `DASH-REQ-009` — The dashboard SHALL show breakdown tables by client and
    by project, and a "top costliest entries" list.
+10. `DASH-REQ-010` — The dashboard SHALL support an `agent` filter (built
+    from the distinct `agent` values in the currently-loaded date range,
+    including a legacy/not-reported option) that narrows every KPI,
+    breakdown table, and chart series consistently, the same way the
+    "Sin determinar" toggle does.
+11. `DASH-REQ-011` — A work-time honesty notice SHALL be shown only when
+    at least one visible row has `waiting_quality: "unavailable"`
+    (`work_ms` is an upper bound, not a true measurement), stating how
+    many rows are affected, and SHALL link to the entries explorer
+    pre-filtered to exactly those rows (same date range and agent
+    filter) for drill-down.
+12. `DASH-REQ-012` — The "average cost per task" KPI SHALL exclude rows
+    whose `cost_quality` is `"unknown"` from the average's denominator
+    and numerator, and SHALL show a notice naming how many rows were
+    excluded whenever that count is greater than zero; every other total
+    on the dashboard (sums) SHALL continue to include those rows
+    unchanged.
 
 ## Scenarios
 
@@ -72,6 +89,24 @@ kankaku already resolved.
 - **Given** the dashboard is open
 - **When** kankaku syncs a new `task_entries` row via the REST API
 - **Then** the relevant breakdown updates via the realtime subscription within the debounce window, with no full page reload
+
+### Scenario: fully-measured data shows no honesty notice (`DASH-REQ-011`)
+
+- **Given** every visible row has `waiting_quality: "measured"` (or empty/legacy)
+- **When** the dashboard renders
+- **Then** the work-time honesty notice is not shown at all
+
+### Scenario: the honesty notice's drill-down link matches what is being shown (`DASH-REQ-011`)
+
+- **Given** the date range is `2026-08-01`–`2026-08-31` and the agent filter is set to `"pi"`
+- **When** the honesty notice's link is followed
+- **Then** it opens the entries explorer at `/entries?quality=waitingUnavailable&dateStart=2026-08-01&dateEnd=2026-08-31&agent=pi`
+
+### Scenario: an unknown-cost row is excluded from the average but not the sum (`DASH-REQ-012`)
+
+- **Given** one row has `cost_quality: "unknown"` and `cost: 0`, alongside several rows with real measured costs
+- **When** the average-cost-per-task KPI and the total-cost KPI are computed
+- **Then** the average excludes that row entirely (denominator and numerator), the total-cost sum still includes its `0`, and the average KPI shows an "excluded N rows" notice
 
 ## Configuration
 
@@ -106,3 +141,6 @@ None beyond the shared PocketBase connection
 | `DASH-REQ-007` | `web/tests/format.test.ts` | covered |
 | `DASH-REQ-008` | manual verification per `ESTADO.md` | not covered by an automated test found in this pass |
 | `DASH-REQ-009` | `web/e2e/smoke.spec.ts` | covered |
+| `DASH-REQ-010` | `web/e2e/agent-quality.spec.ts` (agent filter hides the honesty notice once filtered to `pi`) | covered |
+| `DASH-REQ-011` | `web/tests/measurement-quality.test.ts` (`summarizeWorkTimeQuality`), `web/e2e/agent-quality.spec.ts` (notice visibility + exact count, hidden when filtered); the drill-down link's exact target query is not separately exercised | partial |
+| `DASH-REQ-012` | `web/tests/measurement-quality.test.ts` (`computeAverageCost`) | covered |

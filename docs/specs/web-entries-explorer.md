@@ -5,9 +5,9 @@
 | Status | implemented |
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
-| Related ADRs | [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0007](../adr/0007-web-is-a-view-layer.md) |
-| Code | `web/app/pages/entries/index.vue`, `web/app/composables/useEntriesExplorer.ts`, `web/app/components/entries/EntryDetailSheet.vue`, `web/app/lib/entry-detail.ts` |
-| Tests | `web/e2e/smoke.spec.ts`, `web/e2e/entry-detail.spec.ts`, `web/tests/entry-detail.test.ts` |
+| Related ADRs | [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0007](../adr/0007-web-is-a-view-layer.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
+| Code | `web/app/pages/entries/index.vue`, `web/app/composables/useEntriesExplorer.ts`, `web/app/components/entries/EntryDetailSheet.vue`, `web/app/lib/entry-detail.ts`, `web/app/lib/measurement-quality.ts`, `web/app/lib/agents.ts` |
+| Tests | `web/e2e/smoke.spec.ts`, `web/e2e/entry-detail.spec.ts`, `web/e2e/agent-quality.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/tests/entry-detail.test.ts`, `web/tests/measurement-quality.test.ts`, `web/tests/agents.test.ts` |
 
 ## Purpose
 
@@ -54,6 +54,31 @@ task, never for computing a total.
     fields (`collectionId`, `collectionName`, `expand`); every entry field
     not already covered by a dedicated section SHALL be grouped into a
     single "technical details" disclosure that is collapsed by default.
+12. `ENTRIES-REQ-012` — The explorer's table SHALL show an `agent` column
+    (icon + slug) for every row, and SHALL support server-side filtering
+    by `agent`, including a dedicated option for rows with no reported
+    agent (the `LEGACY_AGENT` sentinel, filtered as `agent = ""`).
+13. `ENTRIES-REQ-013` — The explorer SHALL support a "quality" filter with
+    exactly two values — `waitingUnavailable` (`waiting_quality =
+    "unavailable"`) and `costUnknown` (`cost_quality = "unknown"`) — each
+    mapped to its own server-side filter clause.
+14. `ENTRIES-REQ-014` — Every explorer filter that can be seeded from the
+    URL query string (at minimum `agent` and `quality`) SHALL initialize
+    from it on load, so another screen can deep-link into a pre-filtered
+    view of this one.
+15. `ENTRIES-REQ-015` — The detail drawer SHALL show a "resume session"
+    block per [`web-sessions.md`](web-sessions.md)
+    (`SESSIONS-REQ-004`–`006`) whenever the entry has a `session_id`.
+16. `ENTRIES-REQ-016` — The detail drawer SHALL always show the entry's
+    agent/plugin identity (agent badge, agent version, plugin, plugin
+    version — `—` for any unreported field), and SHALL show quality
+    indicators only when the underlying quality field is explicitly the
+    worse select option: an upper-bound badge on work time when
+    `waiting_quality = "unavailable"`, an approximate-cost badge when
+    `cost_quality` is `"estimated"` or `"unknown"`, and an
+    unlinked-subagent warning when `subagent_linkage = "unlinked"` — an
+    empty/legacy value on any of these SHALL render identically to the
+    good case, never trigger a badge.
 
 ## Scenarios
 
@@ -99,6 +124,30 @@ task, never for computing a total.
 - **When** no interaction has happened yet
 - **Then** the "technical details" disclosure is collapsed (`aria-expanded="false"`), its raw id/session id/machine/schema/timestamps are not visible, and pressing Enter/Space on the focused disclosure button expands it
 
+### Scenario: filtering by the legacy-agent sentinel matches empty agents (`ENTRIES-REQ-012`)
+
+- **Given** some `task_entries` rows have an empty `agent` (predating the
+  field) and others have `agent: "pi"`
+- **When** the agent filter is set to the legacy sentinel
+- **Then** only the rows with an empty `agent` are returned, never the
+  `"pi"` rows
+
+### Scenario: a work-time honesty deep link seeds the quality filter (`ENTRIES-REQ-013`, `ENTRIES-REQ-014`)
+
+- **Given** the dashboard's work-time notice links to
+  `/entries?quality=waitingUnavailable&dateStart=...&dateEnd=...&agent=...`
+- **When** the entries explorer loads that URL
+- **Then** the quality filter is pre-set to `waitingUnavailable` and the
+  matching rows are shown without any manual filter interaction
+
+### Scenario: a fully-measured entry shows its agent with zero quality badges (`ENTRIES-REQ-016`)
+
+- **Given** an entry has `agent: "pi"` and every quality field at its best
+  value (or empty/legacy)
+- **When** the detail drawer is opened
+- **Then** the agent badge and plugin fields render, and none of the
+  upper-bound/cost-approximate/unlinked badges appear
+
 ## Configuration
 
 None beyond the shared PocketBase connection.
@@ -141,3 +190,8 @@ None beyond the shared PocketBase connection.
 | `ENTRIES-REQ-009` | `web/tests/entry-detail.test.ts` (`normalizeSegments`), `web/e2e/entry-detail.spec.ts` | covered |
 | `ENTRIES-REQ-010` | `web/e2e/entry-detail.spec.ts` (prompt line-break preservation; empty-prompt note not separately exercised in this pass) | partial |
 | `ENTRIES-REQ-011` | `web/e2e/entry-detail.spec.ts` | covered |
+| `ENTRIES-REQ-012` | `web/e2e/agent-quality.spec.ts` ("entries explorer agent filter") | covered |
+| `ENTRIES-REQ-013` | code review (`useEntriesExplorer.ts#buildFilter`); the quality select's presence is exercised by `web/e2e/agent-quality.spec.ts`'s 390px overflow test, but its actual filtering behavior is not | not covered by an automated test found in this pass |
+| `ENTRIES-REQ-014` | code review (`pages/entries/index.vue` `queryString` seeding) | not covered by an automated test found in this pass |
+| `ENTRIES-REQ-015` | `web/tests/session-resume.test.ts` (command derivation), `web/e2e/session-resume.spec.ts` (drawer rendering + clipboard copy) | covered |
+| `ENTRIES-REQ-016` | `web/tests/measurement-quality.test.ts` (`describeEntryQuality`, `normalizeAgentInfo`); drawer rendering not separately exercised by an e2e spec in this pass | partial |
