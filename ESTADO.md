@@ -8,8 +8,16 @@ Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
-npm run dev          # API + web en un solo proceso → http://127.0.0.1:8090
+npm run dev:all      # PARA TRASTEAR: API en :8090 + web con recarga en caliente → http://localhost:3000
 ```
+
+Ctrl+C para los dos. No hay que compilar nada: guardas un `.vue` y se ve al
+instante. El log de PocketBase queda en `pocketbase/dev.log`.
+
+El otro modo, `npm run dev`, es el de **un solo proceso como en producción**:
+PocketBase sirve la API y el build estático en http://127.0.0.1:8090. Solo
+refleja cambios de la web tras `npm run web:build`. Úsalo para la comprobación
+final, no para desarrollar.
 
 Entra con `david@kankaku.local` / `kankaku-dev-owner`. Arranca en **oscuro**;
 el botón de la cabecera cambia entre oscuro, claro y sistema.

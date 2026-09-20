@@ -44,6 +44,19 @@ secret — do not reuse them anywhere real (see
 
 Requires `pnpm`.
 
+**Recommended for day-to-day work:** one terminal, hot reload, no build step.
+
+```bash
+cd kankaku-hub
+npm run dev:all   # PocketBase on 127.0.0.1:8090 + Nuxt dev on localhost:3000; Ctrl+C stops both
+```
+
+`scripts/dev-all.sh` reuses a PocketBase already listening on 8090, writes
+its log to `pocketbase/dev.log`, and stops only the PocketBase it started.
+The static build is neither needed nor used in this mode.
+
+The two processes can also be run separately:
+
 ```bash
 cd kankaku-hub/web
 pnpm install
