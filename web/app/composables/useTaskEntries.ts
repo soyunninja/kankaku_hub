@@ -1,7 +1,7 @@
 import type { DateRange } from '~/lib/period'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
 
-const FIELDS = 'id,client,project,task,started_at,ended_at,wall_ms,waiting_ms,work_ms,input,output,cache_read,cache_write,cost,status,model,machine,session_id,session_name,prompt,legacy_client_label,repo_project'
+const FIELDS = 'id,client,project,task,started_at,ended_at,wall_ms,waiting_ms,work_ms,input,output,cache_read,cache_write,cost,status,model,machine,session_id,session_name,prompt,legacy_client_label,repo_project,agent,agent_version,plugin,plugin_version,waiting_quality,cost_quality,subagent_linkage'
 
 /**
  * Fetches `task_entries` (never `work_records` — D6) for a date range, as
