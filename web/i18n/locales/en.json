@@ -210,7 +210,6 @@
   "commands": {
     "title": "Commands",
     "subtitle": "Reference for every /kankaku subcommand inside pi.",
-    "intro": "\"/kankaku\" is a slash command inside pi (the coding agent), not something you run from this web app. Hub commands — the ones that need PocketBase — only show up once kankaku has a hub configured; everything else works with or without one.",
     "filterPlaceholder": "Filter commands…",
     "filterEmpty": "No command matches your search.",
     "copy": "Copy",

@@ -80,10 +80,6 @@ const LOAD_IN_PI_SNIPPET = 'pi -e /absolute/path/to/kankaku'
       </div>
     </div>
 
-    <p class="text-sm text-muted-foreground">
-      {{ t('commands.intro') }}
-    </p>
-
     <div class="relative">
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input

@@ -210,7 +210,6 @@
   "commands": {
     "title": "Comandos",
     "subtitle": "Referencia de todos los subcomandos de /kankaku dentro de pi.",
-    "intro": "«/kankaku» es un comando de barra dentro de pi (el agente de codificación), no algo que se ejecute desde esta web. Los comandos del hub —los que necesitan PocketBase— solo aparecen cuando kankaku tiene un hub configurado; el resto funciona siempre, con o sin hub.",
     "filterPlaceholder": "Filtrar comandos…",
     "filterEmpty": "Ningún comando coincide con tu búsqueda.",
     "copy": "Copiar",
