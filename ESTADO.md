@@ -16,6 +16,21 @@ Todo es **local**: sin remoto de git, sin VPS, sin nada publicado.
 > simplemente se leen vacíos y, si intentas guardarlos, verás un aviso de
 > error en vez de un "guardado" falso.
 
+> **Acción pendiente del dueño (favicons de clientes)**: otra migración
+> nueva, `1758300012_clients_favicon_fields.js` (añade `favicon`/
+> `favicon_source`/`favicon_checked_at` a `clients`), más un directorio
+> nuevo `pocketbase/pb_hooks/` con una ruta propia,
+> `POST /api/kankaku/clients/{id}/favicon/refresh`, que descarga y guarda
+> el favicon de la web de un cliente (solo el dueño puede llamarla; nunca
+> se dispara sola). `scripts/dev.sh` ya pasa `--hooksDir` — basta con
+> reiniciar `npm run dev:all` una vez para que se apliquen la migración y
+> la ruta nueva. Ver [ADR
+> 0019](docs/adr/0019-hub-fetches-and-stores-client-favicons.md) para el
+> porqué (nunca un servicio externo de favicons, nunca hotlinking directo
+> a la web del cliente — siempre PocketBase descargando una vez, bajo
+> acción explícita). El botón en la pantalla de gestión de clientes que
+> llama a esta ruta lo añade la parte web (agente aparte).
+
 ```bash
 cd ~/desarrollo/soyun.ninja/kankaku-hub
 npm run dev:all      # PARA TRASTEAR: API en :8090 + web con recarga en caliente → http://localhost:3000
@@ -45,7 +60,7 @@ solo proceso sirve el build estático, no el código fuente).
 | Un resumen de todo en castellano | `docs/RESUMEN.es.md` |
 | El mapa de la documentación | `docs/README.md` |
 | Especificaciones por capacidad | `docs/specs/README.md` |
-| Por qué se decidió cada cosa (18 ADR) | `docs/adr/README.md` |
+| Por qué se decidió cada cosa (19 ADR) | `docs/adr/README.md` |
 | Fases y su estado real | `docs/phases/README.md` |
 | Conectar kankaku (pi) a este hub | `docs/runbooks/connect-kankaku-to-hub.md` |
 | Desplegar en el VPS (previsto, sin ejecutar) | `docs/runbooks/deploy-to-vps.md` |
@@ -57,6 +72,16 @@ Estado de la extensión de pi: `~/desarrollo/soyun.ninja/kankaku/ESTADO.md`.
 
 - Web: `pnpm lint` 0 errores, `pnpm typecheck` limpio, 76 tests unitarios,
   23 pruebas de navegador (Playwright) contra el build servido por PocketBase.
+- Favicons de clientes (backend): `npm run hooks:test` (45 pruebas
+  `node --test` sobre el parser HTML, el sniffer de bytes mágicos y el
+  guard SSRF) en verde. Verificación manual contra una instancia PocketBase
+  aislada (copia de `pb_data`, puerto 8092, nunca la de 8090 real): dueño
+  → 200, cuenta de servicio → 403, sin token → 401, cliente sin `website`
+  → `no_website` sin tocar la red, host `127.0.0.1` → `blocked_host` sin el
+  override, y con `KANKAKU_FAVICON_ALLOW_PRIVATE=1` el mismo host sí
+  descarga y guarda un PNG de prueba real. Comprobación con red real: la
+  ruta contra `https://www.google.com` (sin override) descargó y guardó su
+  `favicon.ico` real correctamente.
 - El cliente de catálogo de kankaku lee este hub real: 6 clientes, 10
   proyectos, «Sin determinar» fuera del selector.
 - La cuenta de servicio **no** puede crear clientes (reglas de acceso OK).

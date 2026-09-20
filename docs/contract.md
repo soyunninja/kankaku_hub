@@ -89,6 +89,9 @@ mapping code.
 | `contact_email` | email, optional |
 | `contact_phone` | text, optional, max 40 |
 | `notes` | text, optional, max 5000, multi-line |
+| `favicon` | file, optional, single, max 512000 bytes |
+| `favicon_source` | text, optional, max 2000 |
+| `favicon_checked_at` | date, optional |
 
 Write access: owner only. The sync client only *reads* this collection.
 
@@ -98,10 +101,67 @@ metadata for the web app's owner-facing client management screens
 kankaku's own catalog client
 (`kankaku/src/adapters/pocketbase-catalog.ts#mapClient`) only ever reads
 `id`, `name`, `code`, `active` and `unassigned` off a `clients` record — it
-ignores these four fields entirely, so they need no handling on the
-kankaku side. No money-related field (rate, price, margin, invoice number)
-exists or will exist on this collection — see `AGENTS.md` and
+ignores these four fields (and the three favicon fields below) entirely,
+so none of them need handling on the kankaku side. No money-related field
+(rate, price, margin, invoice number) exists or will exist on this
+collection — see `AGENTS.md` and
 [ADR 0018](adr/0018-billing-boundary-enforced-in-schema.md).
+
+`favicon`, `favicon_source` and `favicon_checked_at` are populated only by
+the custom route below, never set directly through the regular
+`clients` create/update endpoints (nothing stops a raw `PATCH` from
+setting them, but the web app never does, and doing so bypasses the
+validation the route performs). `favicon`'s allowed mime types are
+`image/png`, `image/x-icon`, `image/vnd.microsoft.icon`, `image/jpeg`,
+`image/gif`, `image/webp` — deliberately no `image/svg+xml` (an SVG can
+carry inline script). See
+[ADR 0019](adr/0019-hub-fetches-and-stores-client-favicons.md) for why
+this is a server-side, explicitly-triggered fetch rather than hot-linking
+or a third-party favicon service.
+
+#### `POST /api/kankaku/clients/{id}/favicon/refresh`
+
+Owner-only. Fetches the client's `website` once, extracts and downloads a
+favicon, and stores it on the client record. **Not** part of the
+service-account sync contract — the sync client never calls this route.
+
+Request: no body.
+
+Response is always `200` on a request that reaches business logic (never
+`500`, even on a fetch failure — a failed favicon fetch is an expected,
+recorded outcome, not a server error):
+
+```json
+{ "ok": true }
+```
+
+or
+
+```json
+{ "ok": false, "reason": "no_website" }
+```
+
+`reason` is one of the following stable codes:
+
+| reason | meaning |
+|---|---|
+| `no_website` | the client is the "Sin determinar" unassigned row, or `website` is empty — nothing to fetch. All three favicon fields are cleared, `favicon_checked_at` included (no check was attempted). |
+| `fetch_failed` | network error, timeout, non-2xx response, or an unanticipated error while fetching the page or a candidate icon. |
+| `no_icon_found` | the page was fetched and parsed but no usable `<link rel="icon">`-family candidate was found, and the `{origin}/favicon.ico` fallback also failed. |
+| `unsupported_type` | a candidate downloaded but its content-type/magic bytes weren't a recognized raster image type. |
+| `too_large` | a candidate exceeded 512000 bytes (`Content-Length` or actual body size). |
+| `blocked_host` | the SSRF guard refused to fetch the host (see [`architecture/hub-backend.md`](architecture/hub-backend.md)). |
+
+Every `ok: false` outcome except `no_website` stamps `favicon_checked_at`
+with the current time and clears `favicon`/`favicon_source` (a stale icon
+for a now-broken site is more misleading than no icon at all).
+
+Error responses for the route itself (not a fetch failure):
+
+- `401` — no authenticated user.
+- `403` — authenticated but not `role: "owner"` (the generic
+  `{"data":{},"message":"...","status":403}` shape).
+- `404` — `{id}` doesn't match an existing `clients` record.
 
 ### `projects`
 

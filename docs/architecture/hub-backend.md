@@ -40,14 +40,141 @@ provisioned only via the superuser CLI/API,
 | `contact_email` | email, optional | Same migration. Same "kankaku never reads it" note. |
 | `contact_phone` | text, optional, max 40 | Same migration. Free-form, no format enforced beyond trimming. |
 | `notes` | text, optional, max 5000 | Same migration. Multi-line free text. |
+| `favicon` | file, optional, single, max 512000 bytes | Added by `1758300012_clients_favicon_fields.js`. Mime types restricted to `image/png`, `image/x-icon`, `image/vnd.microsoft.icon`, `image/jpeg`, `image/gif`, `image/webp` — no `image/svg+xml` (SVG can carry inline script). Populated only by the favicon-refresh route below. |
+| `favicon_source` | text, optional, max 2000 | Same migration. The exact URL the stored icon was downloaded from. |
+| `favicon_checked_at` | date, optional | Same migration. Stamped on every refresh attempt except `no_website` (see below). |
 
 Access: `list`/`view` = any authenticated user; `create`/`update`/`delete` =
-`role = 'owner'` only — the four contact fields are not special-cased, they
-follow the same rule as `name`/`code`/`active`. The sync client (service
-account) only ever reads this collection. No rate/price/invoice field
-exists or will exist here (the billing boundary, [ADR
+`role = 'owner'` only — the four contact fields and the three favicon
+fields are not special-cased, they follow the same rule as
+`name`/`code`/`active`. The sync client (service account) only ever reads
+this collection. No rate/price/invoice field exists or will exist here
+(the billing boundary, [ADR
 0018](../adr/0018-billing-boundary-enforced-in-schema.md)) — the contact
-fields are display metadata, not money.
+and favicon fields are display metadata, not money.
+
+### The favicon fetcher (`pocketbase/pb_hooks/`)
+
+Migration `1758300012_clients_favicon_fields.js` adds the three fields
+above; `pocketbase/pb_hooks/favicon.pb.js` implements
+`POST /api/kankaku/clients/{id}/favicon/refresh`, the only route that
+populates them. See [ADR
+0019](../adr/0019-hub-fetches-and-stores-client-favicons.md) for why this
+is a server-side, explicitly-triggered fetch (never hot-linking, never a
+third-party favicon service) and
+[`../contract.md`](../contract.md#post-apikankakuclientsidfaviconrefresh)
+for the exact request/response contract and reason codes.
+
+**Loading.** `pb_hooks/*.pb.js` files are auto-loaded by PocketBase at
+boot from the directory passed via `--hooksDir` (both `scripts/dev.sh` and
+the isolated test setup used to verify this feature pass
+`--hooksDir pocketbase/pb_hooks`). Shared pure logic lives under
+`pb_hooks/lib/*.js` (not `*.pb.js`, so PocketBase never tries to
+auto-execute it as a hook) and is loaded with
+``require(`${__hooks}/lib/<name>.js`)``, following the pattern from
+PocketBase's own `js-overview` docs.
+
+**A real goja/PocketBase hooks constraint hit while building this** (not
+guessed — reproduced against a running isolated instance): a `routerAdd`
+handler closure does **not** see the hook file's top-level scope at all —
+not a top-level `function` declaration, not a top-level `var`/`const`
+binding, and not the result of a top-level `require(...)` call.
+Referencing any of them from inside the handler throws `ReferenceError:
+<name> is not defined` at request time, even though the exact same code
+runs correctly under Node. The fix: every `require(...)` call and every
+helper function the handler needs must be declared **inside** the handler
+function body (nested `function` declarations and `require(...)` calls
+both work fine there — ordinary intra-function hoisting is unaffected,
+only the top-level-to-handler boundary is broken). `favicon.pb.js`
+declares everything — the three `require(...)` calls, all constants, and
+every helper function — inside the single `routerAdd(...)` callback for
+this reason.
+
+Other goja constraints actually encountered (confirmed, not assumed):
+
+- **No global `URL`/`URLSearchParams`.** Not declared in
+  `pocketbase/pb_data/types.d.ts` and not documented as available (the
+  js-overview docs list `URL` among Web/Node APIs outside the ES5+partial-ES6
+  baseline). `pb_hooks/lib/favicon-html.js` and
+  `pb_hooks/lib/favicon-ssrf-guard.js` therefore hand-roll their own
+  minimal absolute-URL parsing/resolution instead of `new URL(...)` — this
+  also keeps them running unmodified under plain Node for `node --test`.
+- **No `async`/`await`, no `setTimeout`/`setInterval`** (documented by
+  PocketBase; not used anywhere in this feature — `$http.send` is
+  synchronous).
+- **`const`, `let`, arrow functions, template literals, and destructuring
+  work fine** — already proven by this repo's existing migrations (e.g.
+  `migrate((app) => {...})`) and confirmed again in `favicon.pb.js` itself.
+  Optional chaining (`?.`) and nullish coalescing (`??`) were avoided
+  throughout as a precaution (not confirmed unsupported, just not risked).
+- **`$os.getenv(key)` works inside pb_hooks route handlers** — used by
+  `pb_hooks/lib/favicon-ssrf-guard.js`'s test-only
+  `KANKAKU_FAVICON_ALLOW_PRIVATE` override (see below), read via
+  `process.env` under Node and `$os.getenv` under goja, defaulting off in
+  both.
+- **`$http.send`'s body comes back as `Array<number>` (raw bytes), not a
+  string** — the response also exposes a deprecated `raw` string and a
+  parsed `json` field, but favicon bytes need the raw array. HTML text is
+  decoded with the global `toString(bytes)` helper PocketBase exposes for
+  exactly this (per the `js-sending-http-requests` docs' own example).
+
+**SSRF guard** (`pb_hooks/lib/favicon-ssrf-guard.js`). Before every
+fetch — the initial page fetch and each candidate icon download — the
+target URL is checked against `isUrlAllowed()`: only `http`/`https`
+schemes; `localhost` and any `*.localhost`/`*.local`/`*.internal`
+hostname (proper-suffix match only — `localhost.evil.com` is **not**
+blocked, only `localhost` itself or a real subdomain of it); and every
+IPv4/IPv6 literal in the loopback, private (`10/8`, `172.16/12`,
+`192.168/16`), link-local (`169.254/16`, which covers the cloud metadata
+address `169.254.169.254`), unique-local (`fc00::/7`), and unspecified
+ranges — including the classic bypass encodings (decimal integer,
+hex, octal, IPv4-mapped IPv6, bracketed IPv6) that a naive string check
+would miss. A `KANKAKU_FAVICON_ALLOW_PRIVATE` env var overrides the guard
+for integration testing only, and defaults off.
+
+Two limitations are real and documented rather than assumed away:
+
+- **DNS rebinding is not covered.** The guard only inspects the literal
+  hostname/IP text in a URL. It cannot see, and `$http.send` gives no hook
+  to inspect, the IP address a public-looking hostname actually resolves
+  to at connect time — a hostname that passes this check today could
+  resolve to a private address when PocketBase's HTTP client actually
+  connects. This is an honest gap, not a solved problem.
+- **Redirects are not re-validated per hop.** `$http.send` follows
+  redirects itself (standard Go `net/http` client behavior) with no hook
+  to inspect or stop at an intermediate redirect target — only the
+  originally requested URL is checked before the request is sent. A
+  malicious redirect chain that starts at an allowed host and hops to a
+  blocked one is not caught by this guard.
+
+**Extraction and ranking** (`pb_hooks/lib/favicon-html.js`). Parses
+`<link rel="icon"|"shortcut icon"|"apple-touch-icon"|
+"apple-touch-icon-precomposed">` tags (case-insensitive tag/attribute
+names, single- or double-quoted values), resolves relative/protocol-relative
+hrefs against the final page URL (honoring a `<base href>` override when
+present), and ranks candidates preferring a declared `sizes` in the
+32-192px range, then png over ico at equal rank. Only the first ~200KB of
+the fetched HTML is parsed (`HTML_PARSE_CAP_BYTES`) — favicon `<link>`
+tags live in `<head>`, no page needs more than that to find them. If no
+candidate is found (or all fail), `{origin}/favicon.ico` is tried as a
+fallback.
+
+**Content validation** (`pb_hooks/lib/favicon-sniff.js`). Every downloaded
+candidate is checked against **both** its declared `Content-Type` header
+**and** its actual magic bytes (PNG `89 50 4E 47`, ICO `00 00 01 00`, JPEG
+`FF D8 FF`, GIF `47 49 46 38`, WEBP `RIFF....WEBP`) before being accepted
+— a mismatch (e.g. an HTML error page served with an `image/png` header)
+is rejected as `unsupported_type`, never trusted from the header alone.
+`$http.send` has no streaming mode (it returns the whole body at once), so
+the 512000-byte size cap can only reject an oversized download after the
+fact, not abort it mid-transfer — a documented, accepted limitation.
+
+All three `pb_hooks/lib/*.js` files are pure functions with no
+PocketBase/goja globals (aside from the guard's try/catch-guarded,
+defaults-off env override) and are unit tested with plain
+`node --test pocketbase/pb_hooks/lib/*.test.js` (`npm run hooks:test`),
+so the parsing/sniffing/SSRF logic is verified independently of a running
+PocketBase instance.
 
 ### `projects`
 

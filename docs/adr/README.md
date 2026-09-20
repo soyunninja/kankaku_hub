@@ -25,6 +25,7 @@ during implementation that the proposal does not number explicitly.
 | [0016](0016-throttled-auto-sync.md) | Auto-sync is throttled and short-circuits on an unchanged log | accepted | 2026-09-20 |
 | [0017](0017-prompt-upload-defaults-to-none.md) | Prompt upload defaults to `none` | accepted | 2026-09-20 |
 | [0018](0018-billing-boundary-enforced-in-schema.md) | Billing boundary enforced in schema (confirms 0008) | accepted | 2026-09-20 |
+| [0019](0019-hub-fetches-and-stores-client-favicons.md) | The hub fetches and stores client favicons server-side, once, on an explicit owner action | accepted | 2026-09-20 |
 
 See [`../templates/adr-template.md`](../templates/adr-template.md) for the
 format, and [`../contributing-to-docs.md`](../contributing-to-docs.md) for

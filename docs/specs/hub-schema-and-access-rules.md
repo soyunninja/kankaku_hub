@@ -5,7 +5,7 @@
 | Status | implemented |
 | Phase | [phase-0-foundation](../phases/phase-0-foundation.md), [phase-2-sync-push](../phases/phase-2-sync-push.md) |
 | Owners repos | kankaku-hub |
-| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md) |
+| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md), [0019](../adr/0019-hub-fetches-and-stores-client-favicons.md) |
 | Code | `kankaku-hub/pocketbase/pb_migrations/*.js` |
 | Tests | manual verification recorded in `kankaku-hub/ESTADO.md` (migrate up/down round-trip, seed idempotency, unique-constraint, auth rules) |
 
@@ -53,6 +53,24 @@ surface captured from real requests.
     like every other `clients` field, and none of the four SHALL ever
     become a rate/price/invoice field (`SCHEMA-REQ-010` applies to them
     too).
+12. `SCHEMA-REQ-012` — `clients` SHALL support three optional favicon
+    fields (`favicon`: file, single, max 512000 bytes, mime types
+    restricted to `image/png`, `image/x-icon`, `image/vnd.microsoft.icon`,
+    `image/jpeg`, `image/gif`, `image/webp` — never `image/svg+xml`;
+    `favicon_source`: text, max 2000; `favicon_checked_at`: date), writable
+    only by `role = 'owner'` like every other `clients` field.
+13. `SCHEMA-REQ-013` — `POST /api/kankaku/clients/{id}/favicon/refresh`
+    SHALL be restricted to `role = 'owner'` (401 unauthenticated, 403
+    authenticated non-owner), SHALL fetch the client's site server-side at
+    most once per call, and SHALL NOT be reachable from a `clients`
+    create/update hook (see [ADR
+    0019](../adr/0019-hub-fetches-and-stores-client-favicons.md)).
+14. `SCHEMA-REQ-014` — The favicon-refresh route SHALL never return `500`;
+    every failure mode SHALL resolve to `200` with
+    `{ ok: false, reason: "<code>" }` using one of the stable codes
+    `no_website`, `fetch_failed`, `no_icon_found`, `unsupported_type`,
+    `too_large`, `blocked_host` (see
+    [`../contract.md`](../contract.md#post-apikankakuclientsidfaviconrefresh)).
 
 ## Scenarios
 
@@ -98,6 +116,30 @@ surface captured from real requests.
 - **When** the schema is inspected
 - **Then** `website`/`contact_email`/`contact_phone`/`notes` are gone from `clients` and every other field is untouched; re-applying (`migrate up`) restores exactly those four fields (verified manually — see `ESTADO.md`)
 
+### Scenario: an unauthenticated favicon refresh is rejected (`SCHEMA-REQ-013`)
+
+- **Given** no `Authorization` header is sent
+- **When** a client attempts `POST /api/kankaku/clients/{id}/favicon/refresh`
+- **Then** the request fails with `401` (verified manually against an isolated instance — see `ESTADO.md`)
+
+### Scenario: the service account cannot refresh a client's favicon (`SCHEMA-REQ-013`)
+
+- **Given** the request is authenticated as `role: "service"`
+- **When** it attempts `POST /api/kankaku/clients/{id}/favicon/refresh`
+- **Then** the request fails with `403` (verified manually against an isolated instance — see `ESTADO.md`)
+
+### Scenario: refreshing a client with no website never touches the network (`SCHEMA-REQ-014`)
+
+- **Given** a `clients` row has an empty `website` (or is the "Sin determinar" unassigned row)
+- **When** the owner calls `POST /api/kankaku/clients/{id}/favicon/refresh`
+- **Then** the request returns `200` with `{ ok: false, reason: "no_website" }`, and `favicon`/`favicon_source`/`favicon_checked_at` are all cleared to empty (verified manually — see `ESTADO.md`)
+
+### Scenario: a blocked host never reaches 500 (`SCHEMA-REQ-013`, `SCHEMA-REQ-014`)
+
+- **Given** a `clients` row's `website` resolves to a loopback/private address
+- **When** the owner calls the favicon-refresh route without the `KANKAKU_FAVICON_ALLOW_PRIVATE` test override set
+- **Then** the request returns `200` with `{ ok: false, reason: "blocked_host" }`, never `500` (verified manually against an isolated instance — see `ESTADO.md`)
+
 ## Configuration
 
 None — schema is fixed by migration, not runtime-configurable. See
@@ -112,12 +154,24 @@ full field tables per collection.
 - `bool`/`number` fields have no PocketBase schema-level default in 0.40 —
   callers (seed script, sync client) must always send `active: true`
   explicitly; an omitted bool defaults to `false`.
+- The favicon-refresh route's SSRF guard does not protect against DNS
+  rebinding: it only inspects the literal hostname/IP text in a URL, and
+  `$http.send` gives no hook to inspect the IP address a public-looking
+  hostname actually resolves to at connect time. This is a known,
+  documented limitation, not a solved problem — see [ADR
+  0019](../adr/0019-hub-fetches-and-stores-client-favicons.md) and
+  [`../architecture/hub-backend.md`](../architecture/hub-backend.md).
+- `$http.send` follows redirects itself with no hook to re-validate the
+  SSRF guard against intermediate redirect targets — only the originally
+  requested URL is checked before the request is sent.
 
 ## Out of scope
 
 - Row-level ownership beyond `owner`/`service` roles (no per-client or
   per-project access scoping — this is a single-owner tool).
 - Multi-tenancy of any kind.
+- Automatic/background favicon refresh (owner-triggered only, see [ADR
+  0019](../adr/0019-hub-fetches-and-stores-client-favicons.md)).
 
 ## Traceability
 
@@ -134,3 +188,6 @@ full field tables per collection.
 | `SCHEMA-REQ-009` | migration `1758300010_enable_batch_api.js` | covered |
 | `SCHEMA-REQ-010` | absence across all migrations (grep) | covered |
 | `SCHEMA-REQ-011` | migration `1758300011_clients_contact_fields.js`; up/round-trip/down and service-role rejection verified manually per `ESTADO.md` | covered |
+| `SCHEMA-REQ-012` | migration `1758300012_clients_favicon_fields.js`; applied and inspected on an isolated instance per `ESTADO.md` | covered |
+| `SCHEMA-REQ-013` | `pocketbase/pb_hooks/favicon.pb.js`; owner/service/anon role checks verified manually against an isolated instance per `ESTADO.md` | covered |
+| `SCHEMA-REQ-014` | `pocketbase/pb_hooks/favicon.pb.js`, `pocketbase/pb_hooks/lib/favicon-*.js`; unit tests `pocketbase/pb_hooks/lib/*.test.js` (`npm run hooks:test`); reason codes verified manually against an isolated instance (no_website, blocked_host, and a real successful fetch) per `ESTADO.md` | covered |
