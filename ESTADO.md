@@ -37,11 +37,18 @@ Estado de la extensión de pi: `~/desarrollo/soyun.ninja/kankaku/ESTADO.md`.
 
 ### Verificado al cerrar (2026-09-20)
 
-- Web: `pnpm lint` 0 errores, `pnpm typecheck` limpio, 66 tests unitarios,
-  15 pruebas de navegador (Playwright) contra el build servido por PocketBase.
+- Web: `pnpm lint` 0 errores, `pnpm typecheck` limpio, 76 tests unitarios,
+  23 pruebas de navegador (Playwright) contra el build servido por PocketBase.
 - El cliente de catálogo de kankaku lee este hub real: 6 clientes, 10
   proyectos, «Sin determinar» fuera del selector.
 - La cuenta de servicio **no** puede crear clientes (reglas de acceso OK).
+- Nueva pantalla `/commands`: referencia de todos los subcomandos
+  `/kankaku` de kankaku (rama `feat/pocketbase-hub`), con filtro,
+  copiar-al-portapapeles, insignias «Requiere hub», enlaces a las
+  pantallas relacionadas (p. ej. `backfill` → Sin determinar) y un bloque
+  de configuración (variables de entorno, `~/.kankaku/credentials.json`,
+  snippet de conexión con el origen actual, comando `pi -e` para cargar
+  esta rama). Ver `docs/specs/web-commands-reference.md`.
 
 ### Pendiente / a decidir
 

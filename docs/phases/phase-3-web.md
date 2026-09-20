@@ -16,8 +16,9 @@ put data there, and on phase 2b for the assignment queue to be useful.
 
 ### In
 
-- All nine screens: login, dashboard, clients, projects, project detail,
-  tasks (board + list), unassigned queue, entries explorer, settings.
+- All ten screens: login, dashboard, clients, projects, project detail,
+  tasks (board + list), unassigned queue, entries explorer, commands
+  reference, settings.
 - App shell: sidebar, header, command palette, toasts, skeletons, empty
   states.
 - Theming (dark default, dark/light/system) and i18n (es default, en
@@ -43,16 +44,16 @@ put data there, and on phase 2b for the assignment queue to be useful.
 - `web/` — full Nuxt 4 SPA (see
   [`../architecture/hub-web.md`](../architecture/hub-web.md) for the
   complete page/composable map).
-- `web/e2e/{smoke,polish}.spec.ts`, `web/tests/*.test.ts`.
+- `web/e2e/{smoke,polish,commands}.spec.ts`, `web/tests/*.test.ts`.
 - `web/docs/screenshots/` (regenerated from the production build, both
-  themes, 8 screens + mobile dashboard).
+  themes, 9 screens + mobile dashboard + mobile commands reference).
 
 ## Acceptance criteria
 
-- [x] `pnpm lint`, `pnpm typecheck`, `pnpm test` (59/59), `pnpm generate`
+- [x] `pnpm lint`, `pnpm typecheck`, `pnpm test` (76/76), `pnpm generate`
       all pass (per `ESTADO.md`).
-- [x] `pnpm test:e2e` passes against both `nuxt dev` and the production
-      build served by PocketBase in one process (11/11 specs).
+- [x] `pnpm test:e2e` passes against the production build served by
+      PocketBase in one process (23/23 specs).
 - [x] Dark theme is the default with no flash on a fresh profile; theme and
       locale choices persist.
 - [x] Every dashboard/project total is a plain `SUM` over `task_entries`
@@ -72,10 +73,19 @@ put data there, and on phase 2b for the assignment queue to be useful.
   (drag-and-drop board + unassigned-queue suggestions), `7327076`
   (extended e2e coverage + refreshed screenshots), `899292d` (ESTADO.md
   record of the polish pass).
-- Tests: `web/tests/{aggregate,format,i18n,period,suggest-client}.test.ts`.
-- E2E: `web/e2e/{smoke,polish}.spec.ts` — verified both against `nuxt dev`
-  and against the production build served by PocketBase
+- Tests: `web/tests/{aggregate,format,i18n,kankaku-commands,period,suggest-client}.test.ts`.
+- E2E: `web/e2e/{smoke,polish,commands}.spec.ts` — verified against the
+  production build served by PocketBase
   (`PW_BASE_URL=http://127.0.0.1:8090`).
+- `/commands` (kankaku commands reference, [web-commands-reference.md](../specs/web-commands-reference.md))
+  added after the initial phase closeout: 22 `/kankaku` subcommands
+  verified against kankaku's `src/adapters/kankaku-command.ts` and
+  `src/config.ts` (branch `feat/pocketbase-hub`), reachable from the
+  sidebar and the command palette, with a text filter, copy-to-clipboard,
+  "requires hub" badges, in-app related-screen links, and a Configuration
+  block (env vars, credentials file shape, a same-origin connect snippet,
+  and the `pi -e` load command). Commits: `2ff7a39` (screen, data,
+  components, i18n, nav), `af4d500` (tests + e2e + screenshots).
 
 ## Known gaps
 
