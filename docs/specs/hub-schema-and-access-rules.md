@@ -1,0 +1,117 @@
+# Hub schema and access rules
+
+| | |
+|---|---|
+| Status | implemented |
+| Phase | [phase-0-foundation](../phases/phase-0-foundation.md), [phase-2-sync-push](../phases/phase-2-sync-push.md) |
+| Owners repos | kankaku-hub |
+| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md) |
+| Code | `kankaku-hub/pocketbase/pb_migrations/*.js` |
+| Tests | manual verification recorded in `kankaku-hub/ESTADO.md` (migrate up/down round-trip, seed idempotency, unique-constraint, auth rules) |
+
+## Purpose
+
+Defines the seven PocketBase collections that make up the hub schema, their
+fields, and their access rules — the normative contract for anything
+reading or writing the hub. See
+[`../architecture/hub-backend.md`](../architecture/hub-backend.md) for the
+narrative version and [`../contract.md`](../contract.md) for the exact API
+surface captured from real requests.
+
+## Requirements
+
+1. `SCHEMA-REQ-001` — The migrations directory SHALL be the single source
+   of truth for the schema; any disagreement with `docs/contract.md`
+   SHALL be resolved in favor of the migrations.
+2. `SCHEMA-REQ-002` — `clients.code` and `projects` → `clients` relation
+   SHALL enforce `clients.code` uniqueness via a SQL unique index.
+3. `SCHEMA-REQ-003` — `task_entries.task_id` and `work_records.kankaku_id`
+   SHALL each be enforced unique via a SQL unique index, serving as the
+   sync idempotency keys.
+4. `SCHEMA-REQ-004` — `clients`/`projects`/`tasks` SHALL be readable by any
+   authenticated user and writable only by `role = 'owner'`.
+5. `SCHEMA-REQ-005` — `task_entries`/`work_records` SHALL be
+   readable/creatable/updatable by any authenticated user (owner or
+   service), and deletable only by `role = 'owner'`.
+6. `SCHEMA-REQ-006` — `work_records.task_entry` SHALL cascade-delete:
+   removing a `task_entries` row removes its child `work_records` rows.
+7. `SCHEMA-REQ-007` — The `users` collection SHALL disallow public
+   self-registration (`createRule: null`) and SHALL restrict list/view/
+   update to the record's own account (`id = @request.auth.id`).
+8. `SCHEMA-REQ-008` — The `task_entries_daily_totals` view SHALL be
+   read-only, derived exclusively from `SUM(...)`/`COUNT(...)` over
+   `task_entries`, grouped by `(project, client, day)`, and SHALL never
+   reference `work_records`.
+9. `SCHEMA-REQ-009` — `/api/batch` SHALL be enabled for this instance, with
+   `maxRequests: 100`.
+10. `SCHEMA-REQ-010` — No collection SHALL define a rate, price, margin, or
+    invoice-number field (the billing boundary — see
+    [ADR 0018](../adr/0018-billing-boundary-enforced-in-schema.md)).
+
+## Scenarios
+
+### Scenario: an unauthenticated create is rejected (`SCHEMA-REQ-004`, `SCHEMA-REQ-005`)
+
+- **Given** no `Authorization` header is sent
+- **When** a client attempts `POST /api/collections/task_entries/records`
+- **Then** the request fails with `400`
+
+### Scenario: an unauthenticated list still returns 200 with an empty page (`SCHEMA-REQ-004`)
+
+- **Given** no `Authorization` header is sent
+- **When** a client attempts `GET /api/collections/task_entries/records`
+- **Then** the request returns `200` with `items: []` (PocketBase's listRule filters rather than denying outright)
+
+### Scenario: the service account cannot create a client (`SCHEMA-REQ-004`)
+
+- **Given** the request is authenticated as `role: "service"`
+- **When** it attempts `POST /api/collections/clients/records`
+- **Then** the request fails with the generic `400 Failed to create record.` shape (a rule mismatch, not a field-level error)
+
+### Scenario: deleting a task_entries row removes its work_records (`SCHEMA-REQ-006`)
+
+- **Given** a `task_entries` row has two child `work_records` rows
+- **When** the owner deletes the `task_entries` row
+- **Then** both child `work_records` rows are also deleted
+
+### Scenario: the daily-totals view never counts work_records (`SCHEMA-REQ-008`)
+
+- **Given** a task with a `work_records` child whose `wall_ms` differs from the parent's `wall_ms`
+- **When** `task_entries_daily_totals` is queried for that day/project/client
+- **Then** the returned `wall_ms` matches the `task_entries` row's value, not any sum involving `work_records`
+
+## Configuration
+
+None — schema is fixed by migration, not runtime-configurable. See
+[`../architecture/hub-backend.md`](../architecture/hub-backend.md) for the
+full field tables per collection.
+
+## Edge cases & failure modes
+
+- `app.findFirstRecordByFilter` throws (not returns `null`) when nothing
+  matches — every migration that looks up an existing row wraps the call in
+  `try/catch` (documented in `kankaku-hub/AGENTS.md`).
+- `bool`/`number` fields have no PocketBase schema-level default in 0.40 —
+  callers (seed script, sync client) must always send `active: true`
+  explicitly; an omitted bool defaults to `false`.
+
+## Out of scope
+
+- Row-level ownership beyond `owner`/`service` roles (no per-client or
+  per-project access scoping — this is a single-owner tool).
+- Multi-tenancy of any kind.
+
+## Traceability
+
+| Requirement | Proof | Status |
+|---|---|---|
+| `SCHEMA-REQ-001` | policy statement in `kankaku-hub/AGENTS.md` | covered (documentation, not a test) |
+| `SCHEMA-REQ-002` | migration `1758300002_clients_collection.js` (`idx_clients_code`) | covered |
+| `SCHEMA-REQ-003` | migrations `1758300005`, `1758300006` (`idx_task_entries_task_id`, `idx_work_records_kankaku_id`); duplicate-create verified manually per `ESTADO.md` | covered |
+| `SCHEMA-REQ-004` | migrations `1758300002`–`1758300004`; auth rules verified manually per `ESTADO.md` | covered |
+| `SCHEMA-REQ-005` | migrations `1758300005`, `1758300006`; auth rules verified manually per `ESTADO.md` | covered |
+| `SCHEMA-REQ-006` | migration `1758300006_work_records_collection.js` (`cascadeDelete: true`) | not covered by an automated test found in this pass |
+| `SCHEMA-REQ-007` | migration `1758300007_users_rules.js` | covered |
+| `SCHEMA-REQ-008` | migration `1758300009_task_entries_daily_totals_view.js`; type/CAST behavior verified manually per `ESTADO.md` | covered |
+| `SCHEMA-REQ-009` | migration `1758300010_enable_batch_api.js` | covered |
+| `SCHEMA-REQ-010` | absence across all migrations (grep) | covered |
