@@ -17,6 +17,7 @@ section.
 | [Deployment to VPS](phase-deployment-to-vps.md) | Run the hub on a real server over HTTPS | **planned**, operational | none |
 | [Publish kankaku release](phase-publish-kankaku-release.md) | Merge branch, version bump, npm publish | **planned**, operational | none |
 | [6 — Generic subagent support](phase-6-generic-subagent-support.md) | Recognise subagent processes beyond gentle-pi's `subagent_run`, with gentle-pi first-class; fix phantom-orchestrator double count and gentle-pi cross-worktree orphan | **planned** | none |
+| [Public website](phase-site-public-website.md) | Public, static, developer-facing site (`site/`) for kankaku: install, guide, command reference, honest status | done | `site/`, 37/37 tests green, Lighthouse 98-100 |
 
 ## Related
 

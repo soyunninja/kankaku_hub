@@ -31,6 +31,7 @@ during implementation that the proposal does not number explicitly.
 | [0022](0022-uncertain-children-never-become-orchestrators.md) | An unproven process never defaults to orchestrator (the safe default, inverted) | proposed | 2026-09-20 |
 | [0023](0023-cross-worktree-children-reunited-locally-first.md) | Cross-worktree/cross-repo children are reunited locally first, via a machine-wide registry; the hub never sums two independent unions | proposed | 2026-09-20 |
 | [0024](0024-sessions-link-to-tasks-by-explicit-action.md) | A session links to a task only by explicit owner action; ignoring one is a durable, non-task decision | accepted | 2026-09-20 |
+| [0025](0025-public-site-is-a-separate-astro-project.md) | The public site is a separate Astro project, not part of the hub app | accepted | 2026-09-20 |
 
 See [`../templates/adr-template.md`](../templates/adr-template.md) for the
 format, and [`../contributing-to-docs.md`](../contributing-to-docs.md) for

@@ -71,7 +71,7 @@ requests against a local instance.
 ## Related
 
 - Repos: `kankaku` (the pi extension), `kankaku-hub` (this repo — PocketBase
-  backend + `web/`).
+  backend + `web/` + the public site, `site/`).
 - Root-level status notes: [`../ESTADO.md`](../ESTADO.md) (Spanish,
   informal, most recently updated), [`../README.md`](../README.md),
   [`../AGENTS.md`](../AGENTS.md).
