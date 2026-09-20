@@ -11,3 +11,14 @@ for (const viewport of [{ width: 1280, height: 500 }, { width: 390, height: 700 
     expect(height).toBeGreaterThanOrEqual(56)
   })
 }
+
+test('clickable controls show a pointer cursor, disabled ones do not', async ({ page }) => {
+  await login(page)
+  await expect(page.locator('header button:visible').first()).toBeVisible()
+  const cursors = await page.evaluate(() => {
+    const enabled = [...document.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]')].filter(el => el.offsetParent !== null)
+    return enabled.map(el => getComputedStyle(el).cursor)
+  })
+  expect(cursors.length).toBeGreaterThan(3)
+  expect(cursors.every(c => c === 'pointer')).toBe(true)
+})
