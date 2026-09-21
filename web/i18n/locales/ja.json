@@ -211,7 +211,13 @@
         "countAria": "{count}件のセッション",
         "resume": {
           "unsupportedAgent": "このエージェントではセッションの再開にまだ対応していません。"
-        }
+        },
+        "entriesToggle": "セッションのエントリー",
+        "entriesEmpty": "このセッションのエントリーはありません。",
+        "entryNoTask": "タスクなし",
+        "entryOtherTask": "他のタスク: {title}",
+        "entryPromptHidden": "（プロンプト非表示）",
+        "entriesTruncated": "最新{shown}件を表示中（全{total}件）"
       }
     }
   },
@@ -353,7 +359,30 @@
         "costEstimatedHint": "このコストはトークン数と料金表から算出したもので、プロバイダーから直接報告されたものではありません。",
         "costUnknown": "不明（集計対象外）",
         "costUnknownHint": "コストを特定できなかったため0として表示され、コストの平均計算からは除外されます。"
+      },
+      "effort": "強度",
+      "thinkingLevel": {
+        "off": "オフ",
+        "minimal": "最小",
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+        "xhigh": "最高"
       }
+    },
+    "session": "セッション",
+    "sessionMarker": {
+      "fullId": "セッション: {id}",
+      "filterAria": "このセッションで絞り込む",
+      "noSession": "セッションなし"
+    },
+    "sessionFilter": {
+      "chip": "セッション: {label}",
+      "remove": "セッションフィルターを削除"
+    },
+    "groupBySession": "セッションでグループ化",
+    "sessionGroup": {
+      "count": "{count}件のエントリー"
     }
   },
   "totals": {

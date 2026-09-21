@@ -211,7 +211,13 @@
         "countAria": "{count} sessions",
         "resume": {
           "unsupportedAgent": "Resuming a session isn't supported for this agent yet."
-        }
+        },
+        "entriesToggle": "Session entries",
+        "entriesEmpty": "No entries for this session.",
+        "entryNoTask": "No task",
+        "entryOtherTask": "Other task: {title}",
+        "entryPromptHidden": "(prompt hidden)",
+        "entriesTruncated": "Showing the {shown} most recent of {total}"
       }
     }
   },
@@ -353,7 +359,30 @@
         "costEstimatedHint": "This cost was computed from token counts and a price table, not reported directly by the provider.",
         "costUnknown": "Unknown, not counted",
         "costUnknownHint": "Cost could not be determined, so it's shown as 0 and excluded from cost averages."
+      },
+      "effort": "Effort",
+      "thinkingLevel": {
+        "off": "off",
+        "minimal": "minimal",
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "xhigh": "very high"
       }
+    },
+    "session": "Session",
+    "sessionMarker": {
+      "fullId": "Session: {id}",
+      "filterAria": "Filter to this session",
+      "noSession": "No session"
+    },
+    "sessionFilter": {
+      "chip": "Session: {label}",
+      "remove": "Remove session filter"
+    },
+    "groupBySession": "Group by session",
+    "sessionGroup": {
+      "count": "{count} entries"
     }
   },
   "totals": {
