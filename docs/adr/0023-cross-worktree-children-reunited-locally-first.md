@@ -57,6 +57,29 @@ not compensated for by a server-side sum. A purely cosmetic, optional
 (grouping two rows visually in the web, never summing them) and is
 explicitly deferred, not built in `phase-6`'s first pass.
 
+### Amendment (2026-09-21): reunite at WRITE time, not at read time
+
+The decision above stands — reunification is local, and the hub never sums
+two rows. What changed is the mechanism. The first implementation did what
+the paragraph above describes: the child recorded an `orchestratorRef` and
+the parent merged the foreign worktree's record at READ time, finding it
+through the child's live registry entry. That cannot work: every process
+removes its own registry entry on exit (required so that a reused pid is
+never mistaken for a tracked pi), and for gentle-pi's main case — a blocking
+`subagent_run` — the parent only regains control after the child has exited
+and already deleted that entry. A background child merged on one pass would
+also vanish on the next, shrinking a row already uploaded.
+
+So the link is made durable instead: a subagent with a verified
+orchestrator in another directory writes its records and checkpoints
+straight into the orchestrator's kankaku directory, decided once at startup.
+Parent and child then live in the same `worklog.jsonl` for good, the join
+uses keys already on the records, and the read-time merge
+(`RegistryAwareWorkLog`) was deleted. The registry is now a startup lookup
+only. See `SUBAGENT-REQ-021`. Proven with real OS processes
+(`kankaku/scripts/e2e-cross-worktree-real-processes.ts`), including eight
+concurrent writers into one log.
+
 ## Consequences
 
 - The registry needs its own liveness/staleness sweep (mirroring

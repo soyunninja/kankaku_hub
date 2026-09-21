@@ -113,6 +113,25 @@ full evidence and design rationale.
     stale-by-reuse (pid alive, identity mismatch), unverifiable (no
     recorded identity, e.g. written by an older build) or over a maximum
     age. `/kankaku doctor` SHALL report how many were discarded and why.
+21. `SUBAGENT-REQ-021` — A subagent with a verified orchestrator whose
+    kankaku directory differs from its own SHALL write its records and
+    checkpoints into the ORCHESTRATOR's directory, decided once at startup.
+    A record SHALL be written to exactly one log. The registry is a startup
+    lookup only: nothing may depend on a registry entry still existing
+    later, because every process removes its own entry on exit — typically
+    before its parent regains control. A synced task row SHALL NEVER shrink
+    because such a pointer disappeared. If the orchestrator's directory is
+    not writable the subagent falls back to its own directory and the
+    doctor reports it. (Added 2026-09-21: the first implementation merged
+    foreign records at READ time through the live registry entry, which the
+    child's own exit cleanup defeated; verified with real OS processes.)
+22. `SUBAGENT-REQ-022` — An INTERACTIVE session (pi's `tui` mode: a human
+    at a terminal) SHALL be a confirmed orchestrator even under a tracked
+    ancestor; only a non-interactive process under a verified tracked
+    ancestor may be `uncertain`. `KANKAKU_ROLE=orchestrator|subagent`
+    SHALL override detection and be reported by the doctor as the deciding
+    signal. Records already written as uncertain are never rewritten (the
+    log is append-only).
 
 ## Scenarios
 
@@ -214,9 +233,18 @@ full evidence and design rationale.
 - **When** a process needs role classification and no env marker resolves
   it
 - **Then** ancestor-chain detection is skipped entirely (no PowerShell/
-  `wmic` spawn attempted), the process is classified `uncertain` rather
-  than blocking or crashing, and `/kankaku doctor` reports ancestor
-  detection as unavailable on this platform
+  `wmic` spawn attempted) and the process is classified from markers
+  alone, exactly as before this feature: a marked child is a subagent, an
+  unmarked process is a confirmed `orchestrator`. It is NOT classified
+  `uncertain`: where ancestry can never be checked, that would mark every
+  genuine top-level session uncertain and drop all of the user's work — far
+  worse than the narrow overcount it would prevent. `/kankaku doctor`
+  reports a distinct "could not check" state (not the same as "checked,
+  none found"), warns that an unmarked subagent system may be counted
+  twice on this platform, and names `KANKAKU_ROLE=subagent` as the remedy.
+  (Corrected 2026-09-21: the first wording required `uncertain`; the 6a
+  review showed why that is the wrong default. The same rule applies on any
+  platform when `ps` is missing, times out or returns partial output.)
 
 ### Scenario: adding optional fields does not bump the schema (`SUBAGENT-REQ-016`)
 
@@ -310,3 +338,5 @@ full evidence and design rationale.
 | `SUBAGENT-REQ-018` | not applicable to a kankaku-repo test (hub-side behaviour: absence of a summing code path) | not covered |
 | `SUBAGENT-REQ-019` | `kankaku/tests/ancestry-match.test.ts`, `kankaku/tests/ancestry.test.ts` | covered |
 | `SUBAGENT-REQ-020` | `kankaku/tests/registry-health.test.ts`, `kankaku/tests/machine-process-registry.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
+| `SUBAGENT-REQ-021` | `kankaku/tests/cross-worktree-write-routing.test.ts`, `kankaku/tests/subagent-startup.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (opt-in, real OS processes), `kankaku/scripts/e2e-hub.ts` | covered |
+| `SUBAGENT-REQ-022` | `kankaku/tests/config.test.ts`, `kankaku/tests/pi-tracker.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
