@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | proposed |
+| Status | accepted — implemented 2026-09-21 (kankaku branch `feat/pocketbase-hub`) |
 | Date | 2026-09-20 |
 
 ## Context
@@ -25,7 +25,7 @@ and poorly.
 ## Decision
 
 Subagent recognition is profile-based: a `SubagentProfile` (pure domain
-type, `kankaku/src/domain/subagent-profile.ts`, planned) declares the tool
+type, `kankaku/src/domain/subagent-profile.ts`) declares the tool
 names that open a subagent span, how to read agent/mode from launch args
 and task id/status/usage from the tool result, and which env var(s) mark a
 child process. Built-in profiles ship for **gentle-pi** (first-class: task
@@ -58,6 +58,27 @@ narrows gentle-pi's own built-in profile.
 - Adding a profile is a config/data change, not a new `===` branch in
   `work-tracker.ts` — keeps the domain layer profile-agnostic and testable
   without new source changes per package.
+
+## What implementation taught us (2026-09-21)
+
+- **The `pi-subagents` child marker is `PI_SUBAGENT_DEPTH`**, matched by
+  presence, not by value. It was read from the package's source; the name the
+  proposal guessed was wrong.
+- **No pi subagent system nests a session in-process.** gentle-pi, pi's
+  reference example and `pi-subagents` all spawn a real OS process; pi's own
+  `newSession`/`fork` replace the session sequentially. "In-process
+  nesting" (phase 6c) is therefore a forwarded-usage mechanism, not a
+  nesting detector.
+- **Forwarded usage is reconciled, never added blindly.** A tool result's
+  `usage` is kept on the span and only counts when no child record of that
+  profile joined the task — otherwise the child's own record already carries
+  it (`SUBAGENT-REQ-006`).
+- **An ambiguous tool-name match contributes timing only** — no profile, no
+  task id, no forwarded usage (`SUBAGENT-REQ-025`). The parent has no child
+  env to disambiguate with, and money is never derived from a guess.
+- **A configured child marker is a weaker tier than a built-in one**: its
+  name is validated and denylisted at config time, and it never demotes an
+  interactive session (`SUBAGENT-REQ-026`).
 
 ## Alternatives considered
 

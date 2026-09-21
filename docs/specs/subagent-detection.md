@@ -45,10 +45,20 @@ full evidence and design rationale.
 5. `SUBAGENT-REQ-005` — When two or more profiles register the same tool
    name, the system SHALL resolve the ambiguity using each candidate
    profile's child-env markers, and SHALL classify the record `uncertain`
-   (never guess a profile) when no marker resolves the ambiguity.
+   (never guess a profile) when no marker resolves the ambiguity. (Amended
+   2026-09-21: on the PARENT side there is no child env to consult, so an
+   ambiguous tool-name match opens a timing-only span — see
+   `SUBAGENT-REQ-025`.)
 6. `SUBAGENT-REQ-006` — When a matched profile's `readResult` reports a
-   `usage` value on a subagent tool's result, that usage SHALL be added to
-   the triggering (parent) record's usage totals.
+   `usage` value on a subagent tool's result, that usage SHALL be kept on
+   the span as `forwardedUsage` and reconciled in `buildTasks`: it counts
+   towards the task ONLY when no child record of that profile joined the
+   task, because a joined child already carries the same tokens. (Amended
+   2026-09-21: the original wording — "added to the parent's totals" —
+   double-counted every out-of-process child that both writes its own record
+   and reports usage on its tool result. pi itself does NOT fold a tool
+   result's `usage` into the turn usage, so forwarding is the only path by
+   which that cost can arrive twice.)
 7. `SUBAGENT-REQ-007` — The join process SHALL attempt, strictly in order:
    (a) an explicit shared id, when a profile provides one; (b) pid ancestry
    corroborated by a live entry in the machine-wide process registry; then
@@ -156,6 +166,25 @@ full evidence and design rationale.
     warning and a doctor note), because a leaked global export must not make
     a person's session vanish. Users are told to scope the override to one
     invocation and never export it from a shell rc file.
+25. `SUBAGENT-REQ-025` — When a tool name matches two or more profiles and
+    nothing resolves which one launched it, the span SHALL carry timing only:
+    no `profile`, no task id, and no `forwardedUsage`. Nothing that affects
+    money or a join may be derived from a guess. (Added 2026-09-21: the first
+    6b/6c implementation read `usage` through the first matching profile, a
+    latent double count the moment the other profile's child also wrote its
+    own record.)
+26. `SUBAGENT-REQ-026` — A user-configured child marker
+    (`KANKAKU_SUBAGENT_CHILD_ENV`) is a WEAKER tier than a built-in one. Its
+    name SHALL be a valid environment variable name, SHALL NOT be an ambient
+    variable pi, npm or the shell set on every process (`PI_CODING_AGENT`,
+    `PATH`, `HOME`, a `PI_`/`NODE_`/`NPM_`/`TERM`/`LC_`/`KANKAKU_`
+    prefix, …), and a configured marker SHALL NEVER demote an interactive
+    session. Every rejected or ignored marker SHALL be reported by
+    `/kankaku doctor` and a one-time notice, never dropped silently. (Added
+    2026-09-21: `KANKAKU_SUBAGENT_CHILD_ENV=PI_CODING_AGENT` turned the
+    person's own session into a subagent and lost all of its work; a
+    comma-separated list produced one impossible name that was accepted
+    silently.)
 
 ## Scenarios
 
@@ -206,15 +235,44 @@ full evidence and design rationale.
 - **Then** the child is recognised as a subagent of the configured profile,
   without any change to gentle-pi's own built-in recognition
 
-### Scenario: in-process nesting with forwarded usage (`SUBAGENT-REQ-006`, `SUBAGENT-REQ-015`)
+### Scenario: forwarded usage, no child record (`SUBAGENT-REQ-006`, `SUBAGENT-REQ-015`)
 
-- **Given** a tool calls `createAgentSession` in-process and its result
-  carries a `usage` field summarising the nested session's cost
-- **When** the tool call settles
-- **Then** that usage is added to the triggering record's totals, and if
-  the nested session also produced its own same-pid orchestrator record
-  with an overlapping window, the two are unioned and flagged as likely
-  nesting rather than summed as two separate tasks
+> No pi subagent system nests a session in-process today — gentle-pi, pi's
+> reference example and `pi-subagents` all spawn a real OS process. The
+> scenario stays because the mechanism is what makes a child that reports
+> usage but writes no kankaku record of its own (kankaku not installed for
+> it, or a future in-process runner) billable at all.
+
+- **Given** a subagent tool's result carries a `usage` field and no child
+  record of that profile joins the task
+- **When** `buildTasks` consolidates the task
+- **Then** the forwarded usage counts towards the task once, and if a
+  same-pid orchestrator record overlaps the window, the two are unioned and
+  flagged as likely nesting rather than summed as two separate tasks
+
+### Scenario: forwarded usage AND a joined child record (`SUBAGENT-REQ-006`)
+
+- **Given** a subagent tool's result carries `usage`, and the child also
+  wrote its own record, which joins the task
+- **When** `buildTasks` consolidates the task
+- **Then** the child's own usage counts and the forwarded copy is dropped —
+  the cost appears exactly once
+
+### Scenario: an ambiguous tool name contributes timing only (`SUBAGENT-REQ-025`)
+
+- **Given** the tool `subagent`, registered by both pi's reference example
+  and `pi-subagents`, with nothing to tell them apart
+- **When** the tool call settles with a `usage` field on its result
+- **Then** the span records its duration and nothing else — no profile, no
+  task id, no forwarded usage
+
+### Scenario: a configured marker cannot make a person's session vanish (`SUBAGENT-REQ-026`)
+
+- **Given** `KANKAKU_SUBAGENT_CHILD_ENV` names a variable that is also set
+  in the person's interactive terminal
+- **When** pi starts interactively
+- **Then** the session is an orchestrator, its work is recorded, and
+  `/kankaku doctor` says the configured marker was ignored and why
 
 ### Scenario: in-process nesting without forwarded usage (`SUBAGENT-REQ-006`)
 
@@ -342,27 +400,29 @@ full evidence and design rationale.
 
 | Requirement | Proof | Status |
 |---|---|---|
-| `SUBAGENT-REQ-001` | `kankaku/tests/subagent-profile.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-002` | `kankaku/tests/subagent-profile.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-003` | `kankaku/tests/subagent-profile.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-004` | `kankaku/tests/subagent-profile.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-005` | `kankaku/tests/subagent-profile.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-006` | `kankaku/tests/work-tracker.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-007` | `kankaku/tests/task-view.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-008` | `kankaku/tests/task-view.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-009` | `kankaku/tests/process-registry.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-010` | `kankaku/tests/process-registry.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-011` | `kankaku/tests/ancestry.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-012` | `kankaku/tests/ancestry.test.ts` (planned) | not covered |
-| `SUBAGENT-REQ-013` | `kankaku/tests/task-view.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-014` | `kankaku/tests/task-view.test.ts`, `kankaku/tests/sync-runner.test.ts` (planned extensions) | not covered |
-| `SUBAGENT-REQ-015` | `kankaku/tests/task-view.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-016` | `kankaku/tests/work-record.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-017` | `kankaku/tests/kankaku-command.test.ts` (planned extension) | not covered |
-| `SUBAGENT-REQ-018` | not applicable to a kankaku-repo test (hub-side behaviour: absence of a summing code path) | not covered |
+| `SUBAGENT-REQ-001` | `kankaku/tests/subagent-profile.test.ts`, `kankaku/tests/work-tracker.test.ts`, `kankaku/tests/regression-6b-6c.test.ts` | covered |
+| `SUBAGENT-REQ-002` | `kankaku/tests/subagent-profile.test.ts`, `kankaku/tests/config.test.ts` | covered |
+| `SUBAGENT-REQ-003` | `kankaku/tests/subagent-profile.test.ts`, `kankaku/tests/config.test.ts` | covered |
+| `SUBAGENT-REQ-004` | `kankaku/tests/subagent-profile.test.ts` | covered |
+| `SUBAGENT-REQ-005` | `kankaku/tests/subagent-profile.test.ts`, `kankaku/tests/work-tracker.test.ts`, `kankaku/tests/process-identity.test.ts`, `kankaku/tests/pi-tracker.test.ts` | covered |
+| `SUBAGENT-REQ-006` | `kankaku/tests/work-tracker.test.ts`, `kankaku/tests/task-view.test.ts`, `kankaku/scripts/e2e-hub.ts` (joined-child reconciliation, real PocketBase) | covered |
+| `SUBAGENT-REQ-007` | `kankaku/tests/task-view.test.ts`, `kankaku/scripts/e2e-hub.ts` | covered |
+| `SUBAGENT-REQ-008` | `kankaku/tests/task-view.test.ts` | covered |
+| `SUBAGENT-REQ-009` | `kankaku/tests/machine-process-registry.test.ts` | covered |
+| `SUBAGENT-REQ-010` | `kankaku/tests/machine-process-registry.test.ts` | covered |
+| `SUBAGENT-REQ-011` | `kankaku/tests/ancestry-match.test.ts` | covered |
+| `SUBAGENT-REQ-012` | `kankaku/tests/ancestry.test.ts` | covered |
+| `SUBAGENT-REQ-013` | `kankaku/tests/task-view.test.ts`, `kankaku/tests/config.test.ts`, `kankaku/scripts/e2e-hub.ts` | covered |
+| `SUBAGENT-REQ-014` | `kankaku/tests/task-view.test.ts`, `kankaku/tests/sync-runner.test.ts` | covered |
+| `SUBAGENT-REQ-015` | `kankaku/tests/task-view.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
+| `SUBAGENT-REQ-016` | `kankaku/tests/work-record.test.ts` | covered |
+| `SUBAGENT-REQ-017` | `kankaku/tests/kankaku-command.test.ts`, `kankaku/tests/report.test.ts`, `kankaku/tests/task-view.test.ts` | covered |
+| `SUBAGENT-REQ-018` | `kankaku/scripts/e2e-hub.ts` (one consolidated row per task reaches the hub); hub side: no code path sums `work_records` | covered |
 | `SUBAGENT-REQ-019` | `kankaku/tests/ancestry-match.test.ts`, `kankaku/tests/ancestry.test.ts` | covered |
 | `SUBAGENT-REQ-020` | `kankaku/tests/registry-health.test.ts`, `kankaku/tests/machine-process-registry.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
 | `SUBAGENT-REQ-021` | `kankaku/tests/cross-worktree-write-routing.test.ts`, `kankaku/tests/subagent-startup.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (opt-in, real OS processes), `kankaku/scripts/e2e-hub.ts` | covered |
 | `SUBAGENT-REQ-022` | `kankaku/tests/config.test.ts`, `kankaku/tests/pi-tracker.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
 | `SUBAGENT-REQ-023` | `kankaku/tests/process-identity.test.ts`, `kankaku/tests/process-identity-memo.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (double-invocation scenario, real process) | covered |
 | `SUBAGENT-REQ-024` | `kankaku/tests/config.test.ts`, `kankaku/tests/pi-tracker.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (role-override scenario, real child) | covered |
+| `SUBAGENT-REQ-025` | `kankaku/tests/subagent-profile.test.ts`, `kankaku/tests/work-tracker.test.ts`, `kankaku/scripts/e2e-hub.ts` (ambiguous-forwarding scenario) | covered |
+| `SUBAGENT-REQ-026` | `kankaku/tests/config.test.ts`, `kankaku/tests/process-identity.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |

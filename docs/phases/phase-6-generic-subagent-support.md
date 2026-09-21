@@ -1,8 +1,8 @@
-# Phase 6 — Generic subagent support (PLANNED)
+# Phase 6 — Generic subagent support (IMPLEMENTED, UNRELEASED)
 
 | | |
 |---|---|
-| Status | planned |
+| Status | 6a, 6b and 6c implemented on kankaku branch `feat/pocketbase-hub` (2026-09-21); not merged, not published |
 | Repos | kankaku |
 | Depends on | — (independent of phases 4/5) |
 
@@ -85,47 +85,61 @@ design and do not need it to be fixed.
 
 ## Acceptance criteria
 
-- [ ] An unrecognised subagent-shaped tool call (e.g. pi's bundled
+- [x] An unrecognised subagent-shaped tool call (e.g. pi's bundled
       reference example) is classified `uncertain`, not `orchestrator`,
       and produces no phantom top-level task.
-- [ ] A gentle-pi subagent running in a different git worktree than its
+- [x] A gentle-pi subagent running in a different git worktree than its
       orchestrator is reunited into one consolidated task locally, before
       sync, without the hub ever summing two independent unions.
-- [ ] `project` equality no longer hard-excludes an otherwise-eligible
+- [x] `project` equality no longer hard-excludes an otherwise-eligible
       cross-project match backed by registry-corroborated ancestry.
-- [ ] `KANKAKU_SUBAGENT_TOOLS`/`KANKAKU_SUBAGENT_CHILD_ENV` let a user
+- [x] `KANKAKU_SUBAGENT_TOOLS`/`KANKAKU_SUBAGENT_CHILD_ENV` let a user
       register a third-party tool without a kankaku code change, additive
       to gentle-pi's own built-in recognition.
-- [ ] `/kankaku doctor` reports matched profile, orphan/uncertain counts
+- [x] `/kankaku doctor` reports matched profile, orphan/uncertain counts
       with reasons, and ancestor-detection platform availability, with no
       network call.
-- [ ] A subagent tool result's `usage` field, when present, is attributed
+- [x] A subagent tool result's `usage` field, when present, is attributed
       to the triggering record's totals.
-- [ ] Two same-pid overlapping `"orchestrator"` records (in-process
+- [x] Two same-pid overlapping `"orchestrator"` records (in-process
       nesting) are unioned, not summed, and flagged.
-- [ ] `WORK_RECORD_SCHEMA` is unchanged; every new field is optional and a
+- [x] `WORK_RECORD_SCHEMA` is unchanged; every new field is optional and a
       pre-existing record stays valid under `isWorkRecord`.
-- [ ] `npm run check` passes; every new requirement in
+- [x] `npm run check` passes; every new requirement in
       [`subagent-detection.md`](../specs/subagent-detection.md) has test
       coverage per its Traceability table.
 
 ## Evidence
 
-None — not started. This phase file, its spec, and its four ADRs are the
-proposal-stage artifacts; no code exists yet.
+- `npm run check` in kankaku: 824 tests, all passing, `tsc` clean.
+- `npm run e2e:hub` (real, isolated PocketBase) and
+  `npm run e2e:cross-worktree` (real OS processes), both green.
+- Five independent adversarial review rounds; every finding reproduced with a
+  failing test before its fix.
+
+| Sub-phase | Requirements |
+|---|---|
+| 6a | `SUBAGENT-REQ-007`…`014`, `016`, `019`…`024` |
+| 6b | `SUBAGENT-REQ-001`…`005`, `017`, `025`, `026` |
+| 6c | `SUBAGENT-REQ-006`, `015`, `018` |
 
 ## Known gaps
 
-Everything — nothing in this phase is implemented. The proposal explicitly
-flags one design dependency this phase cannot resolve alone: raising
+- **Every review round found a real money-affecting defect**, two of them
+  introduced by the previous round's fix. The recommendation stands: use the
+  branch in real work before publishing, or gate generic detection behind an
+  off-by-default option.
+- Windows classifies by markers only (no ancestor chain).
+- Records already written as `uncertain` cannot be promoted later: the log
+  is append-only.
+- One design dependency this phase cannot resolve alone: raising
 gentle-pi's cross-worktree join from "registry + ancestry" to "explicit id"
 confidence depends on gentle-pi choosing to pass its child a task id,
 which is outside kankaku's control (proposal Open Question #1).
 
 ## Next steps
 
-- Implement 6a first and ship it independently if useful on its own — both
-  bugs it fixes exist today, regardless of whether 6b/6c ever land.
+- Owner decision: publish strategy (see Known gaps).
 - After 6b/6c have real usage, revisit Open Questions #2 (additional
   built-in profiles) and #5 (the `linked_task_id` fallback) from the
   proposal with actual registry-TTL-loss data instead of speculation.
