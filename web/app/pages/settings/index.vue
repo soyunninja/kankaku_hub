@@ -43,14 +43,19 @@ const hubUrl = useHubUrl()
           {{ t('settings.language') }}
         </CardTitle>
       </CardHeader>
-      <CardContent class="flex flex-wrap gap-2">
-        <Button
-          v-for="l in locales" :key="typeof l === 'string' ? l : l.code"
-          size="sm" :variant="locale === (typeof l === 'string' ? l : l.code) ? 'default' : 'outline'"
-          @click="setLocale(typeof l === 'string' ? l : l.code)"
-        >
-          {{ typeof l === 'string' ? l : l.name }}
-        </Button>
+      <CardContent class="flex flex-col gap-2">
+        <div class="flex flex-wrap gap-2">
+          <Button
+            v-for="l in locales" :key="typeof l === 'string' ? l : l.code"
+            size="sm" :variant="locale === (typeof l === 'string' ? l : l.code) ? 'default' : 'outline'"
+            @click="setLocale(typeof l === 'string' ? l : l.code)"
+          >
+            {{ typeof l === 'string' ? l : l.name }}
+          </Button>
+        </div>
+        <p class="text-xs text-muted-foreground">
+          {{ t('settings.jaDisclaimer') }}
+        </p>
       </CardContent>
     </Card>
 
