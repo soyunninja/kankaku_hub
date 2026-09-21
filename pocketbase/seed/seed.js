@@ -284,6 +284,33 @@ function buildSegmentsFor(taskId, workMs) {
   return segments;
 }
 
+// `task_id ~ "seed-te-"` is a SQL "contains", not "starts with" — the
+// server-side filter alone would also match a real synced row whose
+// task_id happens to CONTAIN "seed-te-" anywhere (e.g. a hypothetical
+// "my-seed-te-123" from a real client). Every repair pass below must
+// also apply this client-side prefix check before touching a row, so a
+// row is only ever repaired when its task_id actually STARTS WITH the
+// seed's own prefix — never on a substring coincidence.
+const SEED_TASK_ID_PREFIX = "seed-te-";
+function isSeedRow(row) {
+  return typeof row.task_id === "string" && row.task_id.startsWith(SEED_TASK_ID_PREFIX);
+}
+
+// Self-check, run on every invocation before any network call: proves the
+// guard actually distinguishes "starts with" from "contains" rather than
+// silently degrading back to the server filter's substring match.
+{
+  const assert = require("node:assert");
+  assert.strictEqual(isSeedRow({ task_id: "seed-te-0001" }), true);
+  assert.strictEqual(
+    isSeedRow({ task_id: "my-seed-te-0001" }),
+    false,
+    "isSeedRow must reject a task_id that only CONTAINS the seed prefix"
+  );
+  assert.strictEqual(isSeedRow({ task_id: "unrelated" }), false);
+  assert.strictEqual(isSeedRow({}), false);
+}
+
 async function fetchLegacySegmentRows() {
   const rows = [];
   let page = 1;
@@ -291,7 +318,7 @@ async function fetchLegacySegmentRows() {
     const data = await pbFetch(
       `/api/collections/task_entries/records?page=${page}&perPage=500&fields=id,task_id,work_ms,segments&filter=${encodeURIComponent('task_id ~ "seed-te-"')}`
     );
-    for (const item of data.items) if (Array.isArray(item.segments)) rows.push(item);
+    for (const item of data.items) if (isSeedRow(item) && Array.isArray(item.segments)) rows.push(item);
     if (page >= data.totalPages) break;
     page++;
   }
@@ -378,7 +405,7 @@ async function fetchSessionRepairRows() {
     const data = await pbFetch(
       `/api/collections/task_entries/records?page=${page}&perPage=500&fields=id,task_id,client,project,task,machine,session_id,session_name&filter=${encodeURIComponent('task_id ~ "seed-te-"')}`
     );
-    rows.push(...data.items);
+    for (const item of data.items) if (isSeedRow(item)) rows.push(item);
     if (page >= data.totalPages) break;
     page++;
   }
