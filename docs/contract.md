@@ -206,6 +206,7 @@ Write access: owner only. The sync client only *reads* this collection
 | `session_id` / `session_name` | text | |
 | `machine` | text | |
 | `model` | text | |
+| `thinking_level` | text (max 40) | optional — the model's reasoning effort when the record settled, as the agent names it (pi: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`); empty when unknown |
 | `prompt` | text | subject to `KANKAKU_SYNC_PROMPT` (proposal §8) |
 | `legacy_client_label` | text | only set for rows routed to "Sin determinar" |
 | `repo_project` | text | kankaku's local project path |
@@ -310,6 +311,7 @@ UI displays task status, rather than trusting a locally cached value. See
 | `wall_ms` / `waiting_ms` / `work_ms` / `runs` / `turns` | number (int) | |
 | `status` | select: `completed` \| `aborted` \| `interrupted` | |
 | `model` | text | |
+| `thinking_level` | text (max 40) | optional — the model's reasoning effort when the record settled, as the agent names it (pi: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`); empty when unknown |
 | `input` / `output` / `cache_read` / `cache_write` | number (int) | |
 | `cost` | number | |
 | `segments` / `tools` | json | |

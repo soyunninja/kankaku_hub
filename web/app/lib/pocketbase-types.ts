@@ -94,6 +94,8 @@ export interface TaskEntryRecord {
   session_name: string
   machine: string
   model: string
+  /** The model's reasoning effort as the agent names it; "" when unknown. */
+  thinking_level?: string
   prompt: string
   legacy_client_label: string
   repo_project: string
@@ -138,6 +140,8 @@ export interface WorkRecordRecord {
   turns: number
   status: EntryStatus
   model: string
+  /** The model's reasoning effort as the agent names it; "" when unknown. */
+  thinking_level?: string
   input: number
   output: number
   cache_read: number
