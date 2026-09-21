@@ -32,6 +32,7 @@ import {
 import { describeEntryQuality, normalizeAgentInfo } from '@/lib/measurement-quality'
 import type { ClientRecord, ProjectRecord, TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 import { buildResumeCommand } from '@/lib/session-resume'
+import { resolveThinkingLevel } from '@/lib/thinking-level'
 
 const props = defineProps<{
   entry: TaskEntryRecord
@@ -91,6 +92,19 @@ const pluginVersionDisplay = computed(() => safeDisplayValue(agentInfo.value.plu
 
 const costApproxLabel = computed(() => quality.value.costIsApprox === 'estimated' ? t('entries.detail.quality.costEstimated') : t('entries.detail.quality.costUnknown'))
 const costApproxHint = computed(() => quality.value.costIsApprox === 'estimated' ? t('entries.detail.quality.costEstimatedHint') : t('entries.detail.quality.costUnknownHint'))
+
+// -- reasoning effort (thinking_level) ---------------------------------
+
+/** `''` when `thinking_level` is empty/unknown — the caller never renders
+ * an "Effort: —" placeholder for it (see `resolveThinkingLevel`'s doc
+ * comment), unlike every other quality field on this sheet. */
+function thinkingLevelLabel(raw: string | null | undefined): string {
+  const resolved = resolveThinkingLevel(raw)
+  if (!resolved) return ''
+  return resolved.kind === 'known' ? t(`entries.detail.thinkingLevel.${resolved.value}`) : resolved.value
+}
+
+const entryEffortLabel = computed(() => thinkingLevelLabel(props.entry.thinking_level))
 
 // -- resume session -----------------------------------------------------------
 
@@ -462,6 +476,10 @@ defineOptions({ inheritAttrs: false })
         <p class="text-sm">
           <span class="text-xs text-muted-foreground">{{ t('common.model') }}: </span>
           <span class="font-medium">{{ entry.model || '—' }}</span>
+          <template v-if="entryEffortLabel">
+            <span class="text-xs text-muted-foreground"> · {{ t('entries.detail.effort') }}: </span>
+            <span class="font-medium">{{ entryEffortLabel }}</span>
+          </template>
         </p>
       </section>
 
@@ -521,7 +539,10 @@ defineOptions({ inheritAttrs: false })
               <Badge variant="outline" class="capitalize">
                 {{ wr.role }}
               </Badge>
-              <span class="text-muted-foreground">{{ wr.model || '—' }}</span>
+              <span class="text-muted-foreground">
+                {{ wr.model || '—' }}
+                <template v-if="thinkingLevelLabel(wr.thinking_level)"> · {{ thinkingLevelLabel(wr.thinking_level) }}</template>
+              </span>
             </span>
             <span class="flex items-center gap-2">
               <Badge :variant="workRecordStatusVariant(wr)">
