@@ -25,8 +25,22 @@ export function useUnassignedQueue() {
   /**
    * Reassign a set of entry ids to a client (+ optional project) in
    * chunks, reporting progress after each chunk. Returns the ids that
-   * failed (per-request status checked individually, as the batch
-   * endpoint does not fail the whole call for one bad sub-request).
+   * failed.
+   *
+   * CORRECTION (verified against a real running PocketBase 0.40.4
+   * instance while building `POST /api/kankaku/totals` — see
+   * docs/architecture/hub-backend.md "The totals endpoint" and
+   * `pocketbase/seed/bulk.js`'s header comment): `/api/batch` runs as a
+   * SINGLE DB TRANSACTION, not independent per-request results — one
+   * failing sub-request rolls back the WHOLE batch and the endpoint
+   * returns a single top-level `400` (`batch.send()` throws), never a
+   * `200` with a mix of per-item statuses. The `try`/`catch` below still
+   * behaves correctly for that reality (the `catch` branch marks the
+   * entire chunk failed), but the per-item `results.forEach` in the
+   * `try` branch is effectively dead code for a real partial failure —
+   * it only ever sees an all-success batch. Left as defensive handling
+   * rather than removed, since PocketBase's transactional guarantee here
+   * is observed behavior, not a documented contract this repo controls.
    */
   async function bulkAssign(
     entryIds: string[],

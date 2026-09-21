@@ -9,8 +9,10 @@ const BATCH_CHUNK_SIZE = 50
  * `useSessions.fetchUnassignedSessions`): convert it into a new task,
  * attach it to an existing one, or ignore it. Batch updates mirror
  * `useUnassignedQueue.bulkAssign` exactly (chunked `$pb.createBatch()`,
- * per-row status check, `onProgress` callback) — same reassignment
- * mechanism, keyed by session instead of by legacy-label group.
+ * `onProgress` callback, a failed chunk's ids all marked failed — see
+ * that composable's CORRECTION note on `/api/batch`'s per-chunk
+ * transactional behavior) — same reassignment mechanism, keyed by
+ * session instead of by legacy-label group.
  */
 export function useSessionsQueue() {
   const { $pb } = useNuxtApp()
@@ -19,8 +21,12 @@ export function useSessionsQueue() {
   /**
    * Points every `task_entries` row in `entryIds` at `taskId`, in
    * chunks of 50, reporting progress after each chunk. Returns the ids
-   * that failed (per-request status checked individually, as the batch
-   * endpoint does not fail the whole call for one bad sub-request).
+   * that failed.
+   *
+   * See the CORRECTION note on `useUnassignedQueue.bulkAssign` (same
+   * mechanism): `/api/batch` is transactional per call, so a real
+   * partial failure rolls back the whole chunk and is caught below, not
+   * surfaced as a per-item mixed-status result.
    */
   async function batchAssignTask(
     entryIds: string[],
