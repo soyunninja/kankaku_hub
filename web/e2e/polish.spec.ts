@@ -48,7 +48,7 @@ test.describe('time-series chart fills its container', () => {
 })
 
 test.describe('unassigned queue is translated in Spanish', () => {
-  test('shows Trabajo/Coste, not Work/Cost', async ({ page }) => {
+  test('shows Tiempo/Coste, not Time/Cost', async ({ page }) => {
     await login(page)
     await page.goto('/unassigned')
     await page.waitForLoadState('networkidle')
@@ -63,9 +63,9 @@ test.describe('unassigned queue is translated in Spanish', () => {
     // `app/composables/useClients.ts` (shared in-flight promise); this
     // generous timeout is now just defensive headroom, not a workaround.
     const header = page.locator('table thead')
-    await expect(header).toContainText('Trabajo', { timeout: 15_000 })
+    await expect(header).toContainText('Tiempo', { timeout: 15_000 })
     await expect(header).toContainText('Coste')
-    await expect(header).not.toContainText('Work')
+    await expect(header).not.toContainText('Time')
     await expect(header).not.toContainText(/\bCost\b/)
   })
 })

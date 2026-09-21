@@ -156,7 +156,7 @@ async function toggleArchive(project: ProjectRecord) {
                 <TableHead>{{ t('common.client') }}</TableHead>
                 <TableHead>{{ t('common.status') }}</TableHead>
                 <TableHead class="text-right">
-                  {{ t('common.work') }}
+                  <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
                 </TableHead>
                 <TableHead class="text-right">
                   {{ t('common.cost') }}

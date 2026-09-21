@@ -247,7 +247,7 @@ onMounted(async () => {
               <TableRow>
                 <TableHead>{{ t('common.model') }}</TableHead>
                 <TableHead class="text-right">
-                  {{ t('common.work') }}
+                  <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
                 </TableHead>
                 <TableHead class="text-right">
                   {{ t('common.cost') }}

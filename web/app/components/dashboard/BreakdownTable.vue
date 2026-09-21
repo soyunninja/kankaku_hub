@@ -38,7 +38,7 @@ function sorted(rows: (GroupTotals & { label: string })[]) {
       <TableRow>
         <TableHead>{{ nameHeader }}</TableHead>
         <TableHead class="cursor-pointer text-right" @click="toggleSort('workMs')">
-          {{ t('common.work') }}
+          <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
         </TableHead>
         <TableHead class="cursor-pointer text-right" @click="toggleSort('cost')">
           {{ t('common.cost') }}

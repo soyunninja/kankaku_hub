@@ -62,6 +62,8 @@
     "back": "Back",
     "select": "Select…",
     "work": "Work",
+    "time": "Time",
+    "timeHint": "Agent work time, waits excluded",
     "cost": "Cost",
     "count": "#",
     "model": "Model",
@@ -189,7 +191,7 @@
     },
     "empty": "No tasks.",
     "cost": "AI cost",
-    "time": "AI time",
+    "time": "Time",
     "statusMovedAnnouncement": "Task \"{title}\" moved to {status}.",
     "keyboardHint": {
       "label": "Keyboard shortcuts",

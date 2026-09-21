@@ -62,6 +62,8 @@
     "back": "Volver",
     "select": "Selecciona…",
     "work": "Trabajo",
+    "time": "Tiempo",
+    "timeHint": "Tiempo de trabajo del agente, sin esperas",
     "cost": "Coste",
     "count": "Nº",
     "model": "Modelo",
@@ -189,7 +191,7 @@
     },
     "empty": "No hay tareas.",
     "cost": "Coste IA",
-    "time": "Tiempo IA",
+    "time": "Tiempo",
     "statusMovedAnnouncement": "Tarea «{title}» movida a {status}.",
     "keyboardHint": {
       "label": "Atajos de teclado",

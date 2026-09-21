@@ -481,7 +481,7 @@ v-model="stackBy" class="w-40" :options="[
                 {{ t('dashboard.kpi.cost') }}
               </TableHead>
               <TableHead class="text-right">
-                {{ t('common.work') }}
+                <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
               </TableHead>
               <TableHead>{{ t('common.model') }}</TableHead>
             </TableRow>

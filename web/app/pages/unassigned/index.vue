@@ -385,7 +385,7 @@ async function confirmAssign() {
                 {{ t('unassigned.entries') }}
               </TableHead>
               <TableHead class="text-right">
-                {{ t('common.work') }}
+                <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
               </TableHead>
               <TableHead class="text-right">
                 {{ t('common.cost') }}

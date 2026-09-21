@@ -540,7 +540,7 @@ async function onDelete(task: TaskRecord) {
                   {{ t('common.status') }}
                 </th>
                 <th class="p-3 text-right">
-                  {{ t('tasks.time') }}
+                  <span :title="t('common.timeHint')">{{ t('tasks.time') }}</span>
                 </th>
                 <th class="p-3 text-right">
                   {{ t('tasks.cost') }}

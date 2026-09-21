@@ -333,7 +333,7 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
               <TableHead>{{ t('common.model') }}</TableHead>
 
               <TableHead class="cursor-pointer text-right" @click="toggleSort('work_ms')">
-                {{ t('common.work') }}
+                <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
               </TableHead>
               <TableHead class="cursor-pointer text-right" @click="toggleSort('cost')">
                 {{ t('common.cost') }}
@@ -368,7 +368,7 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
                       <span v-if="dr.group.projectIds.length === 1" class="text-foreground">{{ projectName(dr.group.projectIds[0]!) }}</span>
                       <span v-else class="text-foreground">{{ t('entries.sessionGroup.projects', { count: dr.group.projectIds.length }) }}</span>
                       <span class="text-xs text-muted-foreground">{{ t('entries.sessionGroup.count', { count: dr.group.entries.length }) }}</span>
-                      <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.work') }}: {{ formatDuration(dr.group.workMs) }}</span>
+                      <span class="text-xs tabular-nums text-muted-foreground"><span :title="t('common.timeHint')">{{ t('common.time') }}</span>: {{ formatDuration(dr.group.workMs) }}</span>
                       <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.cost') }}: {{ formatCost(dr.group.cost) }}</span>
                     </div>
                   </TableHead>

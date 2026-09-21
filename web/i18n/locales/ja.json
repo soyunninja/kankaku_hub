@@ -62,6 +62,8 @@
     "back": "戻る",
     "select": "選択…",
     "work": "作業",
+    "time": "時間",
+    "timeHint": "エージェントの作業時間(待機時間を除く)",
     "cost": "コスト",
     "count": "件数",
     "model": "モデル",
@@ -189,7 +191,7 @@
     },
     "empty": "タスクはありません。",
     "cost": "AIコスト",
-    "time": "AI時間",
+    "time": "時間",
     "statusMovedAnnouncement": "「{title}」タスクを{status}に移動しました。",
     "keyboardHint": {
       "label": "キーボードショートカット",
