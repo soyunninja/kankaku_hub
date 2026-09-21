@@ -302,6 +302,40 @@ test.describe('entry detail sheet', () => {
     }
   })
 
+  test('assigning a task from the sheet links the entry and moves an open task to "doing"', async ({ page, request }) => {
+    const { token, fixture } = await createFixtureEntry(request)
+    const headers = { Authorization: token }
+    const entry = await (await request.get(pbUrl(`/api/collections/task_entries/records/${fixture.entryId}`), { headers })).json()
+    const taskRes = await request.post(pbUrl('/api/collections/tasks/records'), {
+      headers,
+      data: { title: `E2E task ${fixture.runId}`, project: entry.project, status: 'open' },
+    })
+    expect(taskRes.ok(), await taskRes.text()).toBeTruthy()
+    const task = await taskRes.json()
+
+    try {
+      await login(page)
+      await openFixture(page, fixture.runId)
+      const select = page.getByTestId('entry-task-select').locator('select')
+      await expect(select).toBeVisible()
+      await select.selectOption(task.id)
+      await page.getByRole('button', { name: 'Guardar' }).click()
+
+      await expect(async () => {
+        const saved = await (await request.get(pbUrl(`/api/collections/task_entries/records/${fixture.entryId}`), { headers })).json()
+        expect(saved.task).toBe(task.id)
+        const linked = await (await request.get(pbUrl(`/api/collections/tasks/records/${task.id}`), { headers })).json()
+        expect(linked.status).toBe('doing')
+      }).toPass({ timeout: 5000 })
+
+      await expect(select).toHaveValue(task.id)
+    }
+    finally {
+      await deleteFixtureEntry(request, token, fixture.entryId)
+      await request.delete(pbUrl(`/api/collections/tasks/records/${task.id}`), { headers })
+    }
+  })
+
   test('captures docs screenshots (dark, light, mobile dark)', async ({ page, request }) => {
     test.setTimeout(60_000)
     const { token, fixture } = await createFixtureEntry(request)

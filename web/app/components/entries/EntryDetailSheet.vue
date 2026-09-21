@@ -30,7 +30,8 @@ import {
   truncateMiddle,
 } from '@/lib/entry-detail'
 import { describeEntryQuality, normalizeAgentInfo } from '@/lib/measurement-quality'
-import type { ClientRecord, ProjectRecord, TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
+import { entryTaskOptions, keepTaskForSelection } from '@/lib/entry-task-options'
+import type { ClientRecord, ProjectRecord, TaskEntryRecord, TaskRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 import { buildResumeCommand } from '@/lib/session-resume'
 import { resolveThinkingLevel } from '@/lib/thinking-level'
 
@@ -39,12 +40,14 @@ const props = defineProps<{
   workRecords: WorkRecordRecord[]
   clients: ClientRecord[]
   projects: ProjectRecord[]
+  tasks: TaskRecord[]
 }>()
 
 const emit = defineEmits<{ save: [] }>()
 
 const client = defineModel<string>('client', { required: true })
 const project = defineModel<string>('project', { required: true })
+const task = defineModel<string>('task', { required: true })
 
 const { t } = useI18n()
 const { formatCost, formatDateTime, formatDuration, formatTokens } = useFormatters()
@@ -123,6 +126,21 @@ const taskRelation = computed(() => resolveRelation(
   props.entry.task,
   props.entry.expand?.task ? { name: props.entry.expand.task.title } : undefined,
 ))
+
+const taskSelectOptions = computed(() => [
+  { value: '', label: t('entries.detail.noTask') },
+  ...entryTaskOptions({ tasks: props.tasks, projects: props.projects, client: client.value, project: project.value, current: props.entry.task })
+    .map(option => ({ value: option.id, label: `${option.title} · ${t(`tasks.status.${option.status}`)}` })),
+])
+
+// A task must never end up under a client/project it does not belong to:
+// when the USER changes either, a task that no longer fits is cleared. The
+// entry's own stored pair is left alone, so opening the sheet (which sets
+// both models) never drops an existing assignment, even a mismatched one.
+watch([client, project], ([nextClient, nextProject]) => {
+  if (nextClient === props.entry.client && nextProject === props.entry.project) return
+  task.value = keepTaskForSelection({ tasks: props.tasks, projects: props.projects, client: nextClient, project: nextProject, task: task.value })
+})
 
 const projectSelectOptions = computed(() => [
   { value: '', label: t('common.none') },
@@ -372,8 +390,9 @@ defineOptions({ inheritAttrs: false })
         </dl>
 
         <div class="space-y-2 rounded-md border border-dashed border-border p-3">
-          <Select v-model="client" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
-          <Select v-model="project" :placeholder="t('common.none')" :options="projectSelectOptions" />
+          <Select v-model="client" :aria-label="t('common.client')" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
+          <Select v-model="project" :aria-label="t('common.project')" :placeholder="t('common.none')" :options="projectSelectOptions" />
+          <Select v-model="task" data-testid="entry-task-select" :aria-label="t('common.task')" :options="taskSelectOptions" />
           <Button size="sm" class="self-start" @click="emit('save')">
             {{ t('common.save') }}
           </Button>
