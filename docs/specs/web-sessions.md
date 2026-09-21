@@ -30,6 +30,24 @@ last one covers [`web-entries-explorer.md`](web-entries-explorer.md) and
 landed from a parallel e2e-coverage work unit; as of this writing they
 exist in the working tree but had not yet been committed.
 
+**Server-side totals status** ([ADR 0027](../adr/0027-totals-computed-server-side.md)):
+`useSessions.fetchUnassignedSessions` (the queue this spec covers) and
+`fetchSessionsForTask` (the task detail sheet's session list) still fetch
+`task_entries` rows client-side via `getFullList` and group them with
+`app/lib/session-aggregate.ts` — NOT yet migrated to `POST
+/api/kankaku/totals`'s `group_by: "session"`, even though that mode
+exists and returns everything this spec's requirements need
+(`session_name`, `min_started_at`/`max_ended_at`, `machine`, and
+`distinct_client`/`distinct_project`/`distinct_task`/`distinct_agent` for
+the "mixed" cases `SESSIONS-REQ-008` etc. describe). Both call sites are
+already bounded (`fetchSessionsForTask` by one task's rows;
+`fetchUnassignedSessions` by `UNASSIGNED_SCAN_LIMIT`, currently 500) —
+neither was the unbounded-fetch problem this feature set out to fix
+(the dashboard's full-range fetch and the tasks board's unfiltered
+`fetchAll()` were). Migrating them is a mechanical repeat of the
+`useTotals()` pattern already used by `pages/index.vue`/`pages/tasks/
+index.vue`, deferred for time, not for any design reason.
+
 ## Requirements
 
 1. `SESSIONS-REQ-001` — Session grouping SHALL bucket `task_entries` rows

@@ -5,9 +5,9 @@
 | Status | implemented |
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
-| Related ADRs | [0007](../adr/0007-web-is-a-view-layer.md), [0014](../adr/0014-dependency-free-charts.md) |
-| Code | `web/app/pages/index.vue`, `web/app/lib/aggregate.ts`, `web/app/lib/format.ts`, `web/app/lib/measurement-quality.ts`, `web/app/lib/agents.ts`, `web/app/components/charts/StackedBarChart.vue`, `web/app/components/dashboard/*.vue` |
-| Tests | `web/tests/aggregate.test.ts`, `web/tests/format.test.ts`, `web/tests/measurement-quality.test.ts`, `web/e2e/polish.spec.ts`, `web/e2e/agent-quality.spec.ts` |
+| Related ADRs | [0007](../adr/0007-web-is-a-view-layer.md), [0014](../adr/0014-dependency-free-charts.md), [0027](../adr/0027-totals-computed-server-side.md) |
+| Code | `web/app/pages/index.vue`, `web/app/composables/useTotals.ts`, `web/app/lib/totals-map.ts`, `web/app/lib/aggregate.ts` (fallback path), `web/app/lib/format.ts`, `web/app/lib/measurement-quality.ts`, `web/app/lib/agents.ts`, `web/app/components/charts/StackedBarChart.vue`, `web/app/components/dashboard/*.vue`, `pocketbase/pb_hooks/totals.pb.js`, `pocketbase/pb_hooks/lib/totals-query.js` |
+| Tests | `web/tests/totals-map.test.ts`, `web/tests/totals-equivalence.test.ts`, `pocketbase/pb_hooks/lib/totals-query.test.js`, `web/tests/aggregate.test.ts`, `web/tests/format.test.ts`, `web/tests/measurement-quality.test.ts`, `web/e2e/polish.spec.ts`, `web/e2e/agent-quality.spec.ts`, `web/e2e/smoke.spec.ts` |
 
 ## Purpose
 
@@ -18,9 +18,15 @@ kankaku already resolved.
 
 ## Requirements
 
-1. `DASH-REQ-001` — Every total on the dashboard SHALL be computed by
-   `app/lib/aggregate.ts` (`sumTaskEntries`/`groupByKey` and its
-   specializations) over `task_entries` rows only.
+1. `DASH-REQ-001` — Every total on the dashboard SHALL be computed over
+   `task_entries` rows only (never `work_records`), by the server
+   (`POST /api/kankaku/totals`, `SUM`/`COUNT`/`MIN`/`MAX` in SQL —
+   [ADR 0027](../adr/0027-totals-computed-server-side.md)) when that
+   route is available, or by `app/lib/aggregate.ts`
+   (`sumTaskEntries`/`groupByKey` and its specializations) as a
+   client-side fallback when it is not (`DASH-REQ-014`) — the two SHALL
+   produce identical results for the same rows
+   (`web/tests/totals-equivalence.test.ts`).
 2. `DASH-REQ-002` — The dashboard SHALL support a date-range filter and
    compute a comparison against the equivalent previous period.
 3. `DASH-REQ-003` — The dashboard SHALL provide a toggle to include or
@@ -68,6 +74,12 @@ kankaku already resolved.
     [ADR 0026](../adr/0026-day-boundaries-are-local.md) and
     `docs/contract.md` "Day boundaries are local, not UTC". Found by an
     independent review on 2026-09-21.
+14. `DASH-REQ-014` — When `POST /api/kankaku/totals` responds `404` (the
+    owner has not yet restarted PocketBase to load the route), the
+    dashboard SHALL fall back to the pre-existing client-side
+    `getFullList`+`app/lib/aggregate.ts` path silently — no error toast,
+    same numbers, only a slower load — rather than showing a broken or
+    empty dashboard.
 
 ## Scenarios
 
@@ -76,6 +88,26 @@ kankaku already resolved.
 - **Given** a task_entries row and a work_records child with a different `wall_ms`
 - **When** the dashboard computes its total work time
 - **Then** the total reflects only the `task_entries` row's value
+
+### Scenario: the server and the client-side fallback agree exactly (`DASH-REQ-001`, `DASH-REQ-014`)
+
+- **Given** the same set of `task_entries` rows, fetched two ways: raw
+  rows summed by `app/lib/aggregate.ts`, and `POST
+  /api/kankaku/totals`'s response for the same filters
+- **When** both are compared (`web/tests/totals-equivalence.test.ts`,
+  run against a live isolated instance)
+- **Then** every KPI figure (ms, tokens: exact; cost: float tolerance)
+  matches, across `group_by=none/client/project/day`, three time zones,
+  and a DST-transition week
+
+### Scenario: the dashboard falls back silently when the totals route is missing (`DASH-REQ-014`)
+
+- **Given** PocketBase is serving without `pocketbase/pb_hooks/totals.pb.js`
+  loaded (the owner hasn't restarted since this feature shipped)
+- **When** the dashboard loads
+- **Then** it shows the same KPIs/charts/breakdowns via the client-side
+  fallback path, with no error toast and no visible difference to the
+  owner
 
 ### Scenario: excluding Sin determinar changes every total consistently (`DASH-REQ-003`)
 
@@ -143,7 +175,7 @@ None beyond the shared PocketBase connection
 
 | Requirement | Proof | Status |
 |---|---|---|
-| `DASH-REQ-001` | `web/tests/aggregate.test.ts` | covered |
+| `DASH-REQ-001` | `web/tests/aggregate.test.ts` (fallback path), `web/tests/totals-map.test.ts` + `pocketbase/pb_hooks/lib/totals-query.test.js` (server path), `web/tests/totals-equivalence.test.ts` (both paths agree, live-server-gated) | covered |
 | `DASH-REQ-002` | `web/tests/period.test.ts` | covered |
 | `DASH-REQ-003` | `web/tests/aggregate.test.ts` | covered |
 | `DASH-REQ-004` | `web/e2e/polish.spec.ts` | covered |
@@ -156,3 +188,4 @@ None beyond the shared PocketBase connection
 | `DASH-REQ-011` | `web/tests/measurement-quality.test.ts` (`summarizeWorkTimeQuality`), `web/e2e/agent-quality.spec.ts` (notice visibility + exact count, hidden when filtered); the drill-down link's exact target query is not separately exercised | partial |
 | `DASH-REQ-012` | `web/tests/measurement-quality.test.ts` (`computeAverageCost`) | covered |
 | `DASH-REQ-013` | `web/tests/local-day.test.ts` (UTC+9, UTC-8, UTC, DST transition); `web/e2e/day-boundary.spec.ts` (Asia/Tokyo, America/Los_Angeles browser timezone, dashboard + entries explorer + project detail agreement) | covered |
+| `DASH-REQ-014` | `web/app/composables/useTotals.ts`'s `TotalsRouteUnavailableError` catch in `pages/index.vue`; manually verified against an isolated PocketBase instance serving without `totals.pb.js` loaded (404 confirmed, fallback path exercised) — not yet covered by an automated Playwright test | partial |

@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
-| Code | `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/components/tasks/TaskDetailSheet.vue` |
-| Tests | `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts` |
+| Code | `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/composables/useTotals.ts`, `web/app/lib/totals-map.ts`, `web/app/components/tasks/TaskDetailSheet.vue`, `pocketbase/pb_hooks/totals.pb.js` |
+| Tests | `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts`, `web/tests/totals-map.test.ts`, `web/tests/totals-equivalence.test.ts` |
 
 ## Purpose
 
@@ -39,9 +39,16 @@ the future.
    unaffected. The id is kept so history stays traceable.)
 5. `TASKS-REQ-005` — A list view SHALL be available as an alternative to
    the board.
-6. `TASKS-REQ-006` — Each task SHALL show its accumulated cost/time,
-   derived from its linked `task_entries` rows via the D6-guarded
-   aggregation module.
+6. `TASKS-REQ-006` — Each task SHALL show its accumulated ALL-TIME cost/
+   time/session-count, computed server-side over its linked
+   `task_entries` rows (`POST /api/kankaku/totals`, `group_by: "task"` —
+   [ADR 0027](../adr/0027-totals-computed-server-side.md)) when that
+   route is available, or via the D6-guarded client-side aggregation
+   module (`app/lib/aggregate.ts`, fetching every `task_entries` row with
+   no date filter) as a fallback when it is not. This was previously the
+   single worst unbounded fetch in the web (no date filter, grows with
+   every prompt the owner ever runs) — see this feature's final report
+   for the measured before/after.
 7. `TASKS-REQ-007` — Clicking a board card SHALL open a task detail sheet
    showing the task's title/project/status and every kankaku session that
    touched it, grouped by `session_id` from that task's `task_entries`
@@ -179,7 +186,7 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-003` | code review (`useTasks.moveStatus`); not directly exercised by an automated test found in this pass | not covered |
 | `TASKS-REQ-004` | reversed 2026-09-20 — see the note on the requirement and `TASKS-REQ-011`/`TASKS-REQ-012` | reversed |
 | `TASKS-REQ-005` | `web/e2e/smoke.spec.ts` | covered |
-| `TASKS-REQ-006` | `web/tests/aggregate.test.ts` | covered |
+| `TASKS-REQ-006` | `web/tests/aggregate.test.ts` (fallback path), `web/tests/totals-map.test.ts` + `pocketbase/pb_hooks/lib/totals-query.test.js` (server path), `web/tests/totals-equivalence.test.ts` (both agree); `web/e2e/task-status.spec.ts` exercises the board rendering these totals end-to-end | covered |
 | `TASKS-REQ-007` | `web/e2e/session-resume.spec.ts` ("task detail sheet lists its sessions") | covered |
 | `TASKS-REQ-008` | `web/e2e/session-resume.spec.ts` (session totals + resume command asserted) | covered |
 | `TASKS-REQ-009` | code review (`pages/tasks/index.vue#sessionCountByTask`); the chip itself is not asserted by the e2e spec above | not covered by an automated test found in this pass |

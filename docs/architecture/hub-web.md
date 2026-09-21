@@ -118,6 +118,56 @@ local day before it becomes a chart bucket key — never a raw string slice
 of either. See [ADR 0026](../adr/0026-day-boundaries-are-local.md) and
 `docs/contract.md` "Day boundaries are local, not UTC".
 
+## Totals: the server sums, the browser displays
+
+`app/composables/useTotals.ts` (`fetchTotals`/`fetchRangeTotals`) and the
+pure response mapper `app/lib/totals-map.ts` are the web's client for
+`POST /api/kankaku/totals` (`docs/contract.md`,
+[ADR 0027](../adr/0027-totals-computed-server-side.md)) — every screen
+that used to `getFullList()` a whole row set and sum it client-side
+should call this instead. `totals-map.ts` carries the same D6 guard
+comment as `aggregate.ts`: it only reshapes numbers the server already
+summed, it never sums anything itself.
+
+**Migrated to the totals endpoint** (with a fallback — see below):
+
+- `pages/index.vue` (the dashboard) — KPIs and the previous-period
+  comparison (`group_by: "none"`, two calls), the breakdown-by-client/
+  breakdown-by-project tables (`group_by: "client"`/`"project"`), the
+  agent filter's option list (`group_by: "agent"`), and the local-day
+  chart (`group_by: "day"`, via `local-day.ts#buildLocalDayBoundaries`).
+  "Most expensive entries" stays a lean `getList(1, 10, { sort: '-cost',
+  fields: 'id,client,project,cost,work_ms,model' })` — a total was never
+  the right tool for a top-10 row list. The stacked-by-client/
+  stacked-by-project chart view fans out to at most 5 extra
+  `group_by: "day"` calls (one per top-5 series, filtered to that one
+  client/project) rather than adding a two-dimensional `group_by` to the
+  server — see ADR 0027 "Alternatives considered".
+- `pages/tasks/index.vue` (the tasks board) — the all-time per-task
+  totals and per-task session-count chip, previously `useTaskEntries
+  .fetchAll()` (no date filter — the worst offender this feature fixes)
+  followed by `groupByKey`, now one `group_by: "task"` call reading
+  `distinct_sessions` directly off each group.
+
+**Left on the pre-totals path** (each already bounded or small relative
+to the two screens above, or genuinely out of this change's time budget
+— see this feature's final report for the per-screen reasoning, not
+repeated here so this doc doesn't go stale independently of that report):
+`pages/projects/[id].vue`'s KPIs/trend, `useSessions.fetchUnassignedSessions`
+(the sessions-without-task queue) and `fetchSessionsForTask` (the task
+detail sheet), `useUnassignedQueue.fetchUnassigned`, and
+`useEntriesExplorer.listAgents`. All four still work exactly as before;
+migrating them is a mechanical repeat of the `useTotals()` pattern above,
+not a new design.
+
+**Fallback (route not loaded yet)**: `useTotals.fetchTotals` throws
+`TotalsRouteUnavailableError` on a `404` specifically (the owner hasn't
+restarted PocketBase since this feature shipped — the hook/migration
+only take effect after a restart). Every migrated call site catches that
+exact error type and falls back to the previous client-side
+`getFullList`+`aggregate.ts` path — silently, no error toast, same
+numbers, just slower until the restart happens.
+
 ## Unassigned queue
 
 `app/composables/useUnassignedQueue.ts`: fetches every `task_entries` row
@@ -127,8 +177,16 @@ rather than string concatenation, since both fields routinely contain spaces
 and would corrupt a naive delimiter join. Bulk reassignment
 (`bulkAssign`) uses PocketBase's batch API (`$pb.createBatch()`), chunked at
 50 rows (server caps a single `/api/batch` call at 100 sub-requests), with
-per-chunk progress reporting and per-request status checking (the batch
-endpoint does not fail the whole call for one bad sub-request).
+per-chunk progress reporting. **Correction** (verified against a real
+running PocketBase 0.40.4 instance while building the totals endpoint
+below — see `pocketbase/seed/bulk.js`'s header comment): `/api/batch`
+runs as a single DB transaction per call — one failing sub-request rolls
+back the WHOLE chunk and the endpoint returns one top-level `400`, never
+a `200` with independent per-item statuses. `bulkAssign`'s `catch` branch
+already handles this correctly (marks the whole chunk failed); a
+previous version of this doc and these composables' own comments
+incorrectly described the batch endpoint as returning independent
+per-request results.
 `app/lib/suggest-client.ts` additionally proposes a pre-filled client for
 each group by **exact** normalized match (lowercase, no spaces/punctuation/
 accents) against a client's name or code — deliberately conservative: it

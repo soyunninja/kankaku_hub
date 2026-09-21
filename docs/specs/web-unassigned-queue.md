@@ -15,6 +15,19 @@ The screen that pays for the backfill design ([ADR 0012](../adr/0012-historical-
 lets the owner bulk-reassign `task_entries` rows currently pointed at "Sin
 determinar" to their real client.
 
+**Server-side totals status** ([ADR 0027](../adr/0027-totals-computed-server-side.md)):
+`useUnassignedQueue.fetchUnassigned` still fetches every "Sin determinar"
+row with `getFullList` and groups it client-side
+(`app/lib/aggregate.ts#groupUnassigned`) — NOT yet migrated to `POST
+/api/kankaku/totals`'s `group_by: "legacy_label"` mode, which groups by
+the same `(legacy_client_label, repo_project)` key server-side. This
+queue is expected to be small in practice (the owner triages it as it
+grows, per `UNASSIGNED-REQ-001`'s own framing) and was not one of the two
+worst unbounded-fetch offenders this feature targeted; migrating it is a
+mechanical repeat of the `useTotals()` pattern, deferred for time. Row
+expansion within a group (viewing/selecting individual entries) would
+stay on `getList` server paging regardless, per this feature's design.
+
 ## Requirements
 
 1. `UNASSIGNED-REQ-001` — The queue SHALL fetch every `task_entries` row

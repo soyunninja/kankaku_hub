@@ -485,6 +485,143 @@ before filtering (see `web/app/lib/local-day.ts` for the reference
 implementation — DST-correct, via `Intl`, not a fixed offset) rather than
 string-concatenating a local date onto a `Z`-suffixed instant.
 
+## `POST /api/kankaku/totals`
+
+Server-side aggregation over `task_entries` (D6: `SUM`/`COUNT`/`MIN`/
+`MAX` only, never `work_records`) — see
+[`architecture/hub-backend.md`](architecture/hub-backend.md#the-totals-endpoint)
+and [ADR 0027](adr/0027-totals-computed-server-side.md) for the design.
+**Not** part of the sync client's contract — this is the web dashboard's
+route, authenticated the same way as every other collection (any
+authenticated user, owner or service, may call it; there is no
+`role: 'owner'` gate — it exposes nothing a caller couldn't already
+reconstruct by listing `task_entries` itself).
+
+Request body (every field optional except `group_by` implicitly
+defaulting to `"none"`):
+
+```json
+{
+  "from": "2026-06-01 00:00:00.000Z",
+  "to": "2026-09-21 23:59:59.999Z",
+  "filters": {
+    "client": "<id>", "project": "<id>", "task": "<id>", "agent": "pi",
+    "status": "completed", "machine": "<name>", "session_id": "<id>",
+    "unassigned_only": true, "without_task": true,
+    "exclude_unassigned_client": "<id>"
+  },
+  "group_by": "none | day | client | project | task | session | agent | model | legacy_label",
+  "day_boundaries": ["...UTC instant...", "..."],
+  "sort": "-cost",
+  "page": 1,
+  "per_page": 50
+}
+```
+
+- `from`/`to` — UTC instant strings, PocketBase's stored form
+  (`YYYY-MM-DD HH:MM:SS.mmmZ`, space or `T` separator both accepted, always
+  normalized to space form before comparison) or omitted for an all-time
+  total.
+- `filters` — a fixed whitelist (`client`, `project`, `task`, `agent`,
+  `status`, `machine`, `session_id`, `unassigned_only`, `without_task`,
+  `exclude_unassigned_client`); any other key is a `400`.
+  `agent: ""` matches rows with no reported agent (the `LEGACY_AGENT`
+  sentinel case, see `app/lib/measurement-quality.ts`).
+  `unassigned_only: true` requires `filters.client` to also be set (`400
+  unassigned_only_requires_client` otherwise) — it documents intent
+  rather than adding SQL beyond the `client` equality already applied.
+- `group_by` — one of the 9 listed values; anything else is a `400`.
+  This is a fixed server-side whitelist mapped to a hard-coded SQL
+  fragment — request text is never used as a SQL identifier.
+- `day_boundaries` — required (and only valid) when `group_by: "day"`: an
+  array of **local-day boundary UTC instants** the CALLER computes (see
+  "Day boundaries are local, not UTC" above —
+  `web/app/lib/local-day.ts#buildLocalDayBoundaries` is the reference
+  implementation), strictly increasing, 2-401 entries (≤400 buckets). Row
+  `N` (`0`-indexed) covers `[day_boundaries[N], day_boundaries[N+1])`; the
+  response's `group_key` for a day bucket is that index as text
+  (`"0"`, `"1"`, ...) — the caller maps it back to a label using the same
+  array it sent.
+- `sort` — one of `-cost`/`cost`/`-entries`/`entries`/`-wall_ms`/`wall_ms`/
+  `-work_ms`/`work_ms`/`-waiting_ms`/`waiting_ms`/`-group_key`/`group_key`/
+  `-min_started_at`/`min_started_at`/`-max_ended_at`/`max_ended_at`,
+  default `-cost`. Anything else is a `400` (same whitelist-to-fragment
+  rule as `group_by`).
+- `page`/`per_page` — 1-based, `per_page` capped at 200.
+
+Response shape:
+
+```json
+{
+  "groups": [ { "...": "one row per group_by value, see below" } ],
+  "total": { "...": "grand total over the WHOLE filtered set, ungrouped" },
+  "page": 1,
+  "per_page": 50,
+  "total_groups": 7,
+  "total_pages": 4
+}
+```
+
+`total` and every entry in `groups` share the same measurement-honesty
+fields (`docs/contract.md` "Agent and measurement quality"): `entries`,
+`wall_ms`, `work_ms`, `waiting_ms`, `input`, `output`, `cache_read`,
+`cache_write`, `cost`, `waiting_unavailable_entries`,
+`cost_unknown_entries`, `cost_estimated_entries`, `cost_known_entries`,
+`cost_known_sum` (so `cost_known_sum / cost_known_entries` reproduces
+`app/lib/measurement-quality.ts#computeAverageCost`'s average exactly —
+it excludes `cost_quality: "unknown"` rows the same way), `unlinked_entries`,
+and `distinct_sessions` (`COUNT(DISTINCT session_id)`, used by the tasks
+board's per-task session-count chip). Each `groups[]` entry additionally
+carries `group_key`/`group_key2` (the group's identity — `group_key2` is
+only non-empty for `group_by: "legacy_label"`, which groups by
+`(legacy_client_label, repo_project)`), and the `group_by: "session"`-only
+fields `session_name` (the session's latest non-empty `session_name`),
+`min_started_at`/`max_ended_at`, `machine` (the most-recently-started
+row's `machine`), and `distinct_client`/`sample_client`,
+`distinct_project`/`sample_project`, `distinct_task`/`sample_task`,
+`distinct_agent`/`sample_agent` (a `distinct_* > 1` means the session's
+rows disagree on that field — display "mixed"; otherwise `sample_*` is
+the unanimous value). These five field pairs are present but empty/zero
+for every other `group_by`, so every response shares one fixed column
+shape.
+
+Captured against PocketBase 0.40.4 on an isolated instance with 100k
+synthetic `task_entries` rows (`pocketbase/seed/bulk.js`), authenticated
+as the `owner` account, 2026-09-21:
+
+`POST /api/kankaku/totals` with `{"from": "2026-06-01 00:00:00.000Z",
+"to": "2026-09-21 23:59:59.999Z", "group_by": "none"}` → `200`:
+
+```json
+{"total_pages":0,"groups":[],"total":{"entries":10793,"wall_ms":21821190560,"work_ms":19177877530,"waiting_ms":2643313030,"input":105739354,"output":42822626,"cache_read":31201005,"cache_write":11667596,"cost":21514.336682,"waiting_unavailable_entries":1738,"cost_unknown_entries":1705,"cost_estimated_entries":1759,"cost_known_entries":9088,"cost_known_sum":21514.336682,"unlinked_entries":2548,"distinct_sessions":3343},"page":1,"per_page":50,"total_groups":0}
+```
+
+(`total_pages`/`total_groups` are `0` for `group_by: "none"` — there is
+exactly one ungrouped total, not a list of groups.)
+
+`POST /api/kankaku/totals` with `{"group_by": "bogus"}` → `400`:
+
+```json
+{"data":{"errors":["invalid_group_by"]},"message":"Invalid totals request.","status":400}
+```
+
+No `Authorization` header → `401`:
+
+```json
+{"data":{},"message":"The request requires valid record authorization token.","status":401}
+```
+
+### Client fallback (the route may not exist yet)
+
+This route ships alongside a new migration
+(`1758300019_task_entries_totals_indexes.js`) and hook file
+(`pocketbase/pb_hooks/totals.pb.js`) that only take effect after the
+owner restarts PocketBase. Until then, `POST /api/kankaku/totals` 404s.
+Every web call site catches that specific status and falls back to the
+pre-existing client-side `getFullList`+sum path — silently, no error
+shown to the owner (`web/app/composables/useTotals.ts`'s
+`TotalsRouteUnavailableError`).
+
 ## Gotchas for the sync client author
 
 - `date` fields accept and return `"YYYY-MM-DD HH:MM:SS.mmmZ"` (space, not

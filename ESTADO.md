@@ -59,6 +59,38 @@ web, cero JavaScript, sin peticiones a terceros.
 **Documentación (`docs/`)** — especificaciones con requisitos numerados, ADR,
 fases, runbooks. Empieza por `docs/RESUMEN.es.md`.
 
+## Totales calculados en el servidor (21-09, tarde)
+
+La web pedía filas enteras de `task_entries` y las sumaba en el navegador. El
+peor caso era el tablero de Tareas: sin filtro de fecha, pedía TODA la tabla
+cada vez que lo abrías (crece con cada prompt que ejecutes, para siempre).
+Ahora una ruta nueva de PocketBase, `POST /api/kankaku/totals`, hace la suma
+en SQLite y el navegador solo pide filas para pintarlas — ver
+`docs/adr/0027-totals-computed-server-side.md`.
+
+**Medido con 100 000 filas sintéticas** (`node pocketbase/seed/bulk.js`, nunca
+contra tu base de datos real): el tablero de Tareas pasó de pedir ~26 MB y
+tardar varios segundos a una llamada de ~200 ms que pesa unas decenas de KB.
+El Panel (rango de 90 días) baja de varios MB a un puñado de KB y de cientos
+de ms a 10-60 ms. La única cifra que se queda por encima del objetivo que me
+puse (150 ms) es precisamente ese caso "sin filtro de fecha" del tablero de
+Tareas y el desglose por sesión sin filtro (~200-330 ms) — sigue siendo
+20-25× más rápido que antes, solo que no llega al número redondo que quería.
+
+**Migrado:** Panel (KPIs, comparación, gráfico, desgloses, filtro de agente),
+tablero de Tareas (coste/tiempo acumulado por tarea, todo el tiempo). **Sin
+migrar todavía** (ya estaban acotadas, no eran el problema urgente): detalle
+de proyecto, cola de "Sesiones sin tarea", cola de Sin determinar, filtro de
+agente del explorador de Registros — seguirán funcionando exactamente igual,
+solo que sin el ahorro todavía.
+
+**Tienes que reiniciar PocketBase una vez** para que cargue el hook nuevo
+(`pocketbase/pb_hooks/totals.pb.js`) y la migración de índices
+(`1758300019`). Hasta que lo hagas, la web detecta que la ruta no existe (un
+404) y sigue usando el camino antiguo automáticamente — sin avisos de error,
+solo un poco más lento. `npm run dev:all` ya reinicia PocketBase por ti la
+próxima vez que lo pares y lo vuelvas a arrancar.
+
 ## Revisión independiente del 21-09 (todo arreglado)
 
 Una revisión adversaria de todo lo nuevo encontró:
@@ -90,9 +122,14 @@ Salió **limpio**: las reglas de acceso (incluida la API por lotes), el hook de
 
 ## Verificación
 
-- Web: `pnpm lint` 0 errores · `pnpm typecheck` limpio · **267** tests unitarios
-  · **109** pruebas de navegador · `pnpm generate` correcto.
-- Hooks: **52** tests (`npm run hooks:test`).
+- Web: `pnpm lint` 0 errores · `pnpm typecheck` limpio · **289** tests unitarios
+  (+21 de equivalencia servidor-vs-cliente, omitidas salvo que apuntes
+  `TOTALS_LIVE_PB_URL` a una instancia aislada) · **109** pruebas de
+  navegador (subconjunto de 18 re-verificado el 21-09 tras el cambio de
+  totales: 17 en verde, 1 falla por tiempo de espera al hacer capturas de
+  pantalla contra la base de 100k filas sintéticas, no por números
+  incorrectos) · `pnpm generate` correcto.
+- Hooks: **85** tests (`npm run hooks:test`; +33 de la ruta de totales).
 - Web pública: build limpio, idiomas y enlaces verificados, **37** pruebas
   contra el build real.
 - Las pruebas que escriben **se niegan a escribir** salvo con
@@ -109,8 +146,11 @@ Salió **limpio**: las reglas de acceso (incluida la API por lotes), el hook de
   oficiales de shadcn-vue, tomados del registro porque su CLI se cuelga con
   pnpm 10.34).
 - 19 avisos de ESLint del estilo de los componentes del registro. No son errores.
-- A 90 días de datos la web pide las entradas sin paginar en el servidor; bien
-  con datos de ejemplo, a revisar cuando haya volumen real.
+- El Panel y el tablero de Tareas ya no piden filas sin paginar (ver "Totales
+  calculados en el servidor" arriba); detalle de proyecto, la cola de
+  "Sesiones sin tarea", Sin determinar y el filtro de agente de Registros
+  siguen pidiendo filas enteras — acotadas, no urgentes, pendientes de migrar
+  al mismo patrón.
 - Despliegue en VPS: previsto y sin ejecutar (`docs/runbooks/deploy-to-vps.md`).
   **Antes de exponerlo:** cuentas nuevas con contraseñas de verdad, HTTPS, y
   releer la sección de seguridad de ese runbook.

@@ -5,7 +5,7 @@
 | Status | implemented |
 | Phase | [phase-0-foundation](../phases/phase-0-foundation.md), [phase-2-sync-push](../phases/phase-2-sync-push.md) |
 | Owners repos | kankaku-hub |
-| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md), [0019](../adr/0019-hub-fetches-and-stores-client-favicons.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
+| Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0006](../adr/0006-aggregation-rule-lives-once-in-kankaku.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md), [0019](../adr/0019-hub-fetches-and-stores-client-favicons.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md), [0027](../adr/0027-totals-computed-server-side.md) |
 | Code | `kankaku-hub/pocketbase/pb_migrations/*.js` |
 | Tests | manual verification recorded in `kankaku-hub/ESTADO.md` (migrate up/down round-trip, seed idempotency, unique-constraint, auth rules) |
 
@@ -120,6 +120,24 @@ surface captured from real requests.
     slugs (see [`../contract.md`](../contract.md) "Agent and measurement
     quality"); `'~none'` cannot be one, so it is collision-proof by
     construction. Found by an independent review on 2026-09-21.
+20. `SCHEMA-REQ-020` — `POST /api/kankaku/totals`
+    (`pocketbase/pb_hooks/totals.pb.js`) SHALL require the same
+    authentication `task_entries`' own `list`/`view` rule requires
+    (`@request.auth.id != ''` — any authenticated role, `401` otherwise),
+    grant no privilege `task_entries` itself doesn't already grant, and
+    expose no information beyond what the caller could reconstruct by
+    listing `task_entries` directly. Every `group_by`/`sort`/filter key
+    SHALL resolve through a fixed server-side whitelist to a hard-coded
+    SQL fragment — request text SHALL NEVER become a SQL identifier or be
+    concatenated into a query string; every value SHALL be a bound
+    parameter. `day_boundaries` SHALL be capped at 400 entries, `per_page`
+    at 200, and the request body size SHALL be bounded. New indexes
+    (migration `1758300019_task_entries_totals_indexes.js`) SHALL exist
+    for every `group_by` dimension the pre-existing indexes didn't
+    already cover (`task`, `session_id`, `model`,
+    `(legacy_client_label, repo_project)`). See
+    [ADR 0027](../adr/0027-totals-computed-server-side.md) and
+    [`../contract.md`](../contract.md#post-apikankakutotals).
 
 ## Scenarios
 
@@ -282,3 +300,4 @@ full field tables per collection.
 | `SCHEMA-REQ-017` | `pocketbase/pb_hooks/task-auto-doing.pb.js`, `pocketbase/pb_hooks/lib/task-status-rule.js`; unit tests `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`) | partially covered — the unit tests prove the pure `open`→`doing` decision rule only; the hook integration (the actual PocketBase-level trigger on `task_entries` create/update, and the `service`-role `tasks` PATCH rejection) is covered by a manual/e2e check, not by these unit tests alone |
 | `SCHEMA-REQ-018` | migration `1758300016_task_entries_session_dir.js`; resume-command wiring proven by `web/tests/session-resume.test.ts`/`web/tests/session-aggregate.test.ts` (see `web-sessions.md` `SESSIONS-REQ-019`); migrate up/down round-trip not separately exercised by an automated test found in this pass | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-019` | migration `1758300018_task_entries_daily_totals_sentinel.js`; applied and its `viewQuery` inspected on an isolated instance (2026-09-21) | not covered by an automated test found in this pass |
+| `SCHEMA-REQ-020` | `pocketbase/pb_hooks/lib/totals-query.test.js` (33 unit tests: acceptance, unknown-param/injection rejection, oversized/malformed input, whitelist-only SQL); `401`/`400` responses and index usage (`EXPLAIN QUERY PLAN`) verified manually against a 100k-row isolated instance per this feature's final report | covered |

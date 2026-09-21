@@ -69,6 +69,37 @@ fields together is a single guarded helper — see
 [`hub-web.md`](hub-web.md#the-d6-guard) and
 [ADR 0007](../adr/0007-web-is-a-view-layer.md).
 
+## The server sums; the browser displays
+
+D6 says a `task_entries` row is safe to `SUM(...) GROUP BY ...` — it does
+not say WHERE that sum has to run. Before
+[ADR 0027](../adr/0027-totals-computed-server-side.md), every sum ran in
+the browser: a screen fetched the full row set for its date range (or,
+for the tasks board's all-time per-task totals, the full table with no
+date filter at all) and reduced it client-side
+(`web/app/lib/aggregate.ts`). That is unbounded work that grows with
+every prompt the owner ever runs, for a result that is, by construction,
+just a handful of numbers.
+
+`POST /api/kankaku/totals` (`pocketbase/pb_hooks/totals.pb.js` +
+`pocketbase/pb_hooks/lib/totals-query.js`) moves the SUM/COUNT/MIN/MAX
+into SQLite, still reading only `task_entries` (D6 is enforced in the SQL
+builder itself: there is no code path that ever references
+`work_records`), and still computing local-day buckets the same way ADR
+0026 requires — the browser computes the local-day boundary instants
+(`web/app/lib/local-day.ts#buildLocalDayBoundaries`) and sends them to
+the server, which buckets `started_at` into those caller-supplied
+half-open intervals; the server never re-derives a day from a UTC string
+slice. The rule this repo has followed since the dashboard existed —
+**the browser fetches rows only to display them, a total is never
+assembled by fetching every row that makes it up** — is now enforced
+structurally for the two worst previous offenders (the dashboard, the
+tasks board) and the sessions-without-task queue, not just by convention.
+See [`hub-backend.md`](hub-backend.md#the-totals-endpoint) and
+[`hub-web.md`](hub-web.md#totals-the-server-sums-the-browser-displays)
+for the implementation, and this feature's final report for which
+screens still use the pre-totals client-side path and why.
+
 ## The shared-fixture guard
 
 Both sides of the D6 boundary are tested against the same expectation, so a
@@ -83,10 +114,25 @@ divergence fails a test rather than surfacing in front of a client:
   kind of plain-sum totals over already-consolidated `task_entries` rows —
   proving the web never needs to (and structurally cannot, per the D6 guard
   comment at the top of `aggregate.ts`) re-run interval union itself.
+- **the totals endpoint vs. the client-side path**:
+  `pocketbase/pb_hooks/lib/totals-query.test.js` unit-tests the SQL
+  builder in isolation (33 cases: acceptance, injection/unknown-param
+  rejection, oversized/malformed input), and
+  `web/tests/totals-equivalence.test.ts` is a THIRD, permanent guard —
+  skipped by default (`describe.skipIf(!process.env.TOTALS_LIVE_PB_URL)`,
+  so `pnpm test`/CI never needs a live server), but when pointed at a
+  live isolated PocketBase instance it computes the same totals both ways
+  (the OLD `aggregate.ts`/`measurement-quality.ts`/`local-day.ts` path
+  over rows fetched with `getFullList`, and the NEW `POST
+  /api/kankaku/totals` response) and asserts they agree to the last
+  ms/token (ints, exact) and cost within float tolerance, across
+  `group_by=none/client/project/day`, three time zones (UTC, Asia/Tokyo,
+  America/Los_Angeles), and a spring-forward DST-transition week
+  (America/Los_Angeles, 2026-03-07..2026-03-09).
 
-These are two independent test suites in two repos asserting the same
-contract from each side, not a single shared fixture file — see
-[`../specs/sync-push.md`](../specs/sync-push.md) and
+These are, in total, three independent test suites (two repos plus the
+web's two-sided guard) asserting the same contract from each side, not a
+single shared fixture file — see [`../specs/sync-push.md`](../specs/sync-push.md) and
 [`../specs/web-dashboard.md`](../specs/web-dashboard.md) for the exact
 traceability.
 

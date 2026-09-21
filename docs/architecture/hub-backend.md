@@ -343,6 +343,128 @@ keeping them in sync with the script's canonical values is more useful
 than leaving old runs stale. "Sin determinar" is never touched by this
 script and keeps its contact fields empty.
 
+## The totals endpoint (`pocketbase/pb_hooks/totals.pb.js`)
+
+`POST /api/kankaku/totals` — server-side `SUM`/`COUNT`/`MIN`/`MAX` over
+`task_entries` (D6, never `work_records`), replacing the web's previous
+`getFullList()`+client-side-sum pattern for the dashboard, the tasks
+board's all-time per-task totals, and the sessions-without-task queue.
+See [`../contract.md`](../contract.md#post-apikankakutotals) for the
+full request/response contract and
+[ADR 0027](../adr/0027-totals-computed-server-side.md) for why.
+
+**Split into a route file and a pure lib**, same pattern as the favicon
+feature: `totals.pb.js` only wires `$app.db()` to
+`pocketbase/pb_hooks/lib/totals-query.js`, which does all request
+validation and SQL building as plain, PocketBase-free functions
+(`validateRequest`, `buildQueries`) — unit tested with
+`node --test`/`npm run hooks:test`
+(`pocketbase/pb_hooks/lib/totals-query.test.js`, 33 tests covering
+acceptance, unknown-param/injection-attempt rejection, oversized/malformed
+input, and the exact SQL/params `buildQueries` produces) independent of a
+running PocketBase instance.
+
+**The goja SQL API** (verified against a real running PocketBase 0.40.4
+instance — `docs/architecture/hub-backend.md`'s existing favicon-feature
+rule: "against the real binary, do not guess" applied again here):
+
+```js
+const rows = arrayOf(new DynamicModel({ group_key: "", cnt: 0, total: -0 }));
+$app.db().newQuery("SELECT ... FROM task_entries te WHERE ... GROUP BY ...")
+  .bind({ p_from: "...", p_client: "..." })
+  .all(rows);
+// rows is now populated in place — an array of plain objects.
+```
+
+- `arrayOf(new DynamicModel({...shape}))` pre-declares the result row
+  shape (Go's `.All(&slice)` out-parameter convention, adapted for
+  scripting) — every query in this route uses ONE of two fixed shapes
+  (`AGG_SHAPE` for a total, `GROUP_ROW_SHAPE` for a grouped row) so a
+  single `DynamicModel` declaration covers every `group_by` branch.
+  `-0` (not `0`) declares a float field (`cost`, `cost_known_sum`) — `0`
+  would declare an int field instead (documented `DynamicModel` caveat).
+- Named bind params (`{:name}` in the SQL, `.bind({name: value})`) work
+  exactly like the Go `dbx` package's documented syntax.
+- **`dbx` bind params do NOT support a JS array value for an `IN(...)`
+  clause** — confirmed by reproducing the failure, not assumed:
+  `.bind({ codes: ["a", "b"] })` against `WHERE code IN ({:codes})`
+  throws `GoError: sql: converting argument $1 type: unsupported type
+  []interface {}, a slice of interface`. Not needed by this route (every
+  filter is a scalar equality, and the day-bucket `CASE` binds one named
+  param per boundary instant — see `totals-query.js#buildDayCase` — never
+  an array), but worth recording so a future route doesn't rediscover
+  this the hard way. The fix, if ever needed: generate one named
+  placeholder per array element (`{:v0}, {:v1}, ...`) rather than a
+  single array-valued bind.
+- `EXPLAIN QUERY PLAN <sql>` works the same way, scanned into
+  `{ id, parent, notused, detail }` rows — used to verify index usage
+  while building this feature (see below), not shipped in the route
+  itself.
+
+**`COUNT(*) OVER()` for pagination** — the paginated "page" query
+carries `total_groups` as a window column
+(`CAST(COUNT(*) OVER() AS INTEGER) as total_groups_window`, computed over
+the full grouped result before `LIMIT`/`OFFSET` trims it), so the common
+case (a page within range) needs only 2 queries (grand total + page)
+instead of 3. The one case a window value can't attach to — a requested
+page past the last page, where `LIMIT`/`OFFSET` yields zero rows — falls
+back to a separate `groupCount` query (`totals-query.js` still builds
+it, unconditionally; `totals.pb.js` only runs it when `pageRows.length
+=== 0`).
+
+**Security**: `group_by`, `sort`, and every `filters` key are resolved
+through a fixed whitelist (`GROUP_BY_VALUES`, `SORT_SQL`, `FILTER_KEYS`
+in `totals-query.js`) to a hard-coded SQL fragment — request text is
+NEVER used as a SQL identifier or concatenated into the query string;
+every value is a bound `dbx` named parameter. Authentication is
+`$apis.requireAuth()` (any authenticated user, matching `task_entries`'
+own `list`/`view` rule — no new privilege). `day_boundaries` is capped at
+401 entries (400 buckets), `per_page` at 200, and the request body at
+~60 000 JSON-stringified characters. Unknown top-level or `filters` keys
+are rejected with `400` naming the offending key
+(`unknown_param:<name>`/`unknown_filter:<name>`).
+
+**Indexes** (migration `1758300019_task_entries_totals_indexes.js`):
+`(task, started_at)`, `(session_id, started_at)`, `(model, started_at)`,
+`(legacy_client_label, repo_project)` — the pre-existing `(project,
+started_at)`/`(client, started_at)`/`(started_at)`/`(agent, started_at)`
+indexes (migrations `1758300005`, `1758300013`) already covered the
+other `group_by` dimensions. Verified with `EXPLAIN QUERY PLAN` against
+a 100k-row isolated dataset (`pocketbase/seed/bulk.js`):
+
+| `group_by` | plan |
+|---|---|
+| `task` (no date filter — the tasks board's all-time case) | `SCAN te USING INDEX idx_task_entries_task_started` |
+| `client`, date-bounded | `SEARCH te USING INDEX idx_task_entries_started (started_at>? AND started_at<?)` + `TEMP B-TREE FOR GROUP BY` |
+| `session` | `SCAN te USING INDEX idx_task_entries_session_id` + `USING INDEX idx_ignored_sessions_session_id FOR IN-OPERATOR` + 4×`TEMP B-TREE FOR count(DISTINCT)` + 2 correlated scalar subqueries (`session_name`, `machine`), each `SEARCH ... USING INDEX idx_task_entries_session_id` |
+| `day`, date-bounded | `SEARCH te USING INDEX idx_task_entries_started` + `TEMP B-TREE FOR GROUP BY` |
+
+`group_by=session` is the most expensive shape by a clear margin (two
+correlated subqueries plus four `COUNT(DISTINCT ...)` aggregates per
+group) — see the measured latencies in this feature's final report.
+
+**Measured latency** (100k rows, isolated instance, 5-run median,
+server-observed via `process.hrtime` around the fetch, not the network
+round-trip):
+
+| Request | Median |
+|---|---|
+| `group_by: "none"`, 90-day range | 11 ms |
+| `group_by: "client"`, 90-day range | 25 ms |
+| `group_by: "session"`, 90-day range | 46 ms |
+| `group_by: "day"`, 90 buckets | 59 ms |
+| `group_by: "task"`, **all-time (no filter)** | 199 ms |
+| `group_by: "session"`, all-time | 330 ms |
+
+Every date-bounded call comfortably beats a 150 ms budget; the two
+all-time (no `WHERE` clause at all, nothing to index against) cases do
+not, because `task_entries` has no date-independent way to shrink the
+scan — see [ADR 0027](../adr/0027-totals-computed-server-side.md)
+"Consequences" and this feature's final report for the full before/after
+comparison against the client-side path it replaces (both all-time cases
+are still an order of magnitude faster and transfer orders of magnitude
+less than fetching and summing the full table client-side).
+
 ## Migrations policy
 
 `pocketbase/pb_migrations/*.js` files ARE the schema (`AGENTS.md`, "the
