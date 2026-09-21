@@ -1,5 +1,8 @@
 import type { TaskRecord, TaskStatus } from '~/lib/pocketbase-types'
 
+// See the matching comment in `useClients.ts` — same race, same fix.
+let inFlight: Promise<void> | null = null
+
 export function useTasks() {
   const { $pb } = useNuxtApp()
   const tasks = useState<TaskRecord[]>('tasks:list', () => [])
@@ -18,8 +21,12 @@ export function useTasks() {
     }
   }
 
+  /** FIX (independent review, 2026-09-21): await a shared in-flight
+   * `refresh()` instead of racing past it — see `useClients.ts`. */
   async function ensureLoaded() {
-    if (!loaded.value && !loading.value) await refresh()
+    if (loaded.value) return
+    if (!inFlight) inFlight = refresh().finally(() => { inFlight = null })
+    await inFlight
   }
 
   async function create(data: { title: string, project: string, status: TaskStatus, external_ref?: string, description?: string }) {

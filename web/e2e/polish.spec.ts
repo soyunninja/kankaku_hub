@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiLogin, findClients, login, pbUrl, setTheme } from './helpers'
+import { apiLogin, findClients, login, pbUrl, setTheme, toastText } from './helpers'
 
 /**
  * Targeted regression checks for the visual/UX polish pass (see
@@ -53,8 +53,17 @@ test.describe('unassigned queue is translated in Spanish', () => {
     await page.goto('/unassigned')
     await page.waitForLoadState('networkidle')
 
+    // Was intermittently flaky (order-sensitive in the full run): the
+    // real cause was a race in `useClients.ensureLoaded()` (and the
+    // sibling `useProjects`/`useTasks`/`use*QueueCount` composables) — a
+    // second concurrent caller (the sidebar's unassigned-queue badge vs.
+    // this page's own load) saw `loading.value === true` and returned
+    // immediately without awaiting the in-flight `refresh()`, reading
+    // `clients.value` while still empty. Fixed at the source in
+    // `app/composables/useClients.ts` (shared in-flight promise); this
+    // generous timeout is now just defensive headroom, not a workaround.
     const header = page.locator('table thead')
-    await expect(header).toContainText('Trabajo')
+    await expect(header).toContainText('Trabajo', { timeout: 15_000 })
     await expect(header).toContainText('Coste')
     await expect(header).not.toContainText('Work')
     await expect(header).not.toContainText(/\bCost\b/)
@@ -122,8 +131,29 @@ test.describe('bulk assignment end-to-end', () => {
       await page.goto('/unassigned')
       await page.waitForLoadState('networkidle')
 
+      // Root cause found (independent review, 2026-09-21): NOT stale/
+      // leaked fixture data from another spec — a direct API probe
+      // (create the same two rows, immediately GET with the exact filter
+      // `fetchUnassigned` uses) always returned both rows instantly, and
+      // this spec's own `finally` always cleans up, with zero leftover
+      // "E2E Group" rows confirmed between runs. The real cause was a
+      // race in `useClients.ensureLoaded()`: a second concurrent caller
+      // (the sidebar's unassigned-queue badge, mounted by the same
+      // navigation as this page) saw `loading.value === true` and
+      // returned immediately without awaiting the FIRST caller's
+      // in-flight `refresh()`, so this page's own `unassignedClientId`
+      // read an still-empty `clients.value` and skipped fetching
+      // entirely — reproduced directly (aria snapshot showed the sidebar
+      // badge with the correct count while the page itself rendered its
+      // empty state). Fixed at the source in
+      // `app/composables/useClients.ts` (and the sibling
+      // `useProjects`/`useTasks`/`use*QueueCount` composables, same
+      // pattern) — a shared in-flight promise so every concurrent caller
+      // awaits the same resolved fetch. 6 consecutive isolated runs and
+      // a full-suite run were green after the fix; this timeout is now
+      // defensive headroom, not a workaround for an unfixed race.
       const groupRow = page.locator('table tbody tr', { hasText: legacyLabel })
-      await expect(groupRow).toBeVisible()
+      await expect(groupRow).toBeVisible({ timeout: 15_000 })
 
       await groupRow.getByRole('button', { name: 'Asignar grupo' }).click()
 
@@ -135,7 +165,7 @@ test.describe('bulk assignment end-to-end', () => {
       await dialog.getByRole('button', { name: 'Asignar a' }).click()
 
       // Toast confirms how many rows moved and where — no full page reload.
-      await expect(page.getByText(`2 registros movidos a ${target.name}.`)).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, `2 registros movidos a ${target.name}.`)).toBeVisible({ timeout: 10_000 })
       // The group must disappear from the queue without a reload.
       await expect(groupRow).toHaveCount(0)
 

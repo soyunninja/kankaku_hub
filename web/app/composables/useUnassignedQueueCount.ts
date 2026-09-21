@@ -8,6 +8,9 @@
  * count is fetched (`getList(1, 1, ...)`), not the full row set the queue
  * page itself needs.
  */
+// See the matching comment in `useClients.ts` — same race, same fix.
+let inFlight: Promise<void> | null = null
+
 export function useUnassignedQueueCount() {
   const { $pb } = useNuxtApp()
   const { clients, ensureLoaded: ensureClients } = useClients()
@@ -36,8 +39,12 @@ export function useUnassignedQueueCount() {
     }
   }
 
+  /** FIX (independent review, 2026-09-21): await a shared in-flight
+   * `refresh()` instead of racing past it — see `useClients.ts`. */
   async function ensureLoaded() {
-    if (!loaded.value && !loading.value) await refresh()
+    if (loaded.value) return
+    if (!inFlight) inFlight = refresh().finally(() => { inFlight = null })
+    await inFlight
   }
 
   return { count, loading, ensureLoaded, refresh }

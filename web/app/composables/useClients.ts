@@ -12,6 +12,15 @@ export type FaviconRefreshResult =
 /** Clients catalog: small collection, fetched in full and cached in a
  * shared useState (refresh() re-fetches; components call it after
  * create/update/archive). */
+// Module-scoped (not `useState`, deliberately not reactive/SSR-shared):
+// tracks a single in-flight `refresh()` call so a second concurrent
+// `ensureLoaded()` caller AWAITS the same request instead of racing past
+// it — see the comment on `ensureLoaded` below for the bug this closes.
+// Safe as a plain module singleton because the web is `ssr: false` (one
+// browser tab = one JS realm; app/plugins/pocketbase.client.ts is the
+// only place a fresh `$pb` per request would otherwise matter).
+let inFlight: Promise<void> | null = null
+
 export function useClients() {
   const { $pb } = useNuxtApp()
   const clients = useState<ClientRecord[]>('clients:list', () => [])
@@ -30,8 +39,29 @@ export function useClients() {
     }
   }
 
+  /**
+   * FIX (independent review, 2026-09-21): two callers that both need the
+   * client list — e.g. the sidebar's unassigned-queue badge and the
+   * `/unassigned` page itself, both mounted by the same navigation —
+   * used to race here. `ensureLoaded()`'s guard only checked
+   * `!loaded.value && !loading.value`; the FIRST caller sets
+   * `loading.value = true` synchronously (before its own first
+   * `await`), so a SECOND caller invoked in the same tick sees
+   * `loading.value === true`, skips calling `refresh()` again (correct,
+   * no duplicate request), but then returned immediately without
+   * waiting for the FIRST caller's in-flight request to finish
+   * (incorrect) — so it read `clients.value` while it was still empty.
+   * On `/unassigned` this produced exactly the observed symptom: the
+   * sidebar badge (which won the race and actually fetched) showed the
+   * correct count, while the page itself (which lost the race and
+   * read the stale empty array) rendered the empty state. Awaiting the
+   * shared `inFlight` promise makes every concurrent caller wait for
+   * the SAME resolved fetch, never a stale read.
+   */
   async function ensureLoaded() {
-    if (!loaded.value && !loading.value) await refresh()
+    if (loaded.value) return
+    if (!inFlight) inFlight = refresh().finally(() => { inFlight = null })
+    await inFlight
   }
 
   async function create(data: { name: string, code: string, active: boolean, unassigned: boolean } & Partial<ClientContactFields>) {

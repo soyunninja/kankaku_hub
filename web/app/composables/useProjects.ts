@@ -1,5 +1,8 @@
 import type { ProjectRecord } from '~/lib/pocketbase-types'
 
+// See the matching comment in `useClients.ts` — same race, same fix.
+let inFlight: Promise<void> | null = null
+
 export function useProjects() {
   const { $pb } = useNuxtApp()
   const projects = useState<ProjectRecord[]>('projects:list', () => [])
@@ -18,8 +21,12 @@ export function useProjects() {
     }
   }
 
+  /** FIX (independent review, 2026-09-21): await a shared in-flight
+   * `refresh()` instead of racing past it — see `useClients.ts`. */
   async function ensureLoaded() {
-    if (!loaded.value && !loading.value) await refresh()
+    if (loaded.value) return
+    if (!inFlight) inFlight = refresh().finally(() => { inFlight = null })
+    await inFlight
   }
 
   async function create(data: { name: string, client: string, code?: string, repo_paths?: string[], active: boolean }) {
