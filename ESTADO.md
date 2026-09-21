@@ -153,6 +153,101 @@ Estado de la extensión de pi: `~/desarrollo/soyun.ninja/kankaku/ESTADO.md`.
   snippet de conexión con el origen actual, comando `pi -e` para cargar
   esta rama). Ver `docs/specs/web-commands-reference.md`.
 
+> **Acción pendiente del dueño (revisión independiente del 21-09)**: dos
+> migraciones nuevas de seguridad ya aplicadas por el coordinador
+> (`3b84967`, `0745f5a` — ver la sección de abajo) más una nueva,
+> `1758300018_task_entries_daily_totals_sentinel.js`, que corrige un
+> centinela colisionable en la vista `task_entries_daily_totals`. Como
+> siempre, **reinicia `npm run dev:all` una vez** para que PocketBase
+> aplique todo lo pendiente de un tirón.
+
+## Revisión independiente del 21-09
+
+Una revisión independiente encontró 10 hallazgos (2 de seguridad, ya
+corregidos antes por el coordinador — la escalada `service`→`owner`
+[`3b84967`] y el bypass SSRF del punto final [`0745f5a`] — y estos 8,
+corregidos en esta sesión):
+
+1. **MAYOR — límites de día en hora local pero sellados como UTC.**
+   `useTaskEntries.fetchRange` y el filtro de fecha de la exploradora de
+   registros trataban `"YYYY-MM-DD"` (calculado en hora LOCAL por
+   `app/lib/period.ts`) como si ya fuera UTC; el gráfico del panel y de
+   detalle de proyecto además agrupaban por día cortando el string UTC
+   crudo. Arreglo: `web/app/lib/local-day.ts`, un módulo puro
+   (verificado con Vitest en UTC+9, UTC-8, UTC y un día de cambio de
+   horario de verano) que convierte límites de día local a instantes UTC
+   vía `Intl` (correcto en DST, no un offset fijo) y viceversa. La vista
+   `task_entries_daily_totals` sigue sin usarse desde la web para nada
+   con etiqueta de día (nunca lo estuvo) — se documenta así en
+   `docs/contract.md` y `docs/architecture/hub-web.md`; ver
+   [ADR 0026](docs/adr/0026-day-boundaries-are-local.md). Coste a 90 días:
+   la web sigue trayendo filas crudas de `task_entries` (no agregados
+   server-side) — a 90 días de datos reales esto puede ser miles de
+   filas; el `fields=` ya proyectado reduce el payload, pero una
+   paginación/agregación server-side queda como trabajo futuro si el
+   volumen crece mucho (fuera de alcance de esta revisión).
+2. **MAYOR — promedio de coste "a mano" en detalle de proyecto.**
+   `totals.cost / totals.count` incluía filas con `cost_quality:
+   "unknown"` (coste 0 real) en el promedio. Ahora usa el mismo
+   `computeAverageCost()` que el panel.
+3. **MAYOR — tiempo de sesión sumado, no unido.** `groupBySession` sumaba
+   `wall_ms`/`work_ms` entre las tareas de una sesión, pero una tarea con
+   subagentes puede solaparse con la siguiente (aggregation.md). La web
+   no puede re-unir intervalos (ADR 0006: la unión vive solo en
+   kankaku), así que ahora muestra `elapsedMs` (primera a última
+   actividad, exacto) en vez de la suma de `wall_ms`, y marca `work_ms`
+   sumado como aproximado (`≈`) cuando la sesión tiene más de una fila.
+   `waiting_ms` sumado SÍ es exacto — verificado contra
+   `kankaku/src/domain/task-view.ts#buildSessions`, que también lo suma
+   (nunca lo une) a nivel de sesión.
+4. **MAYOR (docs) — `migrate down` no sobrevive un reinicio.**
+   Documentado con el procedimiento seguro exacto (nueva migración
+   hacia delante, o borrar el fichero tras `migrate down`) en
+   `docs/runbooks/troubleshooting.md`, `docs/runbooks/deploy-to-vps.md` y
+   `docs/architecture/hub-backend.md`.
+5. **MAYOR (a11y) — los toasts eran invisibles para lectores de
+   pantalla.** `Toaster.vue` ahora renderiza SIEMPRE dos regiones vivas
+   (`role="status"`/`aria-live="polite"` y `role="alert"`/
+   `aria-live="assertive"`), separadas del stack visual.
+6. **MENOR (a11y)** — nombres accesibles en checkboxes por fila
+   (`unassigned`/`sessions-without-task`), paginación de la exploradora
+   de registros, botón de menú móvil y otros icon-only sueltos
+   encontrados en el barrido.
+7. **MENOR — guarda de filas de semilla por substring.** `seed.js`
+   filtraba `task_id ~ "seed-te-"` (contiene) en el servidor; ahora
+   también exige `task_id.startsWith("seed-te-")` en el cliente antes de
+   tocar cualquier fila, con una auto-comprobación (`assert`) que corre
+   en cada ejecución del script.
+8. **MENOR — colisión de centinela en la vista.** `1758300015` usaba
+   `'unreported'` como centinela de agente vacío, que colisiona con un
+   agente real llamado literalmente `unreported`. Nueva migración
+   `1758300018` lo cambia a `'~none'` (no puede ser un slug de agente
+   válido).
+9. **MENOR — aviso de japonés no revisado nativamente, en la app.** Nueva
+   nota en Ajustes junto al selector de idioma (visible en los tres
+   idiomas) y en `web/i18n/GLOSSARY.md`.
+10. **MENOR — `KANKAKU_ROLE` faltaba en la tabla de variables de entorno
+    del sitio público.** Añadida (es/en/ja), con la guía exacta pedida:
+    no exportarla globalmente, limitarla a una invocación
+    (`KANKAKU_ROLE=orchestrator pi …`). **Esta redacción debe
+    re-revisarse** contra el README de kankaku una vez aterrice el
+    trabajo que está cambiando la semántica de `KANKAKU_ROLE` ahí mismo
+    (F2/F3, en curso en el repo hermano al momento de esta revisión).
+11. **BONUS — carrera real en `ensureLoaded()` de `useClients`/`useProjects`/
+    `useTasks`/`use*QueueCount`.** Investigando el test e2e
+    "order-sensitive" que pedía el encargo (`polish.spec.ts`, cola de
+    "Sin determinar"), se encontró la causa real: dos llamadas
+    concurrentes a `ensureLoaded()` (p. ej. la insignia de la barra
+    lateral y la propia página `/unassigned`, montadas por la misma
+    navegación) — la segunda veía `loading.value === true` y volvía
+    inmediatamente SIN esperar el `refresh()` en curso de la primera, así
+    que leía `clients.value` todavía vacío. Reproducido de forma directa
+    (la insignia mostraba el recuento correcto mientras la página
+    renderizaba su estado vacío). Arreglado en el origen (promesa
+    compartida en curso) en las cinco composables con el mismo patrón.
+    6 ejecuciones aisladas consecutivas y una ejecución completa de la
+    suite en verde tras el arreglo.
+
 ### Pendiente / a decidir
 
 - Componentes `select` y `avatar` siguen escritos a mano; el resto son los

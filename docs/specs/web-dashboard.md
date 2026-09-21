@@ -57,6 +57,17 @@ kankaku already resolved.
     excluded whenever that count is greater than zero; every other total
     on the dashboard (sums) SHALL continue to include those rows
     unchanged.
+13. `DASH-REQ-013` — Every date-range filter (preset resolution, custom
+    range) and every day-bucketed chart on the dashboard SHALL use the
+    VIEWER'S LOCAL calendar day, never the UTC day a stored
+    `started_at`/`ended_at` instant happens to fall on. A local range
+    boundary SHALL be converted to a UTC instant (`app/lib/local-day.ts`)
+    before being sent as a `started_at` filter, and a stored UTC instant
+    SHALL be converted back to the viewer's local day before it becomes a
+    chart bucket key — never a raw string slice of either. See
+    [ADR 0026](../adr/0026-day-boundaries-are-local.md) and
+    `docs/contract.md` "Day boundaries are local, not UTC". Found by an
+    independent review on 2026-09-21.
 
 ## Scenarios
 
@@ -144,3 +155,4 @@ None beyond the shared PocketBase connection
 | `DASH-REQ-010` | `web/e2e/agent-quality.spec.ts` (agent filter hides the honesty notice once filtered to `pi`) | covered |
 | `DASH-REQ-011` | `web/tests/measurement-quality.test.ts` (`summarizeWorkTimeQuality`), `web/e2e/agent-quality.spec.ts` (notice visibility + exact count, hidden when filtered); the drill-down link's exact target query is not separately exercised | partial |
 | `DASH-REQ-012` | `web/tests/measurement-quality.test.ts` (`computeAverageCost`) | covered |
+| `DASH-REQ-013` | `web/tests/local-day.test.ts` (UTC+9, UTC-8, UTC, DST transition); `web/e2e/day-boundary.spec.ts` (Asia/Tokyo, America/Los_Angeles browser timezone, dashboard + entries explorer + project detail agreement) | covered |

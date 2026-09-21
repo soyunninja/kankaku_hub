@@ -58,6 +58,23 @@ localStorage-backed): `ensureFreshSession()` calls `authRefresh()` once on
 boot for a persisted token, clearing it on failure rather than retrying —
 there are no stored credentials to retry with client-side.
 
+**`ensureLoaded()` must await a shared in-flight `refresh()`, never just
+check-and-skip.** `useClients`, `useProjects`, `useTasks`,
+`useUnassignedQueueCount`, `useSessionsQueueCount` all cache a list behind
+`loaded`/`loading` `useState` flags. The naive guard — `if (!loaded.value
+&& !loading.value) await refresh()` — has a real race: two callers mounted
+by the same navigation (e.g. the sidebar's unassigned-queue badge and the
+`/unassigned` page itself) can both call `ensureLoaded()` in the same
+tick; the first sets `loading.value = true` synchronously before its own
+first `await`, so the second sees `loading.value === true`, correctly
+skips calling `refresh()` again, but then returns immediately WITHOUT
+waiting for the first caller's in-flight request — reading the list while
+it is still empty. Found by an independent review on 2026-09-21 (it
+produced exactly this: the sidebar badge showed the correct count while
+the page rendered its empty state) and fixed in all five composables with
+a module-scoped in-flight promise that every concurrent caller awaits.
+Any NEW composable following this cache pattern must do the same.
+
 ## The D6 guard
 
 `app/lib/aggregate.ts` carries a header comment declaring it the only module
@@ -66,6 +83,40 @@ in the web allowed to sum `task_entries` fields (`sumTaskEntries`,
 specializations, `avgCostPerTask`, `groupUnassigned`). It never imports or
 sums `work_records`. See [`aggregation.md`](aggregation.md#the-shared-fixture-guard)
 and [ADR 0007](../adr/0007-web-is-a-view-layer.md).
+
+### Session-level totals are not a plain D6 sum
+
+`app/lib/session-aggregate.ts#groupBySession` sums `task_entries` fields
+across a SESSION's rows too, but this is narrower than the D6 guarantee
+above: D6 says a single task's `wall_ms`/`work_ms` is already
+union-consolidated and safe to sum ACROSS TASKS for a project/client
+total (`docs/architecture/aggregation.md`: "`SUM(wall_ms) GROUP BY
+project` is correct"). A SESSION's rows are a different grouping — several
+orchestrator runs whose intervals can genuinely overlap each other (a
+background subagent from task N can still be running when task N+1
+starts), which the web has no raw intervals left to re-union (ADR 0006).
+So `SessionSummary.wallMs`/`workMs` (sums) are upper bounds, not exact
+figures, and must never be displayed as-is: `elapsedMs` (`min(started_at)`
+to `max(ended_at)`, exact and honestly labelled "elapsed") is what
+`TaskDetailSheet.vue` and `sessions-without-task/index.vue` display
+instead of the old `wallMs`. `waitingMs` (summed) IS exact — verified
+against kankaku's own `buildSessions` (`src/domain/task-view.ts`), which
+also sums per-task `waitingMs` rather than unioning it, because distinct
+orchestrator turns don't overlap the way a lingering subagent can. See
+the full derivation in the `session-aggregate.ts` header comment.
+
+## Local day boundaries
+
+Every date-ranged fetch (`useTaskEntries.fetchRange`,
+`useEntriesExplorer`'s `dateStart`/`dateEnd`) and every day-bucketed chart
+(`pages/index.vue`'s `chartPoints`, `pages/projects/[id].vue`'s
+`trendPoints`) goes through `app/lib/local-day.ts`: local `YYYY-MM-DD`
+range boundaries (from `app/lib/period.ts`, computed from the viewer's
+local calendar) are converted to UTC instants before filtering
+`started_at`, and a stored UTC instant is converted back to the viewer's
+local day before it becomes a chart bucket key — never a raw string slice
+of either. See [ADR 0026](../adr/0026-day-boundaries-are-local.md) and
+`docs/contract.md` "Day boundaries are local, not UTC".
 
 ## Unassigned queue
 

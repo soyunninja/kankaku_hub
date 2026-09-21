@@ -144,6 +144,21 @@ exist in the working tree but had not yet been committed.
     may appear alone. A session summary's `sessionDir` SHALL be derived
     with the same first-entry-with-a-value strategy as `repoProject`
     (`pickSessionDir`).
+20. `SESSIONS-REQ-020` — A session summary's displayed duration SHALL be
+    `elapsedMs` (`min(started_at)` to `max(ended_at)` across the
+    session's rows), never a plain sum of the rows' `wall_ms`
+    (`groupBySession`'s `wallMs` field stays available for a caller that
+    explicitly wants "total row-seconds counted", but SHALL NOT be
+    rendered as a duration). This applies to both the task detail
+    sheet's per-session rows and the "sessions without a task" queue's
+    Work time cell tooltip. `workMs` (summed) SHALL be flagged
+    (`workMsMayOverlap`) and visually marked approximate (`≈`) whenever a
+    session has more than one row, since it inherits the same
+    cross-task-overlap risk as the old `wallMs` sum
+    (`docs/architecture/aggregation.md`). `waitingMs` (summed) SHALL be
+    displayed without a qualifier — it is exact, not an upper bound (see
+    that doc's "The session rule, as the web applies it"). Found by an
+    independent review on 2026-09-21.
 
 ## Scenarios
 
@@ -322,3 +337,4 @@ entry to that table, not branching `buildResumeCommand` itself.
 | `SESSIONS-REQ-017` | code review (`pages/sessions-without-task/index.vue` tooltip markup); no automated test asserts the removed columns or the 1280px no-scroll fit for this page found in this pass | not covered by an automated test found in this pass |
 | `SESSIONS-REQ-018` | code review (`AgentIcon.vue` `sizeClass`/`sizePx`, consumer call sites in `entries/index.vue`, `sessions-without-task/index.vue`, `EntryDetailSheet.vue`, `TaskDetailSheet.vue`); no automated test asserts rendered icon pixel size found in this pass | not covered by an automated test found in this pass |
 | `SESSIONS-REQ-019` | `web/tests/session-resume.test.ts` ("buildResumeCommand — sessionDir" describe block, including hostile-quoting cases), `web/tests/session-aggregate.test.ts` (`pickSessionDir` fallback/undefined cases) | covered |
+| `SESSIONS-REQ-020` | `web/tests/session-aggregate.test.ts` (`elapsedMs`/`workMsMayOverlap` cases, verified against `kankaku/src/domain/task-view.ts#buildSessions`) | covered |

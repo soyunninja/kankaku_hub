@@ -40,6 +40,15 @@ determinar" to their real client.
    only on an **exact** normalized match (lowercase, no spaces/punctuation/
    accents) against a client's name or code — never a fuzzy/typo match —
    and SHALL only pre-fill the selector; the owner must still confirm.
+8. `UNASSIGNED-REQ-008` — Every icon-only interactive control on this
+   page (per-row/per-group checkboxes, the group expand/collapse toggle)
+   SHALL have an accessible name that includes the row's own identity
+   (e.g. "Select «{group}»"), not a generic "checkbox"/unlabelled
+   control. A toast confirming a bulk action's result SHALL be announced
+   to screen readers via an always-mounted live region
+   (`components/ui/toast/Toaster.vue`, shared app-wide — see
+   `docs/specs/web-sessions.md` `SESSIONS-REQ-017` for the sessions
+   queue's equivalent). Found by an independent review on 2026-09-21.
 
 ## Scenarios
 
@@ -100,3 +109,4 @@ determinar" to their real client.
 | `UNASSIGNED-REQ-005` | `web/e2e/polish.spec.ts` | covered |
 | `UNASSIGNED-REQ-006` | `web/e2e/polish.spec.ts` | covered |
 | `UNASSIGNED-REQ-007` | `web/tests/suggest-client.test.ts` | covered |
+| `UNASSIGNED-REQ-008` | `web/e2e/a11y.spec.ts` (accessible-name sweep; toast live-region a11y-tree assertion after a bulk action) | covered |

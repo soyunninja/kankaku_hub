@@ -80,6 +80,32 @@ copy the directory off-box on a schedule (cron + rsync to another host, or
 a VPS provider's snapshot feature). Not yet implemented or tested for this
 project.
 
+## 4b. Rolling back a migration in production
+
+`pocketbase migrate down` does NOT survive the next restart of the
+`systemd` unit above: PocketBase re-applies every migration file present
+in `--migrationsDir` on every `serve` startup, so a service restart
+silently re-applies whatever `migrate down` just undid. Before touching
+production schema:
+
+1. Back up `pb_data` (§4) first — always, but especially before a
+   rollback, since a dropped column's data cannot be recovered by either
+   option below.
+2. Prefer a NEW forward migration that reverts the change, rather than
+   `migrate down` — it survives every future restart by construction and
+   never risks a deploy racing a restart between the `down` and the file
+   removal. This is what `1758300018_task_entries_daily_totals_sentinel.js`
+   does to fix `1758300015` rather than editing that file.
+3. If a file must be removed instead, run `migrate down` on THIS instance
+   first, then delete the migration file from the deployed
+   `--migrationsDir` (and from the repo, via a commit) before the next
+   restart — deleting the file without running `down` first leaves the
+   schema change applied with no record of it.
+
+Full rollback procedure and the data-loss warning:
+[`troubleshooting.md`](troubleshooting.md#pocketbase-migrate-down-doesnt-survive-a-restart),
+[`../architecture/hub-backend.md`](../architecture/hub-backend.md#migrations-policy).
+
 ## 5. Creating the owner and service accounts (planned)
 
 Reuse `scripts/create-dev-accounts.sh` as a starting point, but with real,

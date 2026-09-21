@@ -457,6 +457,34 @@ app should treat this as a starting point, not the only possible
 aggregation — add more view collections the same way if needed, always
 querying `task_entries`.
 
+**`day` is a UTC calendar day** (`CAST(substr(started_at, 1, 10) AS
+TEXT)` — SQLite has no per-row timezone context), never the viewer's
+local day. The web app does not read this view for any day-labelled
+figure for exactly that reason — it computes local-day boundaries and
+buckets client-side from `task_entries` (`web/app/lib/local-day.ts`, see
+[ADR 0026](adr/0026-day-boundaries-are-local.md)). A consumer that needs
+a figure aligned with what the owner calls "today" must not use this
+view's `day` column directly in a non-UTC timezone.
+
+The synthetic `id` column's empty-`agent` sentinel is `'~none'` as of
+migration `1758300018` (previously `'unreported'`, which collided with a
+real agent literally named `unreported` — fixed by an independent review
+on 2026-09-21). `'~none'` cannot be a valid `agent` slug (agent values are
+lowercase identifiers like `pi`/`opencode`, never containing `~`), so it
+cannot collide with any reported value.
+
+### Day boundaries are local, not UTC
+
+Every OTHER date-ranged filter or grouping in this contract (`started_at`
+range filters, anything a client buckets "by day") means the VIEWER's
+LOCAL calendar day, never UTC — `started_at`/`ended_at` are stored as UTC
+instants, and a naive `"YYYY-MM-DD 00:00:00.000Z"` filter built from a
+local date string silently drops or mis-buckets an entry near local
+midnight for any non-UTC timezone. Convert the local boundary to UTC
+before filtering (see `web/app/lib/local-day.ts` for the reference
+implementation — DST-correct, via `Intl`, not a fixed offset) rather than
+string-concatenating a local date onto a `Z`-suffixed instant.
+
 ## Gotchas for the sync client author
 
 - `date` fields accept and return `"YYYY-MM-DD HH:MM:SS.mmmZ"` (space, not

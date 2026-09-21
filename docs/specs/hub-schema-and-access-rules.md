@@ -112,6 +112,14 @@ surface captured from real requests.
     this field: its rows are per-span, not per-session, and every span
     within one task already shares one `session_dir`, so there is no
     per-span resume path that would need it.
+19. `SCHEMA-REQ-019` — `task_entries_daily_totals`' synthetic `id` column
+    SHALL use a sentinel for an empty `agent` that cannot collide with a
+    real reported `agent` value (migration `1758300018`: `'~none'`,
+    replacing `1758300015`'s `'unreported'`, which could collide with an
+    agent literally named `unreported`). `agent` values are lowercase
+    slugs (see [`../contract.md`](../contract.md) "Agent and measurement
+    quality"); `'~none'` cannot be one, so it is collision-proof by
+    construction. Found by an independent review on 2026-09-21.
 
 ## Scenarios
 
@@ -273,3 +281,4 @@ full field tables per collection.
 | `SCHEMA-REQ-016` | migration `1758300015_task_entries_daily_totals_by_agent.js` | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-017` | `pocketbase/pb_hooks/task-auto-doing.pb.js`, `pocketbase/pb_hooks/lib/task-status-rule.js`; unit tests `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`) | partially covered — the unit tests prove the pure `open`→`doing` decision rule only; the hook integration (the actual PocketBase-level trigger on `task_entries` create/update, and the `service`-role `tasks` PATCH rejection) is covered by a manual/e2e check, not by these unit tests alone |
 | `SCHEMA-REQ-018` | migration `1758300016_task_entries_session_dir.js`; resume-command wiring proven by `web/tests/session-resume.test.ts`/`web/tests/session-aggregate.test.ts` (see `web-sessions.md` `SESSIONS-REQ-019`); migrate up/down round-trip not separately exercised by an automated test found in this pass | not covered by an automated test found in this pass |
+| `SCHEMA-REQ-019` | migration `1758300018_task_entries_daily_totals_sentinel.js`; applied and its `viewQuery` inspected on an isolated instance (2026-09-21) | not covered by an automated test found in this pass |

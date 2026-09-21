@@ -90,6 +90,39 @@ contract from each side, not a single shared fixture file — see
 [`../specs/web-dashboard.md`](../specs/web-dashboard.md) for the exact
 traceability.
 
+## The session rule, as the web applies it
+
+The hub never receives a session's raw orchestrator/subagent intervals —
+only each task's already-collapsed `task_entries` row. So when the web
+groups several of a session's rows together
+(`web/app/lib/session-aggregate.ts#groupBySession`, feeding
+`TaskDetailSheet.vue` and the "sessions without a task" queue), it CANNOT
+re-run `unionMs` the way kankaku's own `buildSessions` does — doing so
+from incomplete data would produce a different wrong number, not a fix
+(ADR 0006 stays intact: the union lives exactly once, in kankaku).
+
+Verified against `kankaku/src/domain/task-view.ts#buildSessions` on
+2026-09-21 (an independent review had assumed the opposite for `waitingMs`
+and needed correcting):
+
+- **`wallMs`/`workMs` summed across a session's rows are upper bounds,
+  not exact** — a background subagent from task N can still be running
+  when task N+1 starts, so task N's own already-unioned `wall_ms` window
+  can overlap task N+1's, and summing double-counts that overlap. The web
+  shows the session's `elapsedMs` (`min(started_at)` to `max(ended_at)`)
+  instead — exact, honestly labelled "elapsed", never claimed to be a
+  true wall-time union.
+- **`waitingMs` summed across a session's rows IS exact**, not an upper
+  bound: kankaku's own `buildSessions` computes the true session
+  `waitingMs` the same way — a plain sum over each task's `waitingMs`,
+  never a union — because waiting is tracked on the orchestrator only and
+  distinct orchestrator turns don't overlap each other the way a
+  lingering background subagent can overlap the next turn's start. The
+  web's sum matches kankaku's own session-level definition exactly.
+
+See [`hub-web.md`](hub-web.md#session-level-totals-are-not-a-plain-d6-sum)
+for the web-side details and the affected components.
+
 ## Planned change
 
 A [proposal](../proposals/2026-09-20-generic-subagent-detection.md) would

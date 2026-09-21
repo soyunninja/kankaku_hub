@@ -156,7 +156,57 @@ order — see [`../specs/client-favicons.md`](../specs/client-favicons.md):
 been applied yet; otherwise open the client's detail sheet and press the
 refresh-icon button, then read the resulting toast for the actual reason.
 
+## `pocketbase migrate down` doesn't survive a restart
+
+**Symptom**: ran `pocketbase migrate down` to roll back a schema change,
+confirmed the rollback worked, then restarted PocketBase (deploy, crash
+recovery, `systemctl restart`, ...) — and the "rolled back" change is
+back.
+
+**Why**: PocketBase's migration runner reconciles the database against
+whichever migration FILES are present in `--migrationsDir` every time it
+starts, in filename order — it has no separate "applied/rolled-back"
+state that survives independently of the files themselves the way, say,
+a Rails or Django migration table does once a file is deleted. `migrate
+down` runs a migration file's `down(app)` function and un-records it as
+applied, but the FILE is still sitting in `pb_migrations/`, so the very
+next `serve` re-applies its `up(app)` function again on startup, silently
+undoing the rollback. This is not a bug — `AGENTS.md`'s "the migrations
+are the contract" rule means the file list itself is source of truth, not
+a runtime toggle.
+
+**Fix** — the only rollback that survives a restart is one of these two,
+never `migrate down` alone:
+
+1. **Delete the migration file** (after confirming `migrate down` has
+   already run against every environment that has this migration
+   applied, including production, so its `down(app)` actually executes
+   once before the file disappears) — `git rm
+   pocketbase/pb_migrations/<timestamp>_<name>.js`, commit, and deploy.
+   With the file gone, no future `serve` can re-apply it.
+2. **Write a NEW forward migration** that reverts the change (drops the
+   field/collection/index the old migration added, or restores the
+   previous `viewQuery`, etc.) — the same pattern
+   `1758300018_task_entries_daily_totals_sentinel.js` uses to fix
+   `1758300015`'s sentinel rather than editing that file in place. This
+   is the SAFER of the two options and the one this repo prefers: it
+   never rewrites history other environments may have already applied,
+   and it works even if you can't guarantee `migrate down` ran
+   everywhere first.
+
+**Warning — data in dropped columns**: if the migration being rolled back
+added a column PocketBase (or a client) has since written real data into,
+neither option recovers that data once the column is gone. Deleting the
+file (option 1) after a `migrate down` that dropped the column, or a new
+migration (option 2) that drops it, both destroy the column's data the
+same way a `down(app)` drop always does — back up
+`pb_data/data.db` first if the column might hold anything worth keeping.
+An `up(app)` that only ADDs a nullable field is always safe to leave
+in place and simply stop using from the app; only a genuinely wrong
+schema change needs a real rollback.
+
 ## Related
 
 - [`local-development.md`](local-development.md), [`connect-kankaku-to-hub.md`](connect-kankaku-to-hub.md)
 - [`../contract.md`](../contract.md#gotchas-for-the-sync-client-author)
+- [`../architecture/hub-backend.md`](../architecture/hub-backend.md#migrations-policy)

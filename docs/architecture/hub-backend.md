@@ -262,17 +262,33 @@ is summable by construction, `work_records` is flagged as not. Sending
 
 ## The read-only view: `task_entries_daily_totals`
 
-Migration `1758300009_task_entries_daily_totals_view.js`. A PocketBase
-**view** collection (inherently read-only — no create/update/delete rules
-are meaningful on a view) that sums `task_entries` only, grouped by
-`(project, client, day)`. Every aggregate column is wrapped in `CAST(...)`
-in the SQL, because PocketBase infers a view's column types from the
-`SELECT` and, without the cast, `SUM(...)` columns get inferred as the wrong
-type. Fields: `project`, `client`, `day` (`YYYY-MM-DD` text),
-`wall_ms`, `work_ms`, `waiting_ms`, `input`, `output`, `cache_read`,
-`cache_write`, `cost`, `entries`. Treat it as a starting point — add more
-view collections the same way if a report needs a different grouping,
-always querying `task_entries`, never `work_records`.
+Migration `1758300009_task_entries_daily_totals_view.js`, reshaped by
+`1758300015` (grouping added `agent`) and `1758300018` (sentinel fix). A
+PocketBase **view** collection (inherently read-only — no create/update/
+delete rules are meaningful on a view) that sums `task_entries` only,
+grouped by `(project, client, day, agent)`. Every aggregate column is
+wrapped in `CAST(...)` in the SQL, because PocketBase infers a view's
+column types from the `SELECT` and, without the cast, `SUM(...)` columns
+get inferred as the wrong type. Fields: `project`, `client`, `day`
+(`YYYY-MM-DD` text), `agent`, `wall_ms`, `work_ms`, `waiting_ms`, `input`,
+`output`, `cache_read`, `cache_write`, `cost`, `entries`. Treat it as a
+starting point — add more view collections the same way if a report
+needs a different grouping, always querying `task_entries`, never
+`work_records`.
+
+**`day` is a UTC calendar day, not the viewer's local day.** The SQL
+`CAST(substr(te.started_at, 1, 10) AS TEXT)` slices the stored UTC
+instant — SQLite has no per-row timezone context to do anything else.
+The web app's own day-ranged screens (dashboard, entries explorer,
+project detail) do NOT read this view for that reason — they fetch
+`task_entries` directly and bucket by the viewer's LOCAL day client-side
+(`web/app/lib/local-day.ts`, see
+[ADR 0026](../adr/0026-day-boundaries-are-local.md)). This view has no
+in-app consumer today; it is kept as a documented, read-only aggregation
+surface for external tooling per [`../contract.md`](../contract.md), not
+as the source of any day-labelled figure the web displays. A future
+consumer that needs a LOCAL-day total must compute it from `task_entries`
+the same way the web does, not from this view.
 
 ## Access rules summary
 
@@ -326,6 +342,30 @@ clients on every run (a deliberate exception — see the header comment in
 keeping them in sync with the script's canonical values is more useful
 than leaving old runs stale. "Sin determinar" is never touched by this
 script and keeps its contact fields empty.
+
+## Migrations policy
+
+`pocketbase/pb_migrations/*.js` files ARE the schema (`AGENTS.md`, "the
+migrations are the contract"). PocketBase reconciles the database against
+whichever migration files are present in `--migrationsDir` on every
+`serve` startup, in filename order — there is no independent
+"applied/rolled-back" runtime state that survives once a file is deleted
+or edited. Two consequences:
+
+- **`pocketbase migrate down` does not survive a restart.** It runs one
+  migration's `down(app)` and un-records it as applied, but the file is
+  still there, so the next `serve` re-applies its `up(app)` again. The
+  supported rollback is either deleting the migration file (after
+  `migrate down` has already run everywhere it was applied) or — the
+  preferred, safer option — a NEW forward migration that reverts the
+  change, the same way `1758300018` fixes `1758300015`'s sentinel rather
+  than editing that file. Full procedure and the data-loss warning for a
+  dropped column: [`../runbooks/troubleshooting.md`](../runbooks/troubleshooting.md#pocketbase-migrate-down-doesnt-survive-a-restart).
+- **Never edit an already-shipped migration file's `up(app)`/`down(app)`
+  bodies after it has been applied anywhere** (dev, the owner's instance,
+  a deploy). An environment that already ran the old body has no way to
+  detect the file changed underneath it; a later migration that changes
+  the same collection is the only safe way to alter shipped state.
 
 ## Related
 

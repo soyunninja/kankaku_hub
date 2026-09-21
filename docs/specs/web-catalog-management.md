@@ -79,6 +79,15 @@ for silent auto-selection.
     and in the create/edit dialog's form fields. The table SHALL
     continue to show a small indicator next to the client's name when it
     has notes.
+13. `CATMGMT-REQ-013` — The project detail page's "average cost per task"
+    KPI SHALL use the same shared `computeAverageCost()` helper the
+    dashboard uses (`app/lib/measurement-quality.ts`) — excluding rows
+    whose `cost_quality` is `"unknown"` from the average, with a notice
+    naming how many rows were excluded — never a hand-rolled `totals.cost
+    / totals.count`. The trend chart's day buckets SHALL use the
+    viewer's local calendar day (`app/lib/local-day.ts`), same as
+    `DASH-REQ-013`, never a raw slice of the stored UTC `started_at`.
+    Found by an independent review on 2026-09-21.
 
 ## Amendments (client favicons)
 
@@ -200,3 +209,4 @@ None beyond the shared PocketBase connection.
 | `CATMGMT-REQ-010` | `web/e2e/client-avatars.spec.ts` ("client avatars render across the app") | covered |
 | `CATMGMT-REQ-011` | `web/e2e/client-avatars.spec.ts` ("client detail sheet header layout") | covered |
 | `CATMGMT-REQ-012` | `web/tests/client-contact.test.ts` (`isSafeLinkUrl`), `web/e2e/client-contact.spec.ts` ("creating...", "editing...", "no horizontal page overflow") | covered |
+| `CATMGMT-REQ-013` | `web/tests/measurement-quality.test.ts` (`computeAverageCost`, shared with `DASH-REQ-012`), `web/tests/local-day.test.ts` (shared with `DASH-REQ-013`) | covered |
