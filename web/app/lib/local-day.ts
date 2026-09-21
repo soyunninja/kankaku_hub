@@ -106,3 +106,48 @@ export function utcInstantToLocalDay(isoUtc: string, timeZone: string = defaultT
   const date = new Date(isoUtc.includes('T') ? isoUtc : isoUtc.replace(' ', 'T'))
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 }
+
+/** Next local calendar day (`YYYY-MM-DD` + 1 day), as plain calendar
+ * arithmetic — timezone-independent (a calendar date's "next day" does
+ * not depend on which IANA zone you're labelling it for), the same safe
+ * pattern `app/lib/period.ts#addDays` already relies on for local date
+ * math. Exported for reuse/testing alongside `buildLocalDayBoundaries`. */
+export function nextLocalDay(day: string): string {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number]
+  const next = new Date(y, m - 1, d + 1)
+  const yy = next.getFullYear()
+  const mm = String(next.getMonth() + 1).padStart(2, '0')
+  const dd = String(next.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+/**
+ * Builds the `day_boundaries` array POST /api/kankaku/totals'
+ * `group_by: 'day'` expects for a local-day range, plus the local day
+ * label for each bucket (`labels[i]` is the local `YYYY-MM-DD` day that
+ * `boundaries[i]` to `boundaries[i+1]` covers) — see docs/contract.md
+ * "POST /api/kankaku/totals" and the local-day rule (ADR 0026). DST days
+ * are correctly 23/25 hours since every boundary is independently
+ * resolved through `localWallClockToUtc` (which re-derives the real UTC
+ * offset for that specific instant via `Intl`), never computed by adding
+ * a fixed 24h to the previous boundary.
+ */
+export function buildLocalDayBoundaries(
+  range: { start: string, end: string },
+  timeZone: string = defaultTimeZone(),
+): { boundaries: string[], labels: string[] } {
+  const labels: string[] = []
+  let cursor = range.start
+  while (cursor <= range.end) {
+    labels.push(cursor)
+    cursor = nextLocalDay(cursor)
+  }
+  const boundaries = labels.map(day =>
+    toPbDateFilter(localWallClockToUtc(day, { hour: 0, minute: 0, second: 0, ms: 0 }, timeZone)),
+  )
+  const lastLabel = labels[labels.length - 1]
+  if (lastLabel) {
+    boundaries.push(toPbDateFilter(localWallClockToUtc(nextLocalDay(lastLabel), { hour: 0, minute: 0, second: 0, ms: 0 }, timeZone)))
+  }
+  return { boundaries, labels }
+}

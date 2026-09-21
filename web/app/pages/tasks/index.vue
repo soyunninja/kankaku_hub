@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { groupByKey } from '@/lib/aggregate'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 import type { SessionSummary } from '@/lib/session-aggregate'
+import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('tasks.title')) })
@@ -26,33 +27,67 @@ const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, loading, ensureLoaded, create, update, remove, moveStatus } = useTasks()
 const { fetchAll } = useTaskEntries()
 const { fetchSessionsForTask } = useSessions()
+const { fetchTotals } = useTotals()
 const toast = useToast()
 
 const filterProject = ref('')
 const view = ref<'board' | 'list'>('board')
 const totalsByTask = ref<Record<string, { cost: number, workMs: number }>>({})
 /** Distinct session count per task, for the board card's session chip
- * (Task 2). Perf choice: derived from the same `fetchAll()` call the
- * board already makes for `totalsByTask` — one grouping pass over
- * already-fetched entries, not a second network round-trip and not a
- * per-card `fetchSessionsForTask` call (that composable is reserved for
- * the detail sheet, opened lazily per task). */
+ * (Task 2). */
 const sessionCountByTask = ref<Record<string, number>>({})
+
+/**
+ * All-time per-task totals: the worst offender this feature replaces —
+ * previously an unbounded `fetchAll()` (no date filter, grows with every
+ * prompt the owner ever runs) followed by a client-side `groupByKey`
+ * pass. Now a single `group_by: 'task'` call, server-summed — see
+ * docs/architecture/aggregation.md "the server sums; the browser
+ * displays" and docs/adr/0027-totals-computed-server-side.md.
+ *
+ * Falls back to the old fetchAll()+groupByKey path when the totals route
+ * isn't loaded yet (owner hasn't restarted PocketBase since this feature
+ * shipped) — no error toast, silently uses the previous behavior.
+ */
+async function loadTaskTotals() {
+  try {
+    const response = await fetchTotals({ groupBy: 'task', perPage: 200, sort: '-cost' })
+    // group_key === '' is the "no task" bucket (task = "") — the old
+    // client-side path filtered those rows out before grouping
+    // (`entries.filter(e => e.task)`), so it's dropped here too.
+    const byTask: Record<string, { cost: number, workMs: number }> = {}
+    const sessionsByTask: Record<string, number> = {}
+    for (const g of response.groups) {
+      if (!g.groupKey) continue
+      byTask[g.groupKey] = { cost: g.cost, workMs: g.workMs }
+      sessionsByTask[g.groupKey] = g.distinctSessions
+    }
+    // group_by=task pages at 200 per call — a board with more than 200
+    // distinct tasks would need real pagination here; not expected for a
+    // single-owner tool's task catalog today (tasks are hand-created).
+    totalsByTask.value = byTask
+    sessionCountByTask.value = sessionsByTask
+  }
+  catch (err) {
+    if (!(err instanceof TotalsRouteUnavailableError)) throw err
+    const entries = await fetchAll()
+    const grouped = groupByKey(entries.filter(e => e.task), e => e.task!)
+    totalsByTask.value = Object.fromEntries(grouped.map(g => [g.key, { cost: g.cost, workMs: g.workMs }]))
+
+    const sessionsByTask = new Map<string, Set<string>>()
+    for (const e of entries) {
+      if (!e.task || !e.session_id) continue
+      const set = sessionsByTask.get(e.task) ?? new Set<string>()
+      set.add(e.session_id)
+      sessionsByTask.set(e.task, set)
+    }
+    sessionCountByTask.value = Object.fromEntries([...sessionsByTask].map(([taskId, ids]) => [taskId, ids.size]))
+  }
+}
 
 onMounted(async () => {
   await Promise.all([ensureProjects(), ensureLoaded()])
-  const entries = await fetchAll()
-  const grouped = groupByKey(entries.filter(e => e.task), e => e.task!)
-  totalsByTask.value = Object.fromEntries(grouped.map(g => [g.key, { cost: g.cost, workMs: g.workMs }]))
-
-  const sessionsByTask = new Map<string, Set<string>>()
-  for (const e of entries) {
-    if (!e.task || !e.session_id) continue
-    const set = sessionsByTask.get(e.task) ?? new Set<string>()
-    set.add(e.session_id)
-    sessionsByTask.set(e.task, set)
-  }
-  sessionCountByTask.value = Object.fromEntries([...sessionsByTask].map(([taskId, ids]) => [taskId, ids.size]))
+  await loadTaskTotals()
 })
 
 function projectName(id: string) {
