@@ -132,6 +132,30 @@ full evidence and design rationale.
     SHALL override detection and be reported by the doctor as the deciding
     signal. Records already written as uncertain are never rewritten (the
     log is append-only).
+23. `SUBAGENT-REQ-023` — Process-level startup facts SHALL be computed exactly
+    once per OS process and reused, unchanged, by every later invocation of
+    the extension factory in that process. pi re-invokes the factory in the
+    SAME process on `/new`, `/resume`, `/fork` and `/reload`. Process-level
+    facts: the role classification, any explicit role override as read BEFORE
+    it is stripped from the environment, whether a confirmed child marker was
+    present, the registry / ancestor-chain resolution, the resolved
+    orchestrator reference, and this process's own start identity.
+    Session-level facts (interactivity from `ctx.mode`, the session's project
+    and write target, which may legitimately change when `/resume` enters
+    another cwd) SHALL still be evaluated per session. The memo lives in the
+    adapter/composition layer behind an injectable holder, never in the pure
+    domain. Any process-wide listener it triggers (exit cleanup) SHALL be
+    registered at most once per process. (Added 2026-09-21: the first
+    implementation stripped `KANKAKU_ROLE` from `process.env` on the first
+    invocation, so a second invocation lost the override and could demote a
+    deliberately forced orchestrator to `uncertain`, dropping its work.)
+24. `SUBAGENT-REQ-024` — An explicit role override SHALL never beat a confirmed
+    child marker, and SHALL never be inherited: the extension removes it from
+    the environment it passes on to the processes it spawns. A `subagent`
+    override in an INTERACTIVE session SHALL be ignored (with a one-time
+    warning and a doctor note), because a leaked global export must not make
+    a person's session vanish. Users are told to scope the override to one
+    invocation and never export it from a shell rc file.
 
 ## Scenarios
 
@@ -340,3 +364,5 @@ full evidence and design rationale.
 | `SUBAGENT-REQ-020` | `kankaku/tests/registry-health.test.ts`, `kankaku/tests/machine-process-registry.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
 | `SUBAGENT-REQ-021` | `kankaku/tests/cross-worktree-write-routing.test.ts`, `kankaku/tests/subagent-startup.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (opt-in, real OS processes), `kankaku/scripts/e2e-hub.ts` | covered |
 | `SUBAGENT-REQ-022` | `kankaku/tests/config.test.ts`, `kankaku/tests/pi-tracker.test.ts`, `kankaku/tests/kankaku-command.test.ts` | covered |
+| `SUBAGENT-REQ-023` | `kankaku/tests/process-identity.test.ts`, `kankaku/tests/process-identity-memo.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (double-invocation scenario, real process) | covered |
+| `SUBAGENT-REQ-024` | `kankaku/tests/config.test.ts`, `kankaku/tests/pi-tracker.test.ts`, `kankaku/scripts/e2e-cross-worktree-real-processes.ts` (role-override scenario, real child) | covered |
