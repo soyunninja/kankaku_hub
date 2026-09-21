@@ -257,7 +257,7 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
     </Card>
 
     <Sheet v-model:open="detailOpen">
-      <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
+      <SheetContent side="right" class="flex w-full flex-col sm:w-[36rem] sm:max-w-xl" @open-auto-focus="onDetailOpenAutoFocus">
         <EntryDetailSheet
           v-if="detail"
           ref="detailSheet"

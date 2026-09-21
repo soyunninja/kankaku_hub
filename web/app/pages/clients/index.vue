@@ -420,7 +420,7 @@ async function onRefreshFavicon() {
       </Dialog>
 
       <Sheet v-model:open="detailOpen">
-        <SheetContent side="right" class="flex w-full max-w-md flex-col sm:w-[28rem]" @open-auto-focus="onDetailOpenAutoFocus">
+        <SheetContent side="right" class="flex w-full flex-col sm:w-[28rem] sm:max-w-md" @open-auto-focus="onDetailOpenAutoFocus">
           <div v-if="detailClient" class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
             <div>
               <!-- pr-8 keeps the badge clear of the sheet's absolutely
