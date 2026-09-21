@@ -30,6 +30,7 @@ const route = useRoute()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
+const { tasks, ensureLoaded: ensureTasks, refresh: refreshTasks } = useTasks()
 const { list, getOne, listWorkRecords, updateAssignment, fetchAgentOptions, listAgents } = useEntriesExplorer()
 const toast = useToast()
 
@@ -124,6 +125,31 @@ type DisplayRow =
   | { kind: 'header', group: EntriesSessionGroup<TaskEntryRecord> }
   | { kind: 'row', entry: TaskEntryRecord }
 
+const groupOf = computed(() => {
+  const map = new Map<string, EntriesSessionGroup<TaskEntryRecord>>()
+  if (groupBySession.value) for (const group of groupEntriesBySession(items.value)) for (const e of group.entries) map.set(e.id, group)
+  return map
+})
+
+/** `true` when some group on this page disagrees on client or project —
+ * the only case the extra column exists for. */
+const anyMixedGroup = computed(() => [...new Set(groupOf.value.values())].some(g => g.clientIds.length > 1 || g.projectIds.length > 1))
+
+/** What a row still has to say itself while grouped: nothing when its
+ * group agrees on client and project (the header already said it). */
+function mixedGroupCell(entry: TaskEntryRecord): string {
+  const group = groupOf.value.get(entry.id)
+  if (!group) return ''
+  const parts: string[] = []
+  if (group.clientIds.length > 1) parts.push(clientName(entry.client))
+  if (group.projectIds.length > 1) parts.push(projectName(entry.project))
+  return parts.join(' · ')
+}
+
+/** Columns the table currently renders: session+client+project collapse
+ * into one "only when they differ" column while grouping. */
+const columnCount = computed(() => (!groupBySession.value ? 9 : anyMixedGroup.value ? 7 : 6))
+
 const displayRows = computed<DisplayRow[]>(() => {
   if (!groupBySession.value) return items.value.map(entry => ({ kind: 'row', entry }))
   return groupEntriesBySession(items.value).flatMap((group) => {
@@ -166,7 +192,7 @@ async function loadAgentOptions() {
 }
 
 onMounted(async () => {
-  await Promise.all([ensureClients(), ensureProjects(), loadAgentOptions()])
+  await Promise.all([ensureClients(), ensureProjects(), ensureTasks(), loadAgentOptions()])
   await load()
 })
 
@@ -195,21 +221,28 @@ const detail = ref<TaskEntryRecord | null>(null)
 const detailWorkRecords = ref<WorkRecordRecord[]>([])
 const detailClient = ref('')
 const detailProject = ref('')
+const detailTask = ref('')
 
 async function openDetail(entry: TaskEntryRecord) {
   detailOpen.value = true
   detail.value = await getOne(entry.id)
   detailClient.value = detail.value.client
   detailProject.value = detail.value.project
+  detailTask.value = detail.value.task
   detailWorkRecords.value = await listWorkRecords(entry.id) as unknown as WorkRecordRecord[]
 }
 
 async function saveAssignment() {
   if (!detail.value) return
   try {
-    await updateAssignment(detail.value.id, { client: detailClient.value, project: detailProject.value })
+    const taskChanged = detailTask.value !== detail.value.task
+    await updateAssignment(detail.value.id, { client: detailClient.value, project: detailProject.value, task: detailTask.value })
     toast.success(t('common.saved'))
-    await load()
+    // Re-read the entry so the sheet's read-only summary shows the new task,
+    // and the task list too: linking work moves an open task to "doing"
+    // on the hub (task-auto-doing hook).
+    detail.value = await getOne(detail.value.id)
+    await Promise.all([load(), taskChanged ? refreshTasks() : Promise.resolve()])
   }
   catch {
     toast.error(t('common.error'))
@@ -287,9 +320,14 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
               <TableHead class="cursor-pointer" @click="toggleSort('started_at')">
                 {{ t('common.started') }}
               </TableHead>
-              <TableHead>{{ t('entries.session') }}</TableHead>
-              <TableHead>{{ t('common.client') }}</TableHead>
-              <TableHead>{{ t('common.project') }}</TableHead>
+              <!-- Grouped: session, client and project are said ONCE, in the
+                   group header row, instead of on every row below it. -->
+              <template v-if="!groupBySession">
+                <TableHead>{{ t('entries.session') }}</TableHead>
+                <TableHead>{{ t('common.client') }}</TableHead>
+                <TableHead>{{ t('common.project') }}</TableHead>
+              </template>
+              <TableHead v-else-if="anyMixedGroup">{{ t('entries.sessionGroup.mixedColumn') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
               <TableHead>{{ t('common.agent') }}</TableHead>
               <TableHead>{{ t('common.model') }}</TableHead>
@@ -305,7 +343,7 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
           <TableBody>
             <template v-if="loading">
               <TableRow v-for="i in 6" :key="i">
-                <TableCell colspan="9">
+                <TableCell :colspan="columnCount">
                   <Skeleton class="h-5 w-full" />
                 </TableCell>
               </TableRow>
@@ -319,9 +357,16 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
                      interactive control inside it is SessionMarker's own <button>,
                      which is already keyboard-reachable. -->
                 <TableRow v-if="dr.kind === 'header'" class="bg-muted/40 hover:bg-muted/40">
-                  <TableHead scope="colgroup" :colspan="9" class="h-auto py-2 font-normal">
+                  <TableHead scope="colgroup" :colspan="columnCount" class="h-auto py-2 font-normal">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
                       <SessionMarker :session-id="dr.group.sessionId" :session-name="dr.group.sessionName" @click="filterToSession(dr.group.sessionId)" />
+                      <template v-if="dr.group.clientIds.length === 1">
+                        <ClientName v-if="clientById(dr.group.clientIds[0]!)" :client="clientById(dr.group.clientIds[0]!)!" size="xs" class="max-w-48 text-foreground" />
+                        <span v-else class="text-foreground">{{ clientName(dr.group.clientIds[0]!) }}</span>
+                      </template>
+                      <span v-else class="text-foreground">{{ t('entries.sessionGroup.clients', { count: dr.group.clientIds.length }) }}</span>
+                      <span v-if="dr.group.projectIds.length === 1" class="text-foreground">{{ projectName(dr.group.projectIds[0]!) }}</span>
+                      <span v-else class="text-foreground">{{ t('entries.sessionGroup.projects', { count: dr.group.projectIds.length }) }}</span>
                       <span class="text-xs text-muted-foreground">{{ t('entries.sessionGroup.count', { count: dr.group.entries.length }) }}</span>
                       <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.work') }}: {{ formatDuration(dr.group.workMs) }}</span>
                       <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.cost') }}: {{ formatCost(dr.group.cost) }}</span>
@@ -332,14 +377,22 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
                   <TableCell class="tabular-nums">
                     {{ formatDateTime(dr.entry.started_at) }}
                   </TableCell>
-                  <TableCell>
-                    <SessionMarker :session-id="dr.entry.session_id" :session-name="dr.entry.session_name" @click="filterToSession(dr.entry.session_id)" />
+                  <template v-if="!groupBySession">
+                    <TableCell>
+                      <SessionMarker :session-id="dr.entry.session_id" :session-name="dr.entry.session_name" @click="filterToSession(dr.entry.session_id)" />
+                    </TableCell>
+                    <TableCell>
+                      <ClientName v-if="clientById(dr.entry.client)" :client="clientById(dr.entry.client)!" size="xs" class="max-w-36" />
+                      <span v-else>{{ clientName(dr.entry.client) }}</span>
+                    </TableCell>
+                    <TableCell>{{ projectName(dr.entry.project) }}</TableCell>
+                  </template>
+                  <!-- Grouped: empty unless the group's rows DISAGREE on client
+                       or project — then each row keeps saying its own, so
+                       lifting them to the header never hides a difference. -->
+                  <TableCell v-else-if="anyMixedGroup" class="text-muted-foreground">
+                    {{ mixedGroupCell(dr.entry) }}
                   </TableCell>
-                  <TableCell>
-                    <ClientName v-if="clientById(dr.entry.client)" :client="clientById(dr.entry.client)!" size="xs" class="max-w-36" />
-                    <span v-else>{{ clientName(dr.entry.client) }}</span>
-                  </TableCell>
-                  <TableCell>{{ projectName(dr.entry.project) }}</TableCell>
                   <TableCell>{{ t(`entries.status.${dr.entry.status}`) }}</TableCell>
                   <TableCell>
                     <AgentIcon :agent="dr.entry.agent" size="sm" />
@@ -382,10 +435,12 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
           ref="detailSheet"
           v-model:client="detailClient"
           v-model:project="detailProject"
+          v-model:task="detailTask"
           :entry="detail"
           :work-records="detailWorkRecords"
           :clients="clients"
           :projects="projects"
+          :tasks="tasks"
           @save="saveAssignment"
         />
       </SheetContent>

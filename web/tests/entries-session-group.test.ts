@@ -98,3 +98,23 @@ describe('groupEntriesBySession', () => {
     expect(groups[0]!.entries).toHaveLength(1)
   })
 })
+
+describe('groupEntriesBySession: what the group header can say once for every row', () => {
+  it('reports the single client and project shared by every row of the group', () => {
+    const [group] = groupEntriesBySession([
+      entry({ id: 'a', session_id: 's1', client: 'c1', project: 'p1' }),
+      entry({ id: 'b', session_id: 's1', client: 'c1', project: 'p1' }),
+    ])
+    expect(group!.clientIds).toEqual(['c1'])
+    expect(group!.projectIds).toEqual(['p1'])
+  })
+
+  it('lists every distinct client/project when the rows disagree, in first-seen order, so the rows must keep showing their own', () => {
+    const [group] = groupEntriesBySession([
+      entry({ id: 'a', session_id: 's1', client: 'c1', project: 'p1', started_at: '2026-01-01 10:00:00.000Z' }),
+      entry({ id: 'b', session_id: 's1', client: 'c2', project: '', started_at: '2026-01-01 09:00:00.000Z' }),
+    ])
+    expect(group!.clientIds).toEqual(['c1', 'c2'])
+    expect(group!.projectIds).toEqual(['p1', ''])
+  })
+})

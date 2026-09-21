@@ -19,6 +19,8 @@ export interface SessionGroupEntryLike {
   work_ms: number
   cost: number
   cost_quality?: CostQuality | ''
+  client?: string
+  project?: string
 }
 
 export interface EntriesSessionGroup<T extends SessionGroupEntryLike> {
@@ -37,6 +39,11 @@ export interface EntriesSessionGroup<T extends SessionGroupEntryLike> {
    * same exclusion `computeAverageCost`/`sumCost` apply everywhere else
    * cost is aggregated in this app. */
   cost: number
+  /** Distinct `client` ids of the rows, first-seen order. One element = the
+   * header can name the client once and the rows need not repeat it. */
+  clientIds: string[]
+  /** Same for `project` (`''` = no project). */
+  projectIds: string[]
 }
 
 /**
@@ -68,6 +75,8 @@ export function groupEntriesBySession<T extends SessionGroupEntryLike>(entries: 
       mostRecentStartedAt,
       workMs: rows.reduce((sum, e) => sum + (e.work_ms ?? 0), 0),
       cost: sumCost(rows),
+      clientIds: [...new Set(rows.map(e => e.client ?? ''))],
+      projectIds: [...new Set(rows.map(e => e.project ?? ''))],
     })
   }
 

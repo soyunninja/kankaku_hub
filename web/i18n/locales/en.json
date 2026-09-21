@@ -368,7 +368,8 @@
         "medium": "medium",
         "high": "high",
         "xhigh": "very high"
-      }
+      },
+      "noTask": "No task"
     },
     "session": "Session",
     "sessionMarker": {
@@ -382,7 +383,10 @@
     },
     "groupBySession": "Group by session",
     "sessionGroup": {
-      "count": "{count} entries"
+      "count": "{count} entries",
+      "mixedColumn": "Client · Project",
+      "clients": "{count} clients",
+      "projects": "{count} projects"
     }
   },
   "totals": {

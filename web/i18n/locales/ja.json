@@ -368,7 +368,8 @@
         "medium": "中",
         "high": "高",
         "xhigh": "最高"
-      }
+      },
+      "noTask": "タスクなし"
     },
     "session": "セッション",
     "sessionMarker": {
@@ -382,7 +383,10 @@
     },
     "groupBySession": "セッションでグループ化",
     "sessionGroup": {
-      "count": "{count}件のエントリー"
+      "count": "{count}件のエントリー",
+      "mixedColumn": "クライアント · プロジェクト",
+      "clients": "{count} クライアント",
+      "projects": "{count} プロジェクト"
     }
   },
   "totals": {
