@@ -77,12 +77,21 @@ puse (150 ms) es precisamente ese caso "sin filtro de fecha" del tablero de
 Tareas y el desglose por sesión sin filtro (~200-330 ms) — sigue siendo
 20-25× más rápido que antes, solo que no llega al número redondo que quería.
 
-**Migrado:** Panel (KPIs, comparación, gráfico, desgloses, filtro de agente),
-tablero de Tareas (coste/tiempo acumulado por tarea, todo el tiempo). **Sin
-migrar todavía** (ya estaban acotadas, no eran el problema urgente): detalle
-de proyecto, cola de "Sesiones sin tarea", cola de Sin determinar, filtro de
-agente del explorador de Registros — seguirán funcionando exactamente igual,
-solo que sin el ahorro todavía.
+**Migrado: todas las pantallas.** Panel, tablero de Tareas, detalle de
+proyecto, listas de Clientes y Proyectos, cola de "Sesiones sin tarea" (ahora
+paginada), sesiones en la ficha de tarea, cola de Sin determinar (paginada) y
+el filtro de agente de Registros. Medido con 100 000 filas: la cola de
+sesiones pasó de 60 peticiones y 12 MB a 1 petición de 36 KB; el filtro de
+agente, de 201 peticiones a 1.
+
+**El camino antiguo sigue ahí solo como reserva** (hub sin la ruta cargada) y
+ahora está limitado de verdad: como mucho 2000 filas por lectura, con aviso
+en pantalla cuando se recorta. Antes el límite era ficticio: `getFullList` de
+PocketBase pagina hasta el final diga lo que diga `perPage`.
+
+Verificado: 330 tests unitarios, 88 de hooks, 38 de equivalencia en vivo
+(servidor = suma antigua, con zonas horarias y cambio de hora) y Playwright
+completo 109/109 — más una pasada entera con la ruta de totales quitada.
 
 **Tienes que reiniciar PocketBase una vez** para que cargue el hook nuevo
 (`pocketbase/pb_hooks/totals.pb.js`) y la migración de índices
@@ -146,11 +155,6 @@ Salió **limpio**: las reglas de acceso (incluida la API por lotes), el hook de
   oficiales de shadcn-vue, tomados del registro porque su CLI se cuelga con
   pnpm 10.34).
 - 19 avisos de ESLint del estilo de los componentes del registro. No son errores.
-- El Panel y el tablero de Tareas ya no piden filas sin paginar (ver "Totales
-  calculados en el servidor" arriba); detalle de proyecto, la cola de
-  "Sesiones sin tarea", Sin determinar y el filtro de agente de Registros
-  siguen pidiendo filas enteras — acotadas, no urgentes, pendientes de migrar
-  al mismo patrón.
 - Despliegue en VPS: previsto y sin ejecutar (`docs/runbooks/deploy-to-vps.md`).
   **Antes de exponerlo:** cuentas nuevas con contraseñas de verdad, HTTPS, y
   releer la sección de seguridad de ese runbook.
