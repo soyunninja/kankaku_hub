@@ -6,6 +6,17 @@ renderings. Columns: Spanish (`es.json`) / English (`en.json`) / Japanese
 (`ja.json`), the term chosen, and a note on why when it isn't a literal
 translation.
 
+**Machine-authored disclosure**: `ja.json` (and every string below marked
+"flagged for owner review" or listed in "Terms worth a native-speaker's
+second look") has never been reviewed by a native Japanese speaker — it
+was produced the same way the public site's own Japanese copy was, which
+already discloses this (`site/src/i18n/ui.ts`'s `common.jaDisclaimer`).
+The app surfaces the same disclosure to a Japanese-reading owner, in
+every locale (not just when `ja` is active — a Spanish/English-reading
+owner switching a colleague to Japanese should see it too), next to the
+language switch in Settings (`app/pages/settings/index.vue`,
+`settings.jaDisclaimer` in each locale file).
+
 | es | en | ja | note |
 |---|---|---|---|
 | Panel | Dashboard | ダッシュボード | established loanword |
@@ -79,6 +90,7 @@ translation.
 | Adjuntar (a tarea existente) | Attach (to existing task) | 既存タスクに追加 | native term ("add to an existing task"), the queue's other explicit linking action — reuses 既存 ("existing") rather than a literal "attach" loanword, which reads awkwardly in Japanese for a data-record action |
 | Ignorar (sesión) | Ignore (session) | 無視 | native term, dismissing a session from the "without a task" queue without creating a task (`ignored_sessions`, ADR 0024) |
 | No medido | Not measured | 未測定 | native term, the generic "this figure wasn't measured" qualifier used by the entries explorer's quality filter options and the dashboard's measurement-quality KPI notices (Task 1/3, `waiting_quality`/`cost_quality`) |
+| Transcurrido (elapsed) | Elapsed | 経過時間 | native term, a session's `min(started_at)` to `max(ended_at)` span (`SessionSummary.elapsedMs`, `app/lib/session-aggregate.ts`) — deliberately distinct from "wall time", which a summed multi-row figure is not (see docs/architecture/aggregation.md) |
 
 ## Conventions applied throughout `ja.json`
 
