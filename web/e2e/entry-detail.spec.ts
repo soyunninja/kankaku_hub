@@ -281,10 +281,14 @@ test.describe('entry detail sheet', () => {
 
       const sheet = page.locator('[data-slot="sheet-content"]')
       const title = page.locator('h2', { hasText: 'E2E detail sheet' })
-      const sheetBox = await sheet.boundingBox()
-      const titleBox = await title.boundingBox()
-      expect(sheetBox && titleBox).toBeTruthy()
-      expect(titleBox!.x - sheetBox!.x).toBeGreaterThanOrEqual(16)
+      // Two separate boundingBox() reads race the sheet's slide-in animation
+      // (seen: 15.57px). Retry until the sheet has settled.
+      await expect(async () => {
+        const sheetBox = await sheet.boundingBox()
+        const titleBox = await title.boundingBox()
+        expect(sheetBox && titleBox).toBeTruthy()
+        expect(titleBox!.x - sheetBox!.x).toBeGreaterThanOrEqual(16)
+      }).toPass({ timeout: 5000 })
     }
     finally {
       await deleteFixtureEntry(request, token, fixture.entryId)
