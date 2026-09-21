@@ -1,3 +1,4 @@
+import { localWallClockToUtc, toPbDateFilter } from '~/lib/local-day'
 import { LEGACY_AGENT, listDistinctAgents } from '~/lib/measurement-quality'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
 
@@ -37,8 +38,16 @@ function buildFilter(filters: EntriesExplorerFilters): string {
   if (filters.agent) parts.push(filters.agent === LEGACY_AGENT ? `agent = ""` : `agent = "${filters.agent}"`)
   if (filters.quality === 'waitingUnavailable') parts.push(`waiting_quality = "unavailable"`)
   if (filters.quality === 'costUnknown') parts.push(`cost_quality = "unknown"`)
-  if (filters.dateStart) parts.push(`started_at >= "${filters.dateStart} 00:00:00.000Z"`)
-  if (filters.dateEnd) parts.push(`started_at <= "${filters.dateEnd} 23:59:59.999Z"`)
+  // `dateStart`/`dateEnd` are LOCAL calendar days — convert to UTC instants
+  // before filtering `started_at` (see app/lib/local-day.ts).
+  if (filters.dateStart) {
+    const startUtc = localWallClockToUtc(filters.dateStart, { hour: 0, minute: 0, second: 0, ms: 0 })
+    parts.push(`started_at >= "${toPbDateFilter(startUtc)}"`)
+  }
+  if (filters.dateEnd) {
+    const endUtc = localWallClockToUtc(filters.dateEnd, { hour: 23, minute: 59, second: 59, ms: 999 })
+    parts.push(`started_at <= "${toPbDateFilter(endUtc)}"`)
+  }
   if (filters.search) parts.push(`prompt ~ "${escapeFilterValue(filters.search)}"`)
   return parts.join(' && ')
 }

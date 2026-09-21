@@ -1,3 +1,4 @@
+import { localDateRangeToUtcFilters } from '~/lib/local-day'
 import type { DateRange } from '~/lib/period'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
 
@@ -13,9 +14,14 @@ export function useTaskEntries() {
   const { $pb } = useNuxtApp()
 
   async function fetchRange(range: DateRange, opts: { project?: string, client?: string } = {}) {
+    // `range.start`/`range.end` are LOCAL calendar days (app/lib/period.ts).
+    // `started_at` is stored as a UTC instant, so the boundary must be
+    // converted to UTC here rather than treated as if it were already UTC
+    // — see app/lib/local-day.ts and the MAJOR day-boundary finding.
+    const utc = localDateRangeToUtcFilters(range)
     const filters = [
-      `started_at >= "${range.start} 00:00:00.000Z"`,
-      `started_at <= "${range.end} 23:59:59.999Z"`,
+      `started_at >= "${utc.start}"`,
+      `started_at <= "${utc.end}"`,
     ]
     if (opts.project) filters.push(`project = "${opts.project}"`)
     if (opts.client) filters.push(`client = "${opts.client}"`)

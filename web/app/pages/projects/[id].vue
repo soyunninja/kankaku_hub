@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByModel, sumTaskEntries } from '@/lib/aggregate'
+import { utcInstantToLocalDay } from '@/lib/local-day'
+import { computeAverageCost } from '@/lib/measurement-quality'
 import { resolvePreset } from '@/lib/period'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
 
@@ -36,6 +38,10 @@ onMounted(async () => {
 })
 
 const totals = computed(() => sumTaskEntries(entries.value))
+// Excludes rows whose cost_quality is 'unknown' from the average rather
+// than averaging in a zero — same shared helper the dashboard uses
+// (measurement-quality.ts), not a hand-rolled totals.cost / totals.count.
+const averageCost = computed(() => computeAverageCost(entries.value))
 const byModel = computed(() => groupByModel(entries.value))
 const topPrompts = computed(() => [...entries.value].sort((a, b) => b.cost - a.cost).slice(0, 10))
 const tasks = computed(() => tasksByProject(projectId))
@@ -43,7 +49,9 @@ const tasks = computed(() => tasksByProject(projectId))
 const trendPoints = computed(() => {
   const byDay = new Map<string, number>()
   for (const e of entries.value) {
-    const day = e.started_at.slice(0, 10)
+    // Local day, not a raw slice of the stored UTC instant — see
+    // app/lib/local-day.ts and the day-boundary finding.
+    const day = utcInstantToLocalDay(e.started_at)
     byDay.set(day, (byDay.get(day) ?? 0) + (e.work_ms ?? 0))
   }
   return [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, v]) => ({ day, values: { total: v } }))
@@ -53,7 +61,7 @@ const trendPoints = computed(() => {
 <template>
   <div v-if="project" class="flex flex-col gap-6">
     <div class="flex items-center gap-3">
-      <Button variant="ghost" size="icon" @click="navigateTo('/projects')">
+      <Button variant="ghost" size="icon" :aria-label="t('common.back')" :title="t('common.back')" @click="navigateTo('/projects')">
         <ArrowLeft class="size-4" />
       </Button>
       <div>
@@ -74,7 +82,11 @@ const trendPoints = computed(() => {
       <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" />
       <KpiCard :title="t('dashboard.kpi.cost')" :value="formatCost(totals.cost)" />
       <KpiCard :title="t('dashboard.kpi.tasks')" :value="String(totals.count)" />
-      <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(totals.count ? totals.cost / totals.count : 0)" />
+      <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(averageCost.average ?? 0)">
+        <p v-if="averageCost.excludedCount > 0" class="mt-1 text-xs text-muted-foreground">
+          {{ t('dashboard.kpi.avgCostExcludedNotice', { count: averageCost.excludedCount }) }}
+        </p>
+      </KpiCard>
     </div>
 
     <Card>

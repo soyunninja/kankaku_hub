@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
 import { resolveAgent } from '@/lib/agents'
+import { utcInstantToLocalDay } from '@/lib/local-day'
 import { computeAverageCost, LEGACY_AGENT, listDistinctAgents, summarizeWorkTimeQuality } from '@/lib/measurement-quality'
 import type { DateRange, PresetKey } from '@/lib/period'
 import { previousEquivalentPeriod, resolvePreset } from '@/lib/period'
@@ -124,7 +125,10 @@ const chartSeriesClients = computed(() => {
 const chartPoints = computed(() => {
   const byDay = new Map<string, Record<string, number>>()
   for (const e of visibleCurrent.value) {
-    const day = e.started_at.slice(0, 10)
+    // `started_at` is a UTC instant; bucket by the viewer's LOCAL day
+    // (never a raw slice of the UTC string) so the x-axis agrees with
+    // the "today"/range filters above — see app/lib/local-day.ts.
+    const day = utcInstantToLocalDay(e.started_at)
     const bucket = byDay.get(day) ?? {}
     const key = stackBy.value === 'client' ? e.client : stackBy.value === 'project' ? (e.project || '—') : 'total'
     if (chartSeriesKeys.value.includes(key)) {
