@@ -203,7 +203,7 @@ async function toggleArchive(project: ProjectRecord) {
               </p>
               <div v-for="(_, i) in form.repoPaths" :key="i" class="flex gap-2">
                 <Input v-model="form.repoPaths[i]" placeholder="/home/dev/repos/project" />
-                <Button type="button" variant="ghost" size="icon" @click="removePath(i)">
+                <Button type="button" variant="ghost" size="icon" :aria-label="t('projects.removePath')" :title="t('projects.removePath')" @click="removePath(i)">
                   <Trash2 class="size-4" />
                 </Button>
               </div>

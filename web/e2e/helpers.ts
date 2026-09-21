@@ -142,6 +142,19 @@ export async function findClients(request: APIRequestContext, token: string): Pr
   return { unassigned, target }
 }
 
+/**
+ * Locates toast text scoped to the visible toast viewport
+ * (`[data-testid="toast-viewport"]`, `app/components/ui/toast/Toaster.vue`).
+ * A toast's text is now ALSO mirrored into an always-mounted
+ * `sr-only` live region for screen readers (a11y finding), so a bare
+ * `page.getByText(...)` matches twice and fails Playwright's strict
+ * mode — every spec asserting on toast content must go through this
+ * helper instead.
+ */
+export function toastText(page: Page, text: string | RegExp) {
+  return page.locator('[data-testid="toast-viewport"]').getByText(text)
+}
+
 export async function login(page: Page) {
   await page.goto('/login')
   await page.fill('#email', OWNER_EMAIL)

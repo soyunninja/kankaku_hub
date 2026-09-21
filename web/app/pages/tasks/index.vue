@@ -307,7 +307,7 @@ async function onDelete(task: TaskRecord) {
         </div>
       </div>
 
-      <div aria-live="polite" class="sr-only">
+      <div data-testid="task-status-announcer" aria-live="polite" class="sr-only">
         {{ liveMessage }}
       </div>
 

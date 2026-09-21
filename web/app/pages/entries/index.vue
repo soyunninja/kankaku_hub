@@ -230,10 +230,10 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
         <div class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
           <span>{{ totalItems }} · {{ page }}/{{ totalPages }}</span>
           <div class="flex gap-2">
-            <Button size="icon" variant="outline" :disabled="page <= 1" @click="page--">
+            <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
               <ChevronLeft class="size-4" />
             </Button>
-            <Button size="icon" variant="outline" :disabled="page >= totalPages" @click="page++">
+            <Button size="icon" variant="outline" :disabled="page >= totalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
               <ChevronRight class="size-4" />
             </Button>
           </div>

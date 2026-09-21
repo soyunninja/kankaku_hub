@@ -197,13 +197,23 @@ async function confirmAssign() {
             <template v-for="g in groups" :key="groupKey(g)">
               <TableRow>
                 <TableCell>
-                  <button @click="toggleExpand(groupKey(g))">
+                  <button
+                    type="button"
+                    :aria-label="t('unassigned.toggleExpand', { group: g.legacyLabel })"
+                    :title="t('unassigned.toggleExpand', { group: g.legacyLabel })"
+                    :aria-expanded="expanded.has(groupKey(g))"
+                    @click="toggleExpand(groupKey(g))"
+                  >
                     <ChevronDown v-if="expanded.has(groupKey(g))" class="size-4" />
                     <ChevronRight v-else class="size-4" />
                   </button>
                 </TableCell>
                 <TableCell>
-                  <Checkbox :model-value="groupState(g)" @update:model-value="toggleGroup(g)" />
+                  <Checkbox
+                    :model-value="groupState(g)"
+                    :aria-label="t('unassigned.selectGroup', { group: g.legacyLabel })"
+                    @update:model-value="toggleGroup(g)"
+                  />
                 </TableCell>
                 <TableCell class="font-medium">
                   <div class="flex flex-col">
@@ -240,7 +250,11 @@ async function confirmAssign() {
                 <TableRow v-for="e in entriesInGroup(g)" :key="e.id" class="bg-muted/20">
                   <TableCell />
                   <TableCell>
-                    <Checkbox :model-value="selected.has(e.id)" @update:model-value="toggleEntry(e.id)" />
+                    <Checkbox
+                      :model-value="selected.has(e.id)"
+                      :aria-label="t('unassigned.selectEntry', { entry: e.session_name || e.session_id || e.id })"
+                      @update:model-value="toggleEntry(e.id)"
+                    />
                   </TableCell>
                   <TableCell colspan="2" class="text-xs text-muted-foreground">
                     {{ formatDate(e.started_at) }} · {{ e.session_name || e.session_id || e.id }}

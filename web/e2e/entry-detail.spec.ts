@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, findClients, login, pbUrl, setTheme, shoot } from './helpers'
+import { apiLogin, findClients, login, pbUrl, setTheme, shoot, toastText } from './helpers'
 
 /**
  * End-to-end coverage for the redesigned entry detail sheet (see
@@ -253,7 +253,7 @@ test.describe('entry detail sheet', () => {
       // what this test is actually about.
       await selects.first().selectOption({ label: unassigned.name })
       await sheet.getByRole('button', { name: 'Guardar' }).click()
-      await expect(page.getByText('Guardado')).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, 'Guardado')).toBeVisible({ timeout: 10_000 })
 
       const verifyRes = await request.get(pbUrl(`/api/collections/task_entries/records/${fixture.entryId}`), { headers: { Authorization: token } })
       const verified = await verifyRes.json()

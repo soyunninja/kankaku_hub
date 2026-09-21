@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl } from './helpers'
+import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, toastText } from './helpers'
 
 /**
  * Coverage for the tasks board's non-drag status-change paths
@@ -178,7 +178,7 @@ test.describe('tasks board', () => {
       const openCard = page.locator('[role="button"][aria-label*="Abierta"]', { hasText: title })
       await expect(openCard).toBeVisible()
       await expect(openCard).toBeFocused()
-      await expect(page.locator('[aria-live="polite"]')).toHaveText(`Tarea «${title}» movida a Abierta.`)
+      await expect(page.locator('[data-testid="task-status-announcer"]')).toHaveText(`Tarea «${title}» movida a Abierta.`)
 
       // No-op at the "open" boundary — ArrowLeft again must not error or wrap to "done".
       await page.keyboard.press('ArrowLeft')
@@ -192,7 +192,7 @@ test.describe('tasks board', () => {
       const doneCard = page.locator('[role="button"][aria-label*="Hecha"]', { hasText: title })
       await expect(doneCard).toBeVisible()
       await expect(doneCard).toBeFocused()
-      await expect(page.locator('[aria-live="polite"]')).toHaveText(`Tarea «${title}» movida a Hecha.`)
+      await expect(page.locator('[data-testid="task-status-announcer"]')).toHaveText(`Tarea «${title}» movida a Hecha.`)
 
       // No-op at the "done" boundary.
       await page.keyboard.press('ArrowRight')
@@ -260,7 +260,7 @@ test.describe('tasks board', () => {
       await dialog.getByPlaceholder('Buscar tareas…').fill(taskTitle)
       await dialog.getByRole('option', { name: taskTitle }).click()
       await dialog.getByRole('button', { name: 'Adjuntar' }).click()
-      await expect(page.getByText('1 sesiones vinculadas a la tarea.')).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, '1 sesiones vinculadas a la tarea.')).toBeVisible({ timeout: 10_000 })
       await page.keyboard.press('Escape')
 
       // Navigate to the board (SPA nav, no full reload) and confirm the
@@ -300,7 +300,7 @@ test.describe('tasks board', () => {
       await dialog.getByPlaceholder('Buscar tareas…').fill(taskTitle)
       await dialog.getByRole('option', { name: taskTitle }).click()
       await dialog.getByRole('button', { name: 'Adjuntar' }).click()
-      await expect(page.getByText('1 sesiones vinculadas a la tarea.')).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, '1 sesiones vinculadas a la tarea.')).toBeVisible({ timeout: 10_000 })
       await page.keyboard.press('Escape')
 
       await page.goto('/tasks')

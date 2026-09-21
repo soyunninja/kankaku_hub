@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import http from 'node:http'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, createClientRecord, deleteClientRecord, login, pbUrl } from './helpers'
+import { apiLogin, assertPbWritesAllowed, createClientRecord, deleteClientRecord, login, pbUrl, toastText } from './helpers'
 
 /**
  * Client favicon avatars: the ClientAvatar/ClientName components, the
@@ -244,7 +244,7 @@ test.describe('favicon refresh button', () => {
     // server's (fast, local) response comes back.
     await expect(page.locator('[data-testid="favicon-refresh-icon"]')).toHaveClass(/animate-spin/)
 
-    await expect(page.getByText('Icono actualizado.')).toBeVisible({ timeout: 10_000 })
+    await expect(toastText(page, 'Icono actualizado.')).toBeVisible({ timeout: 10_000 })
     const avatar = page.locator('[data-slot="sheet-content"] [data-testid="client-avatar"]').first()
     await expect(avatar).toHaveAttribute('data-avatar-state', 'image', { timeout: 10_000 })
   })
@@ -254,7 +254,7 @@ test.describe('favicon refresh button', () => {
     await openDetailFor(page, unreachableClient.name)
 
     await page.locator('[data-testid="favicon-refresh-button"]').click()
-    await expect(page.getByText('No se pudo contactar con la web del cliente.')).toBeVisible({ timeout: 10_000 })
+    await expect(toastText(page, 'No se pudo contactar con la web del cliente.')).toBeVisible({ timeout: 10_000 })
 
     const avatar = page.locator('[data-slot="sheet-content"] [data-testid="client-avatar"]').first()
     await expect(avatar).toHaveAttribute('data-avatar-state', 'initials')
