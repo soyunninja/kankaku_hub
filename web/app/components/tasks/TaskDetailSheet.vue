@@ -6,14 +6,18 @@
  * replacement for the board's old "Mover a" buttons, TASKS-REQ-011 — and
  * an "Edit" action back to the existing edit dialog) and a "Sessions"
  * section listing every kankaku session that touched this task, sourced
- * from `useSessions().fetchSessionsForTask` (already-consolidated
- * `task_entries` rows — D6, never `work_records`). The page keeps the
- * `<Sheet>`/`<SheetContent>` wrapper (padding, scroll container, open
- * state, session fetching) and owns the edit dialog; this component is
- * the presentational body, built following the same pattern as
- * `components/entries/EntryDetailSheet.vue` (focus exposure, resume
- * command block, `<CopyButton>`) — it never talks to PocketBase
- * directly.
+ * from `useSessions().fetchSessionTotals` (server-summed, falling back
+ * to the row-level `fetchSessionsForTask` — already-consolidated
+ * `task_entries` rows either way, D6, never `work_records`). The page
+ * keeps the `<Sheet>`/`<SheetContent>` wrapper (padding, scroll
+ * container, open state, session fetching) and owns the edit dialog;
+ * this component is the presentational body, built following the same
+ * pattern as `components/entries/EntryDetailSheet.vue` (focus exposure,
+ * resume command block, `<CopyButton>`) — it never talks to PocketBase
+ * directly. Its `sessions` prop is `TaskSessionRow[]`, a shape-agnostic
+ * view model the page maps both the totals-backed and fallback session
+ * sources into (see `lib/session-aggregate.ts#TaskSessionRow`), so this
+ * component never needs to know which source produced a row.
  */
 import { Pencil } from '@lucide/vue'
 import AgentBadge from '@/components/agents/AgentBadge.vue'
@@ -23,13 +27,13 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
-import { MIXED, type SessionSummary } from '@/lib/session-aggregate'
+import { MIXED, type TaskSessionRow } from '@/lib/session-aggregate'
 import { buildResumeCommand } from '@/lib/session-resume'
 
 const props = defineProps<{
   task: TaskRecord
   projectName: string
-  sessions: SessionSummary[]
+  sessions: TaskSessionRow[]
   sessionsLoading: boolean
 }>()
 
@@ -56,7 +60,7 @@ function focusTitle() {
 }
 defineExpose({ focusTitle })
 
-function sessionName(session: SessionSummary) {
+function sessionName(session: TaskSessionRow) {
   return session.sessionName || t('tasks.detail.sessions.nameFallback')
 }
 

@@ -1,8 +1,35 @@
 import { chunk } from '~/lib/aggregate'
-import { MIXED, type SessionSummary } from '~/lib/session-aggregate'
+import { MIXED } from '~/lib/session-aggregate'
 import type { TaskRecord } from '~/lib/pocketbase-types'
 
 const BATCH_CHUNK_SIZE = 50
+
+/**
+ * The only fields `convertToTask`/`attachToExisting`/`ignoreSession`
+ * actually read off a session — deliberately narrower than the
+ * deprecated `SessionSummary` these functions originally accepted.
+ * `sessions-without-task/index.vue` is this composable's only caller
+ * (verified by grep), so narrowing here is safe: it now builds a small
+ * per-action adapter object instead of a full `SessionSummary`, because
+ * its primary data source is `useSessions().fetchUnassignedSessionTotals`
+ * (`SessionTotal`, from `POST /api/kankaku/totals`), which has no
+ * `entryIds` at all (aggregates only — see the GAP doc comment on
+ * `useSessions.ts#fetchUnassignedSessionTotals`) and no plain `project`
+ * string (only `sampleProject`/`distinctProject`). Building a fake
+ * `SessionSummary` to satisfy the old wider type would mean fabricating
+ * fields (e.g. `workMsMayOverlap`) this module never reads — narrowing
+ * the accepted shape to exactly what is used is the honest option.
+ * `entryIds` is always freshly fetched by the caller right before a bulk
+ * action (never trusted from a stale snapshot); `ignoreSession` never
+ * reads it, so a caller may pass `[]` for it there.
+ */
+export interface SessionQueueTarget {
+  sessionId: string
+  machine: string
+  /** Unanimous project id across the session's entries, or `MIXED`. */
+  project: string
+  entryIds: string[]
+}
 
 /**
  * Actions on a "sessions without a task" queue entry (see
@@ -69,7 +96,7 @@ export function useSessionsQueue() {
    * `updatedCount` comes back short of `session.entryIds.length`.
    */
   async function convertToTask(
-    session: SessionSummary,
+    session: SessionQueueTarget,
     overrides: { title: string, project?: string },
   ): Promise<{ task: TaskRecord, updatedCount: number }> {
     const project = overrides.project ?? (session.project !== MIXED ? session.project : '')
@@ -80,7 +107,7 @@ export function useSessionsQueue() {
 
   /** Reassigns every entry in a session to an existing task, no task creation. */
   async function attachToExisting(
-    session: SessionSummary,
+    session: SessionQueueTarget,
     taskId: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<{ succeeded: string[], failed: string[] }> {
@@ -97,7 +124,7 @@ export function useSessionsQueue() {
    * not. See docs/contract.md "What a unique-violation response
    * actually looks like" for the exact error shape checked here.
    */
-  async function ignoreSession(session: SessionSummary): Promise<void> {
+  async function ignoreSession(session: SessionQueueTarget): Promise<void> {
     try {
       await $pb.collection('ignored_sessions').create({
         session_id: session.sessionId,

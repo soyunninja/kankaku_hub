@@ -77,6 +77,44 @@ export interface SessionEntryLike {
 /** Sentinel for a field that disagrees across a session's entries. */
 export const MIXED = 'mixed' as const
 
+/**
+ * Presentational view of one session row in the task detail sheet's
+ * sessions list (`components/tasks/TaskDetailSheet.vue`) — exactly the
+ * fields that component reads, independent of whether the caller built
+ * it from a totals-backed `SessionTotal` (`useSessions.ts#fetchSessionTotals`)
+ * or a fallback `SessionSummary` (`fetchSessionsForTask` below).
+ * Deliberately narrower than `SessionSummary`: no `entryIds` (the totals
+ * endpoint returns aggregates, not row ids) and no `client`/`project`/
+ * `task` (unused by this sheet) — so a totals-backed caller isn't forced
+ * to invent values for fields it structurally doesn't have. Field names
+ * mirror `SessionSummary`'s on purpose so `TaskDetailSheet.vue`'s
+ * template needed no changes when this type replaced `SessionSummary[]`
+ * as its prop shape.
+ */
+export interface TaskSessionRow {
+  sessionId: string
+  sessionName: string
+  firstActivity: string
+  lastActivity: string
+  entryCount: number
+  /** See `SessionSummary.workMs` — same "may be an upper bound" caveat. */
+  workMs: number
+  /** See `SessionSummary.workMsMayOverlap`. A totals-backed row has no
+   * raw per-row intervals to run the real overlap check against, so it
+   * conservatively sets this whenever the session summed more than one
+   * row (a single-row session trivially can't overlap itself) — see
+   * `app/pages/tasks/index.vue#sessionTotalToRow`. */
+  workMsMayOverlap: boolean
+  elapsedMs: number
+  waitingMs: number
+  cost: number
+  machine: string
+  /** Resolved agent slug, or the `MIXED` sentinel. */
+  agent: string
+  repoProject: string | undefined
+  sessionDir: string | undefined
+}
+
 export interface SessionSummary {
   sessionId: string
   sessionName: string

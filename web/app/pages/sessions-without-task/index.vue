@@ -11,7 +11,7 @@
  * kankaku/hub never links a session to a task on its own; every path
  * below is an explicit, confirmed owner action.
  */
-import { Check, FilePlus2, Info, Link2, Loader2, MoreHorizontal, Search } from '@lucide/vue'
+import { Check, ChevronLeft, ChevronRight, FilePlus2, Info, Link2, Loader2, MoreHorizontal, Search } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,9 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import type { SessionTotal } from '@/composables/useSessions'
+import type { SessionQueueTarget } from '@/composables/useSessionsQueue'
+import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { MIXED, type SessionSummary } from '@/lib/session-aggregate'
 
 const { t } = useI18n()
@@ -34,25 +37,137 @@ const { formatCost, formatDate, formatDuration } = useFormatters()
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, ensureLoaded: ensureTasks, refreshOne: refreshTask } = useTasks()
-const { fetchUnassignedSessions } = useSessions()
+const { fetchUnassignedSessionTotals, fetchUnassignedSessions } = useSessions()
+const { list: listEntries } = useEntriesExplorer()
 const { convertToTask, attachToExisting, ignoreSession } = useSessionsQueue()
 const { refresh: refreshQueueCount } = useSessionsQueueCount()
 const toast = useToast()
 
+/**
+ * One row's display shape, shared by BOTH data sources this page can
+ * render from:
+ * - normal path: `fetchUnassignedSessionTotals` (`SessionTotal`, server
+ *   totals) — `fromSessionTotal` below reshapes it into this, resolving
+ *   `client`/`project`/`agent` to either the representative
+ *   `sampleX` id/slug or the `MIXED` sentinel up front (per-field, using
+ *   `distinctX > 1` — see the PRESERVED PER-FIELD MIXED GRANULARITY note
+ *   below), so every other function/template expression below reads
+ *   exactly the same `client`/`project`/`agent` shape either path used.
+ * - fallback path (`TotalsRouteUnavailableError`): `fetchUnassignedSessions`
+ *   already returns `SessionSummary[]`, whose `client`/`project`/`task`/
+ *   `agent` fields are ALREADY resolved to `MIXED` or a real value by
+ *   `uniformOrMixed` (`app/lib/session-aggregate.ts`) — so a
+ *   `SessionSummary` already structurally satisfies `QueueRow` (a
+ *   `Pick`), no mapping needed there.
+ *
+ * PRESERVED PER-FIELD MIXED GRANULARITY (deliberate choice over the
+ * coarser `SessionTotal.mixed` boolean): `SessionTotal.mixed` only ORs
+ * `distinctClient > 1 || distinctProject > 1` into one flag, dropping
+ * which field disagreed and never covering `agent`. This page's
+ * `clientLabel`/`projectLabel`/inline agent check need to keep showing
+ * "Mixed" per-field independently, exactly like before the totals
+ * migration — cheap to keep because `distinctClient`/`sampleClient`,
+ * `distinctProject`/`sampleProject`, `distinctAgent`/`sampleAgent` are
+ * already on `SessionTotal` (inherited from `TotalsGroup`), so
+ * `fromSessionTotal` just does the same per-field
+ * `distinctX > 1 ? MIXED : sampleX` check `uniformOrMixed` used to do
+ * server-side-per-row, instead of switching to the combined boolean.
+ */
+type QueueRow = Pick<SessionSummary, 'sessionId' | 'sessionName' | 'machine' | 'agent' | 'client' | 'project' | 'entryCount' | 'workMs' | 'workMsMayOverlap' | 'elapsedMs' | 'waitingMs' | 'cost' | 'firstActivity' | 'lastActivity'>
+
+function fromSessionTotal(s: SessionTotal): QueueRow {
+  return {
+    sessionId: s.sessionId,
+    sessionName: s.sessionName,
+    machine: s.machine,
+    agent: s.distinctAgent > 1 ? MIXED : s.sampleAgent,
+    client: s.distinctClient > 1 ? MIXED : s.sampleClient,
+    project: s.distinctProject > 1 ? MIXED : s.sampleProject,
+    entryCount: s.entries,
+    workMs: s.workMs,
+    workMsMayOverlap: s.entries > 1,
+    elapsedMs: s.elapsedMs,
+    waitingMs: s.waitingMs,
+    cost: s.cost,
+    firstActivity: s.minStartedAt,
+    lastActivity: s.maxEndedAt,
+  }
+}
+
+const ENTRY_ID_FETCH_PAGE_SIZE = 200
+
+/**
+ * Fetches every `task_entries` row id for one session, paged through
+ * completely (a session can have more rows than one page) via
+ * `useEntriesExplorer().list()`'s `session_id` filter. Bulk actions
+ * call this fresh, right before acting, for each SELECTED session only
+ * — never for sessions the owner didn't pick, and never trusting a
+ * stale snapshot: `SessionTotal` (unlike the deprecated
+ * `SessionSummary`) carries no `entryIds` at all (see the GAP doc
+ * comment on `useSessions.ts#fetchUnassignedSessionTotals`), and even in
+ * fallback mode a fresh fetch can't be stale.
+ */
+async function fetchAllEntryIds(sessionId: string): Promise<string[]> {
+  const ids: string[] = []
+  let page = 1
+  for (;;) {
+    const res = await listEntries({ page, perPage: ENTRY_ID_FETCH_PAGE_SIZE, sort: 'started_at', filters: { session_id: sessionId } })
+    ids.push(...res.items.map(e => e.id))
+    if (page >= res.totalPages) break
+    page++
+  }
+  return ids
+}
+
+/** Builds the minimal adapter `useSessionsQueue()`'s 3 actions actually
+ * read (see `SessionQueueTarget`'s doc comment) — `entryIds` is `[]` for
+ * `ignoreSession`, which never reads it (skips the fetch above
+ * entirely; see `confirmIgnore`). */
+function queueTarget(session: QueueRow, entryIds: string[]): SessionQueueTarget {
+  return { sessionId: session.sessionId, machine: session.machine, project: session.project, entryIds }
+}
+
 const loading = ref(true)
-const sessions = ref<SessionSummary[]>([])
+const sessions = ref<QueueRow[]>([])
 const truncated = ref(false)
 const selected = ref<Set<string>>(new Set())
+
+// -- Pagination (totals path only — the deprecated fallback scan below
+// stays a single bounded, unpaginated read, same as before this
+// migration; `totals.fallbackTruncated` doesn't fit here because that
+// scan has no known total count to report, only a "may be cut off"
+// boolean — `sessionsQueue.truncatedNotice` already covers exactly that
+// and predates this migration, so it's kept rather than duplicated) ----
+const page = ref(1)
+const perPage = 25
+const totalGroups = ref(0)
+const totalPages = ref(1)
+const fallbackMode = ref(false)
 
 async function load() {
   loading.value = true
   await Promise.all([ensureClients(), ensureProjects(), ensureTasks()])
-  const result = await fetchUnassignedSessions()
-  sessions.value = result.sessions
-  truncated.value = result.truncated
+  try {
+    const result = await fetchUnassignedSessionTotals({ page: page.value, perPage })
+    sessions.value = result.sessions.map(fromSessionTotal)
+    totalGroups.value = result.totalGroups
+    totalPages.value = result.totalPages
+    fallbackMode.value = false
+    truncated.value = false
+  }
+  catch (err) {
+    if (!(err instanceof TotalsRouteUnavailableError)) throw err
+    fallbackMode.value = true
+    const result = await fetchUnassignedSessions()
+    sessions.value = result.sessions
+    truncated.value = result.truncated
+    totalGroups.value = result.sessions.length
+    totalPages.value = 1
+  }
   loading.value = false
 }
 onMounted(load)
+watch(page, () => { if (!fallbackMode.value) load() })
 
 function removeSessions(ids: string[]) {
   const idSet = new Set(ids)
@@ -60,19 +175,19 @@ function removeSessions(ids: string[]) {
 }
 
 /** Re-inserts sessions a failed action optimistically removed, keeping the same most-recent-first order `groupBySession` produces. */
-function restoreSessions(restored: SessionSummary[]) {
+function restoreSessions(restored: QueueRow[]) {
   if (restored.length === 0) return
   sessions.value = [...sessions.value, ...restored].sort((a, b) => (a.lastActivity < b.lastActivity ? 1 : -1))
 }
 
-function sessionName(session: SessionSummary) {
+function sessionName(session: QueueRow) {
   return session.sessionName || t('sessionsQueue.nameFallback')
 }
-function clientLabel(session: SessionSummary) {
+function clientLabel(session: QueueRow) {
   if (session.client === MIXED) return t('sessionsQueue.mixed')
   return session.client ? (clients.value.find(c => c.id === session.client)?.name ?? session.client) : '—'
 }
-function projectLabel(session: SessionSummary) {
+function projectLabel(session: QueueRow) {
   if (session.project === MIXED) return t('sessionsQueue.mixed')
   return session.project ? (projects.value.find(p => p.id === session.project)?.name ?? session.project) : '—'
 }
@@ -81,7 +196,7 @@ function projectLabel(session: SessionSummary) {
  * time, shown as the Work time cell's tooltip. `elapsedMs`, not the old
  * summed `wallMs`, which overstates a session's wall time once its rows'
  * intervals can overlap — see app/lib/session-aggregate.ts. */
-function elapsedWaitingTooltip(session: SessionSummary) {
+function elapsedWaitingTooltip(session: QueueRow) {
   return t('sessionsQueue.elapsedWaitingTooltip', { elapsed: formatDuration(session.elapsedMs), waiting: formatDuration(session.waitingMs) })
 }
 
@@ -110,11 +225,11 @@ function deselect(ids: string[]) {
 // -- Convert to a new task (single session only — see task prompt: no ----
 // meaningful bulk "convert", every session would need its own title) ----
 const convertOpen = ref(false)
-const convertSession = ref<SessionSummary | null>(null)
+const convertSession = ref<QueueRow | null>(null)
 const convertForm = reactive({ title: '', project: '' })
 const converting = ref(false)
 
-function openConvert(session: SessionSummary) {
+function openConvert(session: QueueRow) {
   convertSession.value = session
   convertForm.title = session.sessionName
   convertForm.project = session.project !== MIXED ? session.project : ''
@@ -126,14 +241,15 @@ async function confirmConvert() {
   if (!session || !convertForm.title.trim() || !convertForm.project) return
   converting.value = true
   try {
-    const { task, updatedCount } = await convertToTask(session, { title: convertForm.title.trim(), project: convertForm.project })
+    const entryIds = await fetchAllEntryIds(session.sessionId)
+    const { task, updatedCount } = await convertToTask(queueTarget(session, entryIds), { title: convertForm.title.trim(), project: convertForm.project })
     // The new task is created `open`, then `task_entries.task` is
     // batch-assigned to it — a write the `task-auto-doing` PocketBase
     // hook (TASKS-REQ-010) may react to server-side by flipping it to
     // `doing`, outside `useTasks`' own write path. Re-read this one task
     // so the board reflects that without a page reload.
     if (updatedCount > 0) await refreshTask(task.id)
-    if (updatedCount >= session.entryIds.length) {
+    if (updatedCount >= entryIds.length) {
       removeSessions([session.sessionId])
       deselect([session.sessionId])
       toast.success(t('sessionsQueue.convertSuccess', { title: task.title }))
@@ -141,7 +257,7 @@ async function confirmConvert() {
     else {
       // Partial: the task exists, but not every entry moved — re-fetch
       // rather than guess at the session's now-mixed state client-side.
-      toast.error(t('sessionsQueue.convertPartial', { title: task.title, succeeded: updatedCount, total: session.entryIds.length }))
+      toast.error(t('sessionsQueue.convertPartial', { title: task.title, succeeded: updatedCount, total: entryIds.length }))
       await load()
     }
     refreshQueueCount()
@@ -157,7 +273,7 @@ async function confirmConvert() {
 
 // -- Attach to an existing task (single session or the whole selection) --
 const attachOpen = ref(false)
-const attachSessions = ref<SessionSummary[]>([])
+const attachSessions = ref<QueueRow[]>([])
 const attachQuery = ref('')
 const attachSelectedTaskId = ref('')
 const attaching = ref(false)
@@ -165,13 +281,16 @@ const attachProgressDone = ref(0)
 const attachProgressTotal = ref(0)
 const attachResult = ref<{ succeeded: number, failed: number } | null>(null)
 
-function openAttach(targets: SessionSummary[]) {
+function openAttach(targets: QueueRow[]) {
   attachSessions.value = targets
   attachQuery.value = ''
   attachSelectedTaskId.value = ''
   attachResult.value = null
   attachProgressDone.value = 0
-  attachProgressTotal.value = targets.reduce((sum, s) => sum + s.entryIds.length, 0)
+  // `entryCount` (already known, no fetch needed) rather than a fetched
+  // `entryIds.length` — ids for each target are only fetched inside
+  // `confirmAttach`, right before that session's own action call.
+  attachProgressTotal.value = targets.reduce((sum, s) => sum + s.entryCount, 0)
   attachOpen.value = true
 }
 
@@ -194,7 +313,6 @@ async function confirmAttach() {
   if (!taskId) return
   attaching.value = true
   const targets = attachSessions.value
-  const total = targets.reduce((sum, s) => sum + s.entryIds.length, 0)
   let done = 0
   let succeededSessions = 0
   let failedSessions = 0
@@ -202,11 +320,11 @@ async function confirmAttach() {
 
   for (const session of targets) {
     try {
-      const { failed } = await attachToExisting(session, taskId, (sessionDone) => {
+      const entryIds = await fetchAllEntryIds(session.sessionId)
+      const { failed } = await attachToExisting(queueTarget(session, entryIds), taskId, (sessionDone) => {
         attachProgressDone.value = done + sessionDone
-        attachProgressTotal.value = total
       })
-      done += session.entryIds.length
+      done += entryIds.length
       if (failed.length === 0) {
         succeededSessions++
         movedIds.push(session.sessionId)
@@ -216,9 +334,13 @@ async function confirmAttach() {
       }
     }
     catch {
-      done += session.entryIds.length
+      // The fetch or the batch call itself failed before we know a real
+      // entry count for this session — advance the progress bar by its
+      // already-known `entryCount` so it still reaches 100% overall.
+      done += session.entryCount
       failedSessions++
     }
+    attachProgressDone.value = done
   }
 
   attaching.value = false
@@ -239,10 +361,10 @@ async function confirmAttach() {
 // confirm bar, not a full dialog (no destructive-action dialog precedent
 // exists elsewhere in this app — tasks/index.vue's own delete has none —
 // so this stays the lightest step that still makes the owner confirm).
-const ignoreTargets = ref<SessionSummary[] | null>(null)
+const ignoreTargets = ref<QueueRow[] | null>(null)
 const ignoring = ref(false)
 
-function requestIgnore(targets: SessionSummary[]) {
+function requestIgnore(targets: QueueRow[]) {
   ignoreTargets.value = targets
 }
 function cancelIgnore() {
@@ -259,10 +381,12 @@ async function confirmIgnore() {
   ignoring.value = true
 
   let succeeded = 0
-  const failedBackups: SessionSummary[] = []
+  const failedBackups: QueueRow[] = []
   for (const session of targets) {
     try {
-      await ignoreSession(session)
+      // `entryIds` unused by `ignoreSession` (see `SessionQueueTarget`'s
+      // doc comment) — no fetch needed here, unlike convert/attach.
+      await ignoreSession(queueTarget(session, []))
       succeeded++
     }
     catch {
@@ -437,6 +561,21 @@ async function confirmIgnore() {
         </Table>
         </TooltipProvider>
         <EmptyState v-else :title="t('sessionsQueue.empty')" class="m-4" />
+
+        <!-- Server-paginated (totals path only) — the deprecated
+             fallback scan below is a single bounded, unpaginated read,
+             same as before this migration. -->
+        <div v-if="!loading && !fallbackMode" class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
+          <span>{{ totalGroups }} · {{ page }}/{{ totalPages }}</span>
+          <div class="flex gap-2">
+            <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
+              <ChevronLeft class="size-4" />
+            </Button>
+            <Button size="icon" variant="outline" :disabled="page >= totalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
+              <ChevronRight class="size-4" />
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
 
