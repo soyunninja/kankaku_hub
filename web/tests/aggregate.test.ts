@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avgCostPerTask, chunk, groupByClient, groupUnassigned, sumTaskEntries } from '../app/lib/aggregate'
+import { avgCostPerTask, chunk, groupByClient, groupUnassigned, sumTaskEntries, unassignedGroupKey } from '../app/lib/aggregate'
 import { fixtureClientCosts, fixtureGrandTotals, fixtureTaskEntries } from './fixtures/task-entries'
 
 describe('sumTaskEntries (D6 guard)', () => {
@@ -60,6 +60,18 @@ describe('chunk', () => {
   })
   it('throws for a non-positive size', () => {
     expect(() => chunk([1], 0)).toThrow()
+  })
+})
+
+describe('unassignedGroupKey', () => {
+  it('does not collide when a space could be reinterpreted as the join separator', () => {
+    const a = unassignedGroupKey('A B', 'C')
+    const b = unassignedGroupKey('A', 'B C')
+    expect(a).not.toBe(b)
+  })
+
+  it('is stable for the same inputs', () => {
+    expect(unassignedGroupKey('Acme Corp', '/home/dev/acme')).toBe(unassignedGroupKey('Acme Corp', '/home/dev/acme'))
   })
 })
 

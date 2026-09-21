@@ -279,10 +279,12 @@ function toTotalsRow(entries: TaskEntryRecord[]): TotalsRow {
  * degrade-gracefully path. */
 async function loadFallback() {
   const prevRange = previousEquivalentPeriod(range.value)
-  const [currentEntries, previousEntries] = await Promise.all([
+  const [current, previous] = await Promise.all([
     fetchRange(range.value),
     fetchRange(prevRange),
   ])
+  const currentEntries = current.entries
+  const previousEntries = previous.entries
 
   function matchesAgentFilter(entry: TaskEntryRecord) {
     if (!agentFilter.value) return true

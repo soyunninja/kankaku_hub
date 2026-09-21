@@ -8,53 +8,146 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByModel, sumTaskEntries } from '@/lib/aggregate'
-import { utcInstantToLocalDay } from '@/lib/local-day'
+import { buildLocalDayBoundaries, localDateRangeToUtcFilters, utcInstantToLocalDay } from '@/lib/local-day'
 import { computeAverageCost } from '@/lib/measurement-quality'
 import { resolvePreset } from '@/lib/period'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
+import { computeAverageCostFromTotal, groupsToGroupTotals } from '@/lib/totals-map'
+import { TotalsRouteUnavailableError } from '@/composables/useTotals'
+
+/** Rendered top-10-by-cost — matches the pre-migration `.slice(0, 10)`. */
+const TOP_PROMPTS_LIMIT = 10
 
 const { t } = useI18n()
 const { formatCost, formatDuration } = useFormatters()
 const route = useRoute()
 const projectId = route.params.id as string
+const { $pb } = useNuxtApp()
 
 const { byId: projectById, ensureLoaded: ensureProjects } = useProjects()
 const { byId: clientById, ensureLoaded: ensureClients } = useClients()
 const { byProject: tasksByProject, ensureLoaded: ensureTasks } = useTasks()
 const { fetchRange } = useTaskEntries()
+const { fetchTotals, fetchRangeTotals } = useTotals()
 
 const project = computed(() => projectById(projectId))
 const client = computed(() => project.value ? clientById(project.value.client) : undefined)
 useHead({ title: computed(() => project.value?.name ?? 'Project') })
 
-const entries = ref<TaskEntryRecord[]>([])
+// Fixed 30d-to-today window — this page has no date-range selector.
+const range = { start: resolvePreset('30d').start, end: resolvePreset('today').end }
+
 const loading = ref(true)
+/** Sticky once the totals route 404s this session, so every later
+ * refresh goes straight to the fallback instead of re-probing (same
+ * pattern as `pages/index.vue`). */
+const totalsRouteUnavailable = ref(false)
+/** True when the fallback path's `fetchRange` scan was capped before
+ * covering the full range — surfaces `totals.fallbackTruncated`. */
+const truncated = ref(false)
 
-onMounted(async () => {
-  await Promise.all([ensureProjects(), ensureClients(), ensureTasks()])
-  const range = { start: resolvePreset('30d').start, end: resolvePreset('today').end }
-  entries.value = await fetchRange(range, { project: projectId })
-  loading.value = false
-})
-
-const totals = computed(() => sumTaskEntries(entries.value))
+const totals = ref<{ workMs: number, cost: number, count: number }>({ workMs: 0, cost: 0, count: 0 })
 // Excludes rows whose cost_quality is 'unknown' from the average rather
-// than averaging in a zero — same shared helper the dashboard uses
-// (measurement-quality.ts), not a hand-rolled totals.cost / totals.count.
-const averageCost = computed(() => computeAverageCost(entries.value))
-const byModel = computed(() => groupByModel(entries.value))
-const topPrompts = computed(() => [...entries.value].sort((a, b) => b.cost - a.cost).slice(0, 10))
+// than averaging in a zero — same shared semantics the dashboard uses
+// (measurement-quality.ts / totals-map.ts), not a hand-rolled
+// totals.cost / totals.count.
+const averageCost = ref<{ average: number | null, excludedCount: number, includedCount: number }>({ average: null, excludedCount: 0, includedCount: 0 })
+const byModel = ref<{ key: string, workMs: number, cost: number }[]>([])
+const topPrompts = ref<Pick<TaskEntryRecord, 'id' | 'prompt' | 'cost'>[]>([])
+const trendPoints = ref<{ day: string, values: { total: number } }[]>([])
 const tasks = computed(() => tasksByProject(projectId))
 
-const trendPoints = computed(() => {
+async function fetchTopPrompts(): Promise<Pick<TaskEntryRecord, 'id' | 'prompt' | 'cost'>[]> {
+  const utc = localDateRangeToUtcFilters(range)
+  const filter = [
+    `started_at >= "${utc.start}"`,
+    `started_at <= "${utc.end}"`,
+    `project = "${projectId}"`,
+  ].join(' && ')
+  const result = await $pb.collection('task_entries').getList<TaskEntryRecord>(1, TOP_PROMPTS_LIMIT, {
+    filter,
+    sort: '-cost',
+    fields: 'id,prompt,cost,started_at',
+  })
+  return result.items
+}
+
+async function loadServer() {
+  const { boundaries, labels } = buildLocalDayBoundaries(range)
+
+  const [totalsResp, dayResp, modelResp, promptsRows] = await Promise.all([
+    fetchRangeTotals(range, { groupBy: 'none', filters: { project: projectId } }),
+    fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters: { project: projectId }, perPage: boundaries.length }),
+    fetchRangeTotals(range, { groupBy: 'model', filters: { project: projectId } }),
+    fetchTopPrompts(),
+  ])
+
+  totals.value = totalsResp.total
+  averageCost.value = computeAverageCostFromTotal(totalsResp.total)
+  byModel.value = groupsToGroupTotals(modelResp.groups, modelResp.total)
+  topPrompts.value = promptsRows
+  truncated.value = false
+
+  trendPoints.value = labels.map((day, idx) => {
+    const bucket = dayResp.groups.find(g => g.groupKey === String(idx))
+    return { day, values: { total: bucket?.workMs ?? 0 } }
+  })
+}
+
+/** Pre-totals-route path: fetches the full range as rows and aggregates
+ * client-side, exactly as this page did before the totals migration.
+ * Used only when POST /api/kankaku/totals 404s — no error toast, this is
+ * a silent, documented degrade-gracefully path.
+ *
+ * "Most expensive prompts" reuses the rows already fetched by
+ * `fetchRange` (sorted/sliced the same way as before) rather than
+ * issuing a second query: `fetchRange`'s `FIELDS` already includes
+ * `prompt`, so this stays simplest and preserves pre-migration behavior
+ * exactly.
+ */
+async function loadFallback() {
+  const { entries, truncated: wasTruncated } = await fetchRange(range, { project: projectId })
+  truncated.value = wasTruncated
+
+  totals.value = sumTaskEntries(entries)
+  averageCost.value = computeAverageCost(entries)
+  byModel.value = groupByModel(entries)
+  topPrompts.value = [...entries].sort((a, b) => b.cost - a.cost).slice(0, TOP_PROMPTS_LIMIT)
+
   const byDay = new Map<string, number>()
-  for (const e of entries.value) {
+  for (const e of entries) {
     // Local day, not a raw slice of the stored UTC instant — see
     // app/lib/local-day.ts and the day-boundary finding.
     const day = utcInstantToLocalDay(e.started_at)
     byDay.set(day, (byDay.get(day) ?? 0) + (e.work_ms ?? 0))
   }
-  return [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, v]) => ({ day, values: { total: v } }))
+  trendPoints.value = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, v]) => ({ day, values: { total: v } }))
+}
+
+async function load() {
+  loading.value = true
+  try {
+    if (totalsRouteUnavailable.value) {
+      await loadFallback()
+      return
+    }
+    try {
+      await loadServer()
+    }
+    catch (err) {
+      if (!(err instanceof TotalsRouteUnavailableError)) throw err
+      totalsRouteUnavailable.value = true
+      await loadFallback()
+    }
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([ensureProjects(), ensureClients(), ensureTasks()])
+  await load()
 })
 </script>
 
@@ -77,6 +170,10 @@ const trendPoints = computed(() => {
         {{ project.active ? t('common.active') : t('common.inactive') }}
       </Badge>
     </div>
+
+    <p v-if="truncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
+      {{ t('totals.fallbackTruncated', { count: totals.count }) }}
+    </p>
 
     <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
       <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" />

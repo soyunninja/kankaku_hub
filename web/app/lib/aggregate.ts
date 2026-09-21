@@ -139,20 +139,34 @@ export interface UnassignedGroup {
 }
 
 /**
+ * Stable identity key for one `groupUnassigned`-style
+ * (`legacyLabel`, `repoProject`) group, built from a JSON tuple, not
+ * string concatenation: labels and repo paths routinely contain spaces
+ * (`"Clinica Dental Vega"`, `/home/dev/repos/...`), so joining with a
+ * separator and splitting it back apart would corrupt the grouping the
+ * moment a label contains that separator (e.g. `legacyLabel: "A B",
+ * repoProject: "C"` and `legacyLabel: "A", repoProject: "B C"` would
+ * collide under plain `` `${legacyLabel} ${repoProject}` `` joining).
+ * Exported so any caller needing the same group identity — e.g.
+ * `pages/unassigned/index.vue`'s server-totals-backed group listing,
+ * whose `UnassignedGroup` (from `useUnassignedQueue.ts`) has no local
+ * `entryIds` to derive a key from some other way — uses the identical
+ * key `groupUnassigned` uses internally.
+ */
+export function unassignedGroupKey(legacyLabel: string, repoProject: string): string {
+  return JSON.stringify([legacyLabel, repoProject])
+}
+
+/**
  * Group `Sin determinar` rows by (`legacy_client_label`, `repo_project`)
  * — the reassignment queue's unit of work (proposal §5.3, screen 7).
- *
- * Keyed by a JSON tuple, not string concatenation: labels and repo paths
- * routinely contain spaces (`"Clinica Dental Vega"`, `/home/dev/repos/...`),
- * so joining with a separator and splitting it back apart would corrupt
- * the grouping the moment a label contains that separator.
  */
 export function groupUnassigned(entries: TaskEntryLike[]): UnassignedGroup[] {
   const buckets = new Map<string, { legacyLabel: string, repoProject: string, rows: TaskEntryLike[] }>()
   for (const entry of entries) {
     const legacyLabel = entry.legacy_client_label || '(sin etiqueta)'
     const repoProject = entry.repo_project || '(sin proyecto)'
-    const key = JSON.stringify([legacyLabel, repoProject])
+    const key = unassignedGroupKey(legacyLabel, repoProject)
     const bucket = buckets.get(key)
     if (bucket) bucket.rows.push(entry)
     else buckets.set(key, { legacyLabel, repoProject, rows: [entry] })

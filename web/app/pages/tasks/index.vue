@@ -15,8 +15,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { groupByKey } from '@/lib/aggregate'
+import { resolvePreset } from '@/lib/period'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
-import type { SessionSummary } from '@/lib/session-aggregate'
+import type { TaskSessionRow } from '@/lib/session-aggregate'
+import { sessionSummaryToRow, sessionTotalToRow } from '@/lib/task-session-row'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
 const { t } = useI18n()
@@ -25,8 +27,9 @@ const { formatCost, formatDuration } = useFormatters()
 
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, loading, ensureLoaded, create, update, remove, moveStatus } = useTasks()
-const { fetchAll } = useTaskEntries()
-const { fetchSessionsForTask } = useSessions()
+const { fetchRange } = useTaskEntries()
+const { fetchSessionTotals, fetchSessionsForTask } = useSessions()
+const { list: listEntries } = useEntriesExplorer()
 const { fetchTotals } = useTotals()
 const toast = useToast()
 
@@ -36,6 +39,25 @@ const totalsByTask = ref<Record<string, { cost: number, workMs: number }>>({})
 /** Distinct session count per task, for the board card's session chip
  * (Task 2). */
 const sessionCountByTask = ref<Record<string, number>>({})
+/** True when `loadTaskTotals`'s fallback (`fetchRange`, see below) was
+ * capped before covering the full all-time range — surfaces
+ * `totals.fallbackTruncated`, same pattern as clients/index.vue and
+ * projects/index.vue. */
+const taskTotalsFallbackTruncated = ref(false)
+const taskTotalsFallbackEntryCount = ref(0)
+
+/** Deliberately-wide lower bound for the `loadTaskTotals` fallback's
+ * "all-time per-task" scan: there is no dedicated all-time preset in
+ * `lib/period.ts` (confirmed: no `ALL_TIME`/`allTime` constant anywhere
+ * in this codebase), so this fixes a date far enough in the past that no
+ * real kankaku row can predate it, paired with `resolvePreset('today').end`
+ * as the upper bound. The scan itself still can't become unbounded from
+ * this: `fetchRange` caps at `FALLBACK_SCAN_CAP` (2000 rows via
+ * `getList`, sorted `-started_at`) regardless of how wide the requested
+ * range is — widening the range only risks the *oldest* rows within it
+ * being the ones `truncated` drops, which is exactly what
+ * `taskTotalsFallbackTruncated` surfaces to the owner below. */
+const FALLBACK_ALL_TIME_START = '2000-01-01'
 
 /**
  * All-time per-task totals: the worst offender this feature replaces —
@@ -45,8 +67,10 @@ const sessionCountByTask = ref<Record<string, number>>({})
  * docs/architecture/aggregation.md "the server sums; the browser
  * displays" and docs/adr/0027-totals-computed-server-side.md.
  *
- * Falls back to the old fetchAll()+groupByKey path when the totals route
- * isn't loaded yet (owner hasn't restarted PocketBase since this feature
+ * Falls back to a bounded `fetchRange()`+groupByKey path (see
+ * `FALLBACK_ALL_TIME_START` above — `fetchAll()`'s old unbounded
+ * `getFullList` scan has been removed) when the totals route isn't
+ * loaded yet (owner hasn't restarted PocketBase since this feature
  * shipped) — no error toast, silently uses the previous behavior.
  */
 async function loadTaskTotals() {
@@ -70,7 +94,10 @@ async function loadTaskTotals() {
   }
   catch (err) {
     if (!(err instanceof TotalsRouteUnavailableError)) throw err
-    const entries = await fetchAll()
+    const range = { start: FALLBACK_ALL_TIME_START, end: resolvePreset('today').end }
+    const { entries, truncated } = await fetchRange(range)
+    taskTotalsFallbackTruncated.value = truncated
+    taskTotalsFallbackEntryCount.value = entries.length
     const grouped = groupByKey(entries.filter(e => e.task), e => e.task!)
     totalsByTask.value = Object.fromEntries(grouped.map(g => [g.key, { cost: g.cost, workMs: g.workMs }]))
 
@@ -161,15 +188,73 @@ async function onColumnDrop(status: TaskStatus, event: DragEvent) {
 const detailOpen = ref(false)
 const detailTaskId = ref<string | null>(null)
 const detailTask = computed(() => detailTaskId.value ? (tasks.value.find(t2 => t2.id === detailTaskId.value) ?? null) : null)
-const detailSessions = ref<SessionSummary[]>([])
+const detailSessions = ref<TaskSessionRow[]>([])
 const detailSessionsLoading = ref(false)
+
+/**
+ * `SessionTotal` (from `fetchSessionTotals`, group_by=session) has no
+ * `repo_project`/`session_dir` — confirmed via the totals backend's SQL,
+ * which only computes `distinct`/`sample` for client/project/task/agent,
+ * never repo_project/session_dir — so the resume command needs one extra
+ * single-row lookup per session (`useEntriesExplorer().list` filtered by
+ * `session_id`, the same composable/filter key the C-screen writer added
+ * `session_id` to `EntriesExplorerFilters` for).
+ *
+ * DESIGN CHOICE (deviation from a per-click lazy fetch): `TaskDetailSheet.vue`
+ * has no per-row "Resume" button to hang a lazy fetch off — it renders the
+ * resume command inline for every session as soon as the sheet opens (see
+ * `e2e/session-resume.spec.ts`'s "lists the task session with a working
+ * resume command", which asserts the command text with no extra click).
+ * Adding a button would change that user-visible behavior and the
+ * assertion built against it. Instead this fetches eagerly but still
+ * boundedly: one `perPage: 1` request per session, run in parallel, and
+ * only for the sessions on the current (single, `perPage: 50`) totals
+ * page — never per keystroke, never unbounded across a task's full
+ * history.
+ */
+async function fetchResumeInfo(sessionId: string): Promise<{ repoProject?: string, sessionDir?: string }> {
+  try {
+    const result = await listEntries({ page: 1, perPage: 1, sort: '-started_at', filters: { session_id: sessionId } })
+    const row = result.items[0]
+    return { repoProject: row?.repo_project || undefined, sessionDir: row?.session_dir || undefined }
+  }
+  catch {
+    // Resume is a bonus on top of the session list — a failed lookup
+    // should never block the sessions section itself from rendering.
+    return {}
+  }
+}
+
+/**
+ * Sessions section for the detail sheet — totals-backed primary path
+ * (`fetchSessionTotals`, group_by=session filtered to this task),
+ * falling back to the deprecated row-level `fetchSessionsForTask` on
+ * `TotalsRouteUnavailableError`, no error toast either way (same rule as
+ * `loadTaskTotals` above). Both paths funnel into `TaskSessionRow`
+ * before being stored, so `TaskDetailSheet.vue` never needs to know
+ * which source produced a row.
+ */
+async function loadSessionRows(taskId: string): Promise<TaskSessionRow[]> {
+  try {
+    const page = await fetchSessionTotals(taskId, { perPage: 50 })
+    return await Promise.all(page.sessions.map(async (session) => {
+      const resume = await fetchResumeInfo(session.sessionId)
+      return sessionTotalToRow(session, resume)
+    }))
+  }
+  catch (err) {
+    if (!(err instanceof TotalsRouteUnavailableError)) throw err
+    const sessions = await fetchSessionsForTask(taskId)
+    return sessions.map(sessionSummaryToRow)
+  }
+}
 
 async function openDetail(task: TaskRecord) {
   detailTaskId.value = task.id
   detailOpen.value = true
   detailSessionsLoading.value = true
   try {
-    detailSessions.value = await fetchSessionsForTask(task.id)
+    detailSessions.value = await loadSessionRows(task.id)
   }
   finally {
     detailSessionsLoading.value = false
@@ -345,6 +430,10 @@ async function onDelete(task: TaskRecord) {
       <div data-testid="task-status-announcer" aria-live="polite" class="sr-only">
         {{ liveMessage }}
       </div>
+
+      <p v-if="taskTotalsFallbackTruncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
+        {{ t('totals.fallbackTruncated', { count: taskTotalsFallbackEntryCount }) }}
+      </p>
 
       <div v-if="view === 'board'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div

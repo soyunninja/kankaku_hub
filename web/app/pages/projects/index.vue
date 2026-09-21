@@ -17,6 +17,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { groupByProject } from '@/lib/aggregate'
 import { resolvePreset } from '@/lib/period'
 import type { ProjectRecord } from '@/lib/pocketbase-types'
+import { totalsByGroupKey } from '@/lib/totals-map'
+import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
 const { t } = useI18n()
 const { formatCost, formatDuration } = useFormatters()
@@ -25,16 +27,34 @@ useHead({ title: computed(() => t('projects.title')) })
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, loading, ensureLoaded, create, update } = useProjects()
 const { fetchRange } = useTaskEntries()
+const { fetchRangeTotals } = useTotals()
 const toast = useToast()
 
 const filterClient = ref('')
 const totalsByProject = ref<Record<string, { cost: number, workMs: number }>>({})
+/** True when the fallback path's `fetchRange` scan was capped before
+ * covering the full range — surfaces `totals.fallbackTruncated`. */
+const truncated = ref(false)
+const truncatedEntryCount = ref(0)
 
 onMounted(async () => {
   await Promise.all([ensureClients(), ensureLoaded()])
-  const entries = await fetchRange({ start: resolvePreset('lastMonth').start, end: resolvePreset('today').end })
-  const grouped = groupByProject(entries.filter(e => e.project))
-  totalsByProject.value = Object.fromEntries(grouped.map(g => [g.key, { cost: g.cost, workMs: g.workMs }]))
+  const range = { start: resolvePreset('lastMonth').start, end: resolvePreset('today').end }
+  try {
+    const resp = await fetchRangeTotals(range, { groupBy: 'project', perPage: 200 })
+    // There won't be more than 200 projects in practice — warn rather
+    // than silently truncate the list; missing groups just show as 0.
+    if (resp.totalPages > 1) console.warn(`projects/index.vue: totals route reports ${resp.totalGroups} project groups across ${resp.totalPages} pages — only the first 200 are shown`)
+    totalsByProject.value = totalsByGroupKey(resp.groups)
+  }
+  catch (err) {
+    if (!(err instanceof TotalsRouteUnavailableError)) throw err
+    const { entries, truncated: wasTruncated } = await fetchRange(range)
+    truncated.value = wasTruncated
+    truncatedEntryCount.value = entries.length
+    const grouped = groupByProject(entries.filter(e => e.project))
+    totalsByProject.value = Object.fromEntries(grouped.map(g => [g.key, { cost: g.cost, workMs: g.workMs }]))
+  }
 })
 
 function clientName(id: string) {
@@ -122,6 +142,10 @@ async function toggleArchive(project: ProjectRecord) {
           </Button>
         </div>
       </div>
+
+      <p v-if="truncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
+        {{ t('totals.fallbackTruncated', { count: truncatedEntryCount }) }}
+      </p>
 
       <Card>
         <CardContent class="p-0">

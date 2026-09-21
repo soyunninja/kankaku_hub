@@ -15,6 +15,17 @@ export interface TotalsFilters {
   unassigned_only?: boolean
   without_task?: boolean
   exclude_unassigned_client?: string
+  /** Session-level parity filter (server-side, `group_by: 'session'`
+   * only): a session only matches when EVERY one of its `task_entries`
+   * rows is unassigned (`task === ''`) — a session with even one
+   * assigned row elsewhere is excluded outright, not just filtered down
+   * to its unassigned rows. Reproduces the exact old semantic of
+   * `useSessions.ts#fetchUnassignedSessions`
+   * (`pocketbase/pb_hooks/lib/totals-query.js`'s `session_fully_unassigned`
+   * branch). Always combine with `without_task: true` — this filter only
+   * adds the "no sibling row anywhere has a task" exclusion, it doesn't
+   * narrow the aggregated row set by itself. */
+  session_fully_unassigned?: boolean
 }
 
 export interface TotalsRequest {
