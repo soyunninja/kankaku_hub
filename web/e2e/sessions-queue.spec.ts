@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, setTheme } from './helpers'
+import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, setTheme, toastText } from './helpers'
 
 /**
  * End-to-end coverage for the "sessions without a task" queue (ADR 0024,
@@ -143,7 +143,7 @@ test.describe('sessions-without-task queue', () => {
       await expect(dialog.locator('#sq-title')).toHaveValue(sessionName)
 
       await dialog.getByRole('button', { name: 'Crear tarea' }).click()
-      await expect(page.getByText(`Tarea «${sessionName}» creada a partir de la sesión.`)).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, `Tarea «${sessionName}» creada a partir de la sesión.`)).toBeVisible({ timeout: 10_000 })
 
       await expect(page.locator('table tbody tr', { hasText: sessionName })).toHaveCount(0)
 
@@ -190,7 +190,7 @@ test.describe('sessions-without-task queue', () => {
       await dialog.getByRole('option', { name: existingTaskTitle }).click()
       await dialog.getByRole('button', { name: 'Adjuntar' }).click()
 
-      await expect(page.getByText('1 sesiones vinculadas a la tarea.')).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, '1 sesiones vinculadas a la tarea.')).toBeVisible({ timeout: 10_000 })
       await expect(dialog.getByText('Hecho: 1 vinculadas, 0 fallidas.')).toBeVisible()
       // Leave the result dialog open rather than closing it — the row's
       // removal from the queue table is already optimistic/synchronous
@@ -228,7 +228,7 @@ test.describe('sessions-without-task queue', () => {
       await expect(page.getByText('¿Ignorar esta sesión?')).toBeVisible()
       await page.getByRole('button', { name: 'Confirmar' }).click()
 
-      await expect(page.getByText('1 sesiones ignoradas.')).toBeVisible({ timeout: 10_000 })
+      await expect(toastText(page, '1 sesiones ignoradas.')).toBeVisible({ timeout: 10_000 })
       await expect(page.locator('table tbody tr', { hasText: sessionName })).toHaveCount(0)
 
       // Not just optimistic removal: reload and confirm it stays gone,
