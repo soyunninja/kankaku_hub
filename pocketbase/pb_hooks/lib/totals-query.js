@@ -351,7 +351,9 @@ var SESSION_PLACEHOLDER_COLUMNS =
   "'' as machine_out, 0 as distinct_agent, '' as sample_agent";
 
 var SESSION_REAL_COLUMNS =
-  "(SELECT te2.session_name FROM task_entries te2 WHERE te2.session_id = te.session_id AND te2.session_name != '' ORDER BY te2.started_at DESC LIMIT 1) as session_name," +
+  // COALESCE: a session where no entry carries a name makes the subquery
+  // return NULL, and PocketBase cannot scan NULL into a string (a 500).
+  "COALESCE((SELECT te2.session_name FROM task_entries te2 WHERE te2.session_id = te.session_id AND te2.session_name != '' ORDER BY te2.started_at DESC LIMIT 1), '') as session_name," +
   "MIN(te.started_at) as min_started_at," +
   "MAX(te.ended_at) as max_ended_at," +
   "COUNT(DISTINCT te.client) as distinct_client, MIN(te.client) as sample_client," +
