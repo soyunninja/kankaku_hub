@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronRight } from '@lucide/vue'
+import { ChevronDown, ChevronLeft, ChevronRight } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { groupUnassigned } from '@/lib/aggregate'
+import { groupUnassigned, unassignedGroupKey } from '@/lib/aggregate'
+import { collectAllPages } from '@/lib/paginate'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
 import { suggestClient } from '@/lib/suggest-client'
+import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('unassigned.title')) })
@@ -19,28 +21,115 @@ const { formatCost, formatDate, formatDuration } = useFormatters()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { fetchUnassigned, bulkAssign } = useUnassignedQueue()
+const { fetchUnassignedGroups, fetchGroupEntries, fetchUnassigned, bulkAssign } = useUnassignedQueue()
 const toast = useToast()
 
+/** Groups-listing page size (mirrors `entries/index.vue`'s `perPage`). */
+const GROUPS_PAGE_SIZE = 25
+/** Per-group expansion page size — the visible, paginated row list shown
+ * when a group is expanded. */
+const GROUP_ENTRIES_PAGE_SIZE = 25
+/** Page size used only when paging through a group's rows COMPLETELY to
+ * collect every entry id before a whole-group `bulkAssign` — a larger
+ * page than the expansion UI's, to keep that round-trip count down, same
+ * idea as `sessions-without-task/index.vue`'s `ENTRY_ID_FETCH_PAGE_SIZE`. */
+const GROUP_ENTRIES_COLLECT_PAGE_SIZE = 200
+
 const loading = ref(true)
-const entries = ref<TaskEntryRecord[]>([])
-const expanded = ref<Set<string>>(new Set())
+const fallbackMode = ref(false)
 const selected = ref<Set<string>>(new Set())
+const expanded = ref<Set<string>>(new Set())
 
 const unassignedClientId = computed(() => clients.value.find(c => c.unassigned)?.id)
 const assignableClients = computed(() => clients.value.filter(c => !c.unassigned && c.active))
 
+// -- Primary path: server-totals-backed group listing, server-paginated -
+const page = ref(1)
+const totalGroups = ref(0)
+const totalPages = ref(1)
+const totalsGroups = ref<Awaited<ReturnType<typeof fetchUnassignedGroups>>['groups']>([])
+
+// -- Fallback path (TotalsRouteUnavailableError): client-side grouping --
+// over one hard-capped `fetchUnassigned` page; `fallbackTruncated` drives
+// the `totals.fallbackTruncated` notice.
+const fallbackTruncated = ref(false)
+const fallbackEntries = ref<TaskEntryRecord[]>([])
+const fallbackGroups = computed(() => groupUnassigned(fallbackEntries.value))
+
+/** One display row, shared by both data sources above — `workMs`/`cost`
+ * read from `TotalsGroup`'s flat fields on the totals path, from
+ * `Totals.workMs`/`.cost` (nested under `.totals`) on the fallback path;
+ * reshaped here so the template and every helper below only ever deal
+ * with one shape. */
+interface DisplayGroup {
+  legacyLabel: string
+  repoProject: string
+  count: number
+  workMs: number
+  cost: number
+}
+
+const groups = computed<DisplayGroup[]>(() => {
+  if (fallbackMode.value) {
+    return fallbackGroups.value.map(g => ({
+      legacyLabel: g.legacyLabel,
+      repoProject: g.repoProject,
+      count: g.count,
+      workMs: g.totals.workMs,
+      cost: g.totals.cost,
+    }))
+  }
+  return totalsGroups.value.map(g => ({
+    legacyLabel: g.legacyLabel,
+    repoProject: g.repoProject,
+    count: g.count,
+    workMs: g.workMs,
+    cost: g.cost,
+  }))
+})
+
+/** Stable identity for one (legacyLabel, repoProject) group — see
+ * `unassignedGroupKey`'s doc comment (`app/lib/aggregate.ts`) for why a
+ * JSON tuple key, not `${legacyLabel} ${repoProject}` string
+ * concatenation, is required here. */
+function groupKey(g: { legacyLabel: string, repoProject: string }) {
+  return unassignedGroupKey(g.legacyLabel, g.repoProject)
+}
+
+async function loadGroupsPage(p: number) {
+  if (!unassignedClientId.value) return
+  const result = await fetchUnassignedGroups(unassignedClientId.value, { page: p, perPage: GROUPS_PAGE_SIZE })
+  totalsGroups.value = result.groups
+  page.value = result.page
+  totalGroups.value = result.totalGroups
+  totalPages.value = result.totalPages
+}
+
 async function load() {
   loading.value = true
   await Promise.all([ensureClients(), ensureProjects()])
-  if (unassignedClientId.value) {
-    entries.value = await fetchUnassigned(unassignedClientId.value)
+  if (!unassignedClientId.value) {
+    loading.value = false
+    return
+  }
+  try {
+    await loadGroupsPage(1)
+    fallbackMode.value = false
+    fallbackTruncated.value = false
+  }
+  catch (err) {
+    if (!(err instanceof TotalsRouteUnavailableError)) throw err
+    fallbackMode.value = true
+    // One hard-capped page (see `fetchUnassigned`); `truncated` is the
+    // server's own count, so the notice below is never a guess.
+    const fallback = await fetchUnassigned(unassignedClientId.value)
+    fallbackEntries.value = fallback.entries
+    fallbackTruncated.value = fallback.truncated
   }
   loading.value = false
 }
 onMounted(load)
-
-const groups = computed(() => groupUnassigned(entries.value))
+watch(page, (p) => { if (!fallbackMode.value) loadGroupsPage(p) })
 
 /** Per-group suggested client (id), a conservative pre-fill hint for the
  * assign dialog — never an auto-assignment. See app/lib/suggest-client.ts. */
@@ -54,29 +143,106 @@ const suggestedClientByGroup = computed(() => {
   return map
 })
 
-function groupKey(g: { legacyLabel: string, repoProject: string }) {
-  return `${g.legacyLabel} ${g.repoProject}`
-}
-
 function assignableClientById(id: string) {
   return assignableClients.value.find(c => c.id === id)
 }
 
-function toggleExpand(key: string) {
-  if (expanded.value.has(key)) expanded.value.delete(key)
-  else expanded.value.add(key)
+// -- Group expansion (totals path): fetched, paginated per group -------
+interface GroupExpansionState {
+  loading: boolean
+  page: number
+  perPage: number
+  rows: TaskEntryRecord[]
+  totalItems: number
+  totalPages: number
+}
+const EMPTY_EXPANSION: GroupExpansionState = { loading: false, page: 1, perPage: GROUP_ENTRIES_PAGE_SIZE, rows: [], totalItems: 0, totalPages: 1 }
+const groupExpansions = reactive(new Map<string, GroupExpansionState>())
+
+function expansionState(g: DisplayGroup): GroupExpansionState {
+  return groupExpansions.get(groupKey(g)) ?? EMPTY_EXPANSION
 }
 
-function groupState(g: { entryIds: string[] }): boolean | 'indeterminate' {
-  const selectedCount = g.entryIds.filter(id => selected.value.has(id)).length
+async function loadGroupPage(g: DisplayGroup, p: number) {
+  if (!unassignedClientId.value) return
+  const key = groupKey(g)
+  groupExpansions.set(key, { ...expansionState(g), loading: true })
+  const res = await fetchGroupEntries(unassignedClientId.value, g.legacyLabel, g.repoProject, { page: p, perPage: GROUP_ENTRIES_PAGE_SIZE })
+  groupExpansions.set(key, {
+    loading: false,
+    page: res.page,
+    perPage: res.perPage,
+    rows: res.items,
+    totalItems: res.totalItems,
+    totalPages: res.totalPages,
+  })
+}
+
+function toggleExpand(g: DisplayGroup) {
+  const key = groupKey(g)
+  if (expanded.value.has(key)) {
+    expanded.value.delete(key)
+    return
+  }
+  expanded.value.add(key)
+  if (!fallbackMode.value) loadGroupPage(g, 1)
+}
+
+/** Fallback-path-only: pure re-filter of the already-fully-loaded
+ * `fallbackEntries` ref — no fetch, unchanged from before this
+ * migration. */
+function entriesInGroup(g: { legacyLabel: string, repoProject: string }) {
+  return fallbackEntries.value.filter(e =>
+    (e.legacy_client_label || '(sin etiqueta)') === g.legacyLabel
+    && (e.repo_project || '(sin proyecto)') === g.repoProject,
+  )
+}
+
+// -- Whole-group entry ids (both selection and bulk-assign need every id -
+// in the group, not just the currently-displayed expansion page) --------
+const resolvedGroupIds = reactive(new Map<string, string[]>())
+
+/** Every entry id in a group, resolved fresh on the totals path (paging
+ * through `fetchGroupEntries` COMPLETELY via `collectAllPages`,
+ * independent of the expansion UI's current page) and cached per group
+ * identity for this session — never a partial list. On the fallback
+ * path, `fallbackEntries` is already fully loaded, so this is a pure
+ * re-filter, no fetch. */
+async function resolveGroupEntryIds(g: DisplayGroup): Promise<string[]> {
+  if (fallbackMode.value) return entriesInGroup(g).map(e => e.id)
+  const key = groupKey(g)
+  const cached = resolvedGroupIds.get(key)
+  if (cached) return cached
+  if (!unassignedClientId.value) return []
+  const clientId = unassignedClientId.value
+  const rows = await collectAllPages(p => fetchGroupEntries(clientId, g.legacyLabel, g.repoProject, { page: p, perPage: GROUP_ENTRIES_COLLECT_PAGE_SIZE }))
+  const ids = rows.map(e => e.id)
+  resolvedGroupIds.set(key, ids)
+  return ids
+}
+
+/** Best-effort id list for the group header checkbox's tri-state: the
+ * full resolved list once known, else just the currently-fetched
+ * expansion page (so the checkbox can still reflect a partial selection
+ * before the group has been fully resolved). */
+function groupIdsForSelection(g: DisplayGroup): string[] {
+  if (fallbackMode.value) return entriesInGroup(g).map(e => e.id)
+  return resolvedGroupIds.get(groupKey(g)) ?? expansionState(g).rows.map(e => e.id)
+}
+
+function groupState(g: DisplayGroup): boolean | 'indeterminate' {
+  const ids = groupIdsForSelection(g)
+  if (ids.length === 0) return false
+  const selectedCount = ids.filter(id => selected.value.has(id)).length
   if (selectedCount === 0) return false
-  if (selectedCount === g.entryIds.length) return true
+  if (selectedCount === ids.length) return true
   return 'indeterminate'
 }
 
-function toggleGroup(g: { entryIds: string[] }) {
-  const allSelected = g.entryIds.every(id => selected.value.has(id))
-  for (const id of g.entryIds) {
+async function toggleGroup(g: DisplayGroup) {
+  const ids = await resolveGroupEntryIds(g)
+  const allSelected = ids.length > 0 && ids.every(id => selected.value.has(id))
+  for (const id of ids) {
     if (allSelected) selected.value.delete(id)
     else selected.value.add(id)
   }
@@ -89,13 +255,6 @@ function toggleEntry(id: string) {
   selected.value = new Set(selected.value)
 }
 
-function entriesInGroup(g: { legacyLabel: string, repoProject: string }) {
-  return entries.value.filter(e =>
-    (e.legacy_client_label || '(sin etiqueta)') === g.legacyLabel
-    && (e.repo_project || '(sin proyecto)') === g.repoProject,
-  )
-}
-
 const selectedCount = computed(() => selected.value.size)
 
 // Assign dialog state
@@ -106,10 +265,18 @@ const assigning = ref(false)
 const progressDone = ref(0)
 const progressTotal = ref(0)
 const lastResult = ref<{ succeeded: number, failed: number } | null>(null)
-let pendingIds: string[] = []
+let pendingResolver: () => Promise<string[]> = async () => []
 
-function openAssign(ids: string[], suggestedClientId?: string) {
-  pendingIds = ids
+/**
+ * Opens the assign dialog. `count` is the best-known-so-far total, shown
+ * immediately (a group's own `count` for a whole-group assign — no fetch
+ * needed just to show it); `resolveIds` is only called from
+ * `confirmAssign`, right before `bulkAssign` — for a whole group this
+ * pages through every entry (see `resolveGroupEntryIds`), never just the
+ * expanded page the UI happens to be showing.
+ */
+function openAssign(count: number, resolveIds: () => Promise<string[]>, suggestedClientId?: string) {
+  pendingResolver = resolveIds
   // Pre-fill from the suggestion when there is one — the picker still
   // opens on it, the user still has to hit "assign" to confirm it. Never
   // skips the dialog, never assigns without confirmation.
@@ -117,8 +284,17 @@ function openAssign(ids: string[], suggestedClientId?: string) {
   assignProject.value = ''
   lastResult.value = null
   progressDone.value = 0
-  progressTotal.value = ids.length
+  progressTotal.value = count
   assignOpen.value = true
+}
+
+function openAssignSelection() {
+  const ids = [...selected.value]
+  openAssign(ids.length, async () => ids)
+}
+
+function openAssignGroup(g: DisplayGroup) {
+  openAssign(g.count, () => resolveGroupEntryIds(g), suggestedClientByGroup.value.get(groupKey(g))?.id)
 }
 
 const projectOptions = computed(() => assignClient.value ? projects.value.filter(p => p.client === assignClient.value) : [])
@@ -126,22 +302,44 @@ const projectOptions = computed(() => assignClient.value ? projects.value.filter
 async function confirmAssign() {
   if (!assignClient.value) return
   assigning.value = true
+  const ids = await pendingResolver()
+  progressTotal.value = ids.length
   const { succeeded, failed } = await bulkAssign(
-    pendingIds,
+    ids,
     { client: assignClient.value, project: assignProject.value || undefined },
     (done, total) => { progressDone.value = done; progressTotal.value = total },
   )
   assigning.value = false
   lastResult.value = { succeeded: succeeded.length, failed: failed.length }
   const succeededSet = new Set(succeeded)
-  entries.value = entries.value.filter(e => !succeededSet.has(e.id))
   for (const id of succeeded) selected.value.delete(id)
   selected.value = new Set(selected.value)
+
+  if (fallbackMode.value) {
+    fallbackEntries.value = fallbackEntries.value.filter(e => !succeededSet.has(e.id))
+  }
+  else if (succeeded.length > 0) {
+    // Server-side counts/groups may have changed (a group can shrink or
+    // disappear entirely) — reload the current groups page from the
+    // server rather than patch counts locally, and drop now-stale
+    // per-group caches instead of trying to keep them in sync by hand.
+    resolvedGroupIds.clear()
+    groupExpansions.clear()
+    expanded.value = new Set()
+    await loadGroupsPage(page.value)
+  }
+
   const destination = assignableClients.value.find(c => c.id === assignClient.value)?.name ?? assignClient.value
   if (succeeded.length > 0) {
     toast.success(t('unassigned.movedTo', { count: succeeded.length, client: destination }))
   }
   if (failed.length > 0) {
+    // `/api/batch` runs each chunk as ONE DB TRANSACTION (see
+    // `bulkAssign`'s doc comment in `useUnassignedQueue.ts`) — a failing
+    // sub-request rolls back the WHOLE chunk, so `failed.length` is a
+    // count of entries not individually, independently evaluated.
+    // `unassigned.failedCount` is worded to stay honest about that
+    // (never implying per-item partial success within a chunk).
     toast.error(t('unassigned.failedCount', { count: failed.length }))
   }
 }
@@ -158,9 +356,13 @@ async function confirmAssign() {
       </p>
     </div>
 
+    <p v-if="fallbackMode && fallbackTruncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
+      {{ t('totals.fallbackTruncated', { count: fallbackEntries.length }) }}
+    </p>
+
     <div v-if="selectedCount > 0" class="flex items-center justify-between rounded-md border border-border bg-muted/40 px-4 py-2">
       <span class="text-sm">{{ t('unassigned.selected', { count: selectedCount }) }}</span>
-      <Button size="sm" @click="openAssign([...selected])">
+      <Button size="sm" @click="openAssignSelection">
         {{ t('unassigned.assignSelected') }}
       </Button>
     </div>
@@ -202,7 +404,7 @@ async function confirmAssign() {
                     :aria-label="t('unassigned.toggleExpand', { group: g.legacyLabel })"
                     :title="t('unassigned.toggleExpand', { group: g.legacyLabel })"
                     :aria-expanded="expanded.has(groupKey(g))"
-                    @click="toggleExpand(groupKey(g))"
+                    @click="toggleExpand(g)"
                   >
                     <ChevronDown v-if="expanded.has(groupKey(g))" class="size-4" />
                     <ChevronRight v-else class="size-4" />
@@ -235,44 +437,115 @@ async function confirmAssign() {
                   {{ g.count }}
                 </TableCell>
                 <TableCell class="text-right tabular-nums">
-                  {{ formatDuration(g.totals.workMs) }}
+                  {{ formatDuration(g.workMs) }}
                 </TableCell>
                 <TableCell class="text-right tabular-nums">
-                  {{ formatCost(g.totals.cost) }}
+                  {{ formatCost(g.cost) }}
                 </TableCell>
                 <TableCell class="text-right">
-                  <Button size="sm" variant="outline" @click="openAssign(g.entryIds, suggestedClientByGroup.get(groupKey(g))?.id)">
+                  <Button size="sm" variant="outline" @click="openAssignGroup(g)">
                     {{ t('unassigned.assignGroup') }}
                   </Button>
                 </TableCell>
               </TableRow>
               <template v-if="expanded.has(groupKey(g))">
-                <TableRow v-for="e in entriesInGroup(g)" :key="e.id" class="bg-muted/20">
-                  <TableCell />
-                  <TableCell>
-                    <Checkbox
-                      :model-value="selected.has(e.id)"
-                      :aria-label="t('unassigned.selectEntry', { entry: e.session_name || e.session_id || e.id })"
-                      @update:model-value="toggleEntry(e.id)"
-                    />
-                  </TableCell>
-                  <TableCell colspan="2" class="text-xs text-muted-foreground">
-                    {{ formatDate(e.started_at) }} · {{ e.session_name || e.session_id || e.id }}
-                  </TableCell>
-                  <TableCell />
-                  <TableCell class="text-right tabular-nums text-xs">
-                    {{ formatDuration(e.work_ms) }}
-                  </TableCell>
-                  <TableCell class="text-right tabular-nums text-xs">
-                    {{ formatCost(e.cost) }}
-                  </TableCell>
-                  <TableCell />
-                </TableRow>
+                <template v-if="fallbackMode">
+                  <TableRow v-for="e in entriesInGroup(g)" :key="e.id" class="bg-muted/20">
+                    <TableCell />
+                    <TableCell>
+                      <Checkbox
+                        :model-value="selected.has(e.id)"
+                        :aria-label="t('unassigned.selectEntry', { entry: e.session_name || e.session_id || e.id })"
+                        @update:model-value="toggleEntry(e.id)"
+                      />
+                    </TableCell>
+                    <TableCell colspan="2" class="text-xs text-muted-foreground">
+                      {{ formatDate(e.started_at) }} · {{ e.session_name || e.session_id || e.id }}
+                    </TableCell>
+                    <TableCell />
+                    <TableCell class="text-right tabular-nums text-xs">
+                      {{ formatDuration(e.work_ms) }}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums text-xs">
+                      {{ formatCost(e.cost) }}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                </template>
+                <template v-else>
+                  <TableRow v-if="expansionState(g).loading">
+                    <TableCell colspan="8" class="p-2">
+                      <Skeleton class="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow v-for="e in expansionState(g).rows" :key="e.id" class="bg-muted/20">
+                    <TableCell />
+                    <TableCell>
+                      <Checkbox
+                        :model-value="selected.has(e.id)"
+                        :aria-label="t('unassigned.selectEntry', { entry: e.session_name || e.session_id || e.id })"
+                        @update:model-value="toggleEntry(e.id)"
+                      />
+                    </TableCell>
+                    <TableCell colspan="2" class="text-xs text-muted-foreground">
+                      {{ formatDate(e.started_at) }} · {{ e.session_name || e.session_id || e.id }}
+                    </TableCell>
+                    <TableCell />
+                    <TableCell class="text-right tabular-nums text-xs">
+                      {{ formatDuration(e.work_ms) }}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums text-xs">
+                      {{ formatCost(e.cost) }}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                  <TableRow v-if="!expansionState(g).loading && expansionState(g).totalPages > 1">
+                    <TableCell colspan="8">
+                      <div class="flex items-center justify-between px-2 py-1 text-xs text-muted-foreground">
+                        <span>{{ expansionState(g).totalItems }} · {{ expansionState(g).page }}/{{ expansionState(g).totalPages }}</span>
+                        <div class="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            :disabled="expansionState(g).page <= 1"
+                            :aria-label="t('entries.pagination.previous')"
+                            :title="t('entries.pagination.previous')"
+                            @click="loadGroupPage(g, expansionState(g).page - 1)"
+                          >
+                            <ChevronLeft class="size-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            :disabled="expansionState(g).page >= expansionState(g).totalPages"
+                            :aria-label="t('entries.pagination.next')"
+                            :title="t('entries.pagination.next')"
+                            @click="loadGroupPage(g, expansionState(g).page + 1)"
+                          >
+                            <ChevronRight class="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </template>
               </template>
             </template>
           </TableBody>
         </Table>
         <EmptyState v-else :title="t('unassigned.empty')" class="m-4" />
+
+        <div v-if="!loading && !fallbackMode && groups.length > 0" class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
+          <span>{{ totalGroups }} · {{ page }}/{{ totalPages }}</span>
+          <div class="flex gap-2">
+            <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
+              <ChevronLeft class="size-4" />
+            </Button>
+            <Button size="icon" variant="outline" :disabled="page >= totalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
+              <ChevronRight class="size-4" />
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
 

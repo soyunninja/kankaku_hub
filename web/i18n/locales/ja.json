@@ -356,6 +356,9 @@
       }
     }
   },
+  "totals": {
+    "fallbackTruncated": "直近{count}件のみを表示しています — 全期間のデータを読み込めませんでした。"
+  },
   "settings": {
     "title": "設定",
     "appearance": "外観",

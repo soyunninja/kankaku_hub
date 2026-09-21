@@ -12,6 +12,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { EntriesExplorerFilters } from '@/composables/useEntriesExplorer'
+import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { resolveAgent } from '@/lib/agents'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
@@ -23,7 +24,7 @@ const route = useRoute()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { list, getOne, listWorkRecords, updateAssignment, listAgents } = useEntriesExplorer()
+const { list, getOne, listWorkRecords, updateAssignment, fetchAgentOptions, listAgents } = useEntriesExplorer()
 const toast = useToast()
 
 /** Deep-link support so the dashboard's measurement-quality notice can
@@ -69,8 +70,22 @@ function agentLabel(slug: string) {
   return resolveAgent(slug)?.label ?? slug
 }
 
+/** Server-totals-backed primary path (`group_by: 'agent'`); falls back to
+ * the deprecated unbounded `listAgents` scan on a 404 from the totals
+ * route, same silent-fallback contract as every other totals call site
+ * (see `TotalsRouteUnavailableError`'s doc comment). */
+async function loadAgentOptions() {
+  try {
+    agentOptions.value = await fetchAgentOptions()
+  }
+  catch (err) {
+    if (!(err instanceof TotalsRouteUnavailableError)) throw err
+    agentOptions.value = await listAgents()
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([ensureClients(), ensureProjects(), listAgents().then((agents) => { agentOptions.value = agents })])
+  await Promise.all([ensureClients(), ensureProjects(), loadAgentOptions()])
   await load()
 })
 

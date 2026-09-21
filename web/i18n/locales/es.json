@@ -356,6 +356,9 @@
       }
     }
   },
+  "totals": {
+    "fallbackTruncated": "Mostrando solo las {count} entradas más recientes — no se pudo cargar el rango completo."
+  },
   "settings": {
     "title": "Ajustes",
     "appearance": "Apariencia",

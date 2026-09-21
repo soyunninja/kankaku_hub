@@ -356,6 +356,9 @@
       }
     }
   },
+  "totals": {
+    "fallbackTruncated": "Showing the most recent {count} entries only — the full range could not be loaded."
+  },
   "settings": {
     "title": "Settings",
     "appearance": "Appearance",
