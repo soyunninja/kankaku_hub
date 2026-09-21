@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import { ChevronLeft, ChevronRight, X } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
+import SessionMarker from '@/components/entries/SessionMarker.vue'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { EntriesExplorerFilters } from '@/composables/useEntriesExplorer'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { resolveAgent } from '@/lib/agents'
+import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
+import { resolveThinkingLevel } from '@/lib/thinking-level'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('entries.title')) })
@@ -42,6 +47,7 @@ const filters = reactive<EntriesExplorerFilters>({
   quality: initialQuality === 'waitingUnavailable' || initialQuality === 'costUnknown' ? initialQuality : undefined,
   dateStart: queryString('dateStart'),
   dateEnd: queryString('dateEnd'),
+  session_id: queryString('session_id'),
 })
 const page = ref(1)
 const perPage = 25
@@ -51,6 +57,80 @@ const items = ref<TaskEntryRecord[]>([])
 const totalItems = ref(0)
 const totalPages = ref(1)
 const agentOptions = ref<string[]>([])
+
+// -- session marker / filter / grouping ----------------------------------
+
+/** Persisted "Group by session" choice (localStorage, try/catch — same
+ * defensive pattern as app.vue's own locale persistence: private mode /
+ * blocked storage silently falls back to the default, off). Grouping is
+ * a PRESENTATION of the current page's already-fetched rows only — see
+ * `displayRows` below — server pagination/sort are untouched by it. */
+const GROUP_BY_SESSION_STORAGE_KEY = 'kankaku-entries-group-by-session'
+const groupBySession = ref(false)
+onMounted(() => {
+  try {
+    groupBySession.value = window.localStorage.getItem(GROUP_BY_SESSION_STORAGE_KEY) === '1'
+  }
+  catch {
+    // localStorage unavailable (private mode, etc.) — grouping off stands.
+  }
+})
+watch(groupBySession, (value) => {
+  try {
+    window.localStorage.setItem(GROUP_BY_SESSION_STORAGE_KEY, value ? '1' : '0')
+  }
+  catch {
+    // ignore — nothing to persist to
+  }
+})
+
+function filterToSession(sessionId: string) {
+  filters.session_id = sessionId || undefined
+}
+function clearSessionFilter() {
+  filters.session_id = undefined
+}
+/** Label for the active session-filter chip: the matching row's
+ * `session_name` when the filtered session happens to be present on the
+ * current page (e.g. the filter was just set by clicking a row's own
+ * marker), else the short-id fallback — same rule
+ * `sessionMarkerLabel` applies everywhere else. */
+const sessionFilterLabel = computed(() => {
+  if (!filters.session_id) return ''
+  const match = items.value.find(e => e.session_id === filters.session_id)
+  return match?.session_name || filters.session_id.slice(0, 8)
+})
+
+/** `''` when `thinking_level` is empty/unknown — never renders an
+ * "Effort" placeholder, see `resolveThinkingLevel`'s doc comment. */
+function effortLabel(entry: Pick<TaskEntryRecord, 'thinking_level'>): string {
+  const resolved = resolveThinkingLevel(entry.thinking_level)
+  if (!resolved) return ''
+  return resolved.kind === 'known' ? t(`entries.detail.thinkingLevel.${resolved.value}`) : resolved.value
+}
+
+/**
+ * Flattened row list the table body actually iterates: either every
+ * fetched entry (grouping off, the pre-existing behaviour, unchanged) or
+ * one 'header' row per session followed by that session's 'row' entries
+ * (grouping on) — a single `v-for` renders both, so the per-row `<tr>`
+ * markup is written exactly once regardless of the toggle. Purely a
+ * presentation of `items` (the current page's already-fetched rows);
+ * never re-fetches, re-sorts, or re-paginates (see `groupEntriesBySession`'s
+ * own doc comment).
+ */
+type DisplayRow =
+  | { kind: 'header', group: EntriesSessionGroup<TaskEntryRecord> }
+  | { kind: 'row', entry: TaskEntryRecord }
+
+const displayRows = computed<DisplayRow[]>(() => {
+  if (!groupBySession.value) return items.value.map(entry => ({ kind: 'row', entry }))
+  return groupEntriesBySession(items.value).flatMap((group) => {
+    const rows: DisplayRow[] = [{ kind: 'header', group }]
+    for (const entry of group.entries) rows.push({ kind: 'row', entry })
+    return rows
+  })
+})
 
 async function load() {
   loading.value = true
@@ -185,6 +265,19 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
       </CardContent>
     </Card>
 
+    <div class="flex flex-wrap items-center gap-3">
+      <label class="flex items-center gap-2 text-sm text-muted-foreground">
+        <Switch v-model="groupBySession" />
+        {{ t('entries.groupBySession') }}
+      </label>
+      <Badge v-if="filters.session_id" variant="secondary" class="gap-1.5">
+        {{ t('entries.sessionFilter.chip', { label: sessionFilterLabel }) }}
+        <button type="button" class="rounded-full hover:bg-muted-foreground/20" :aria-label="t('entries.sessionFilter.remove')" @click="clearSessionFilter">
+          <X class="size-3" aria-hidden="true" />
+        </button>
+      </Badge>
+    </div>
+
     <Card>
       <CardContent class="p-0">
         <Table>
@@ -193,6 +286,7 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
               <TableHead class="cursor-pointer" @click="toggleSort('started_at')">
                 {{ t('common.started') }}
               </TableHead>
+              <TableHead>{{ t('entries.session') }}</TableHead>
               <TableHead>{{ t('common.client') }}</TableHead>
               <TableHead>{{ t('common.project') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
@@ -210,34 +304,58 @@ v-model="filters.quality" class="w-48" :placeholder="t('entries.filtersFields.qu
           <TableBody>
             <template v-if="loading">
               <TableRow v-for="i in 6" :key="i">
-                <TableCell colspan="8">
+                <TableCell colspan="9">
                   <Skeleton class="h-5 w-full" />
                 </TableCell>
               </TableRow>
             </template>
-            <TableRow v-for="e in items" :key="e.id" class="cursor-pointer" @click="openDetail(e)">
-              <TableCell class="tabular-nums">
-                {{ formatDateTime(e.started_at) }}
-              </TableCell>
-              <TableCell>
-                <ClientName v-if="clientById(e.client)" :client="clientById(e.client)!" size="xs" class="max-w-36" />
-                <span v-else>{{ clientName(e.client) }}</span>
-              </TableCell>
-              <TableCell>{{ projectName(e.project) }}</TableCell>
-              <TableCell>{{ t(`entries.status.${e.status}`) }}</TableCell>
-              <TableCell>
-                <AgentIcon :agent="e.agent" size="sm" />
-              </TableCell>
-              <TableCell class="text-muted-foreground">
-                {{ e.model }}
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatDuration(e.work_ms) }}
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatCost(e.cost) }}
-              </TableCell>
-            </TableRow>
+            <template v-else>
+              <template v-for="dr in displayRows" :key="dr.kind === 'header' ? `group-${dr.group.sessionId}` : dr.entry.id">
+                <!-- "Group by session" header row: a presentational summary of the
+                     rows immediately below it, never a real task_entries row — see
+                     `displayRows`'s doc comment. Real <th scope="colgroup"> semantics
+                     (TableHead forwards attrs to its root <th>), and the only
+                     interactive control inside it is SessionMarker's own <button>,
+                     which is already keyboard-reachable. -->
+                <TableRow v-if="dr.kind === 'header'" class="bg-muted/40 hover:bg-muted/40">
+                  <TableHead scope="colgroup" :colspan="9" class="h-auto py-2 font-normal">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <SessionMarker :session-id="dr.group.sessionId" :session-name="dr.group.sessionName" @click="filterToSession(dr.group.sessionId)" />
+                      <span class="text-xs text-muted-foreground">{{ t('entries.sessionGroup.count', { count: dr.group.entries.length }) }}</span>
+                      <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.work') }}: {{ formatDuration(dr.group.workMs) }}</span>
+                      <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.cost') }}: {{ formatCost(dr.group.cost) }}</span>
+                    </div>
+                  </TableHead>
+                </TableRow>
+                <TableRow v-else class="cursor-pointer" @click="openDetail(dr.entry)">
+                  <TableCell class="tabular-nums">
+                    {{ formatDateTime(dr.entry.started_at) }}
+                  </TableCell>
+                  <TableCell>
+                    <SessionMarker :session-id="dr.entry.session_id" :session-name="dr.entry.session_name" @click="filterToSession(dr.entry.session_id)" />
+                  </TableCell>
+                  <TableCell>
+                    <ClientName v-if="clientById(dr.entry.client)" :client="clientById(dr.entry.client)!" size="xs" class="max-w-36" />
+                    <span v-else>{{ clientName(dr.entry.client) }}</span>
+                  </TableCell>
+                  <TableCell>{{ projectName(dr.entry.project) }}</TableCell>
+                  <TableCell>{{ t(`entries.status.${dr.entry.status}`) }}</TableCell>
+                  <TableCell>
+                    <AgentIcon :agent="dr.entry.agent" size="sm" />
+                  </TableCell>
+                  <TableCell class="text-muted-foreground">
+                    {{ dr.entry.model }}
+                    <span v-if="effortLabel(dr.entry)" class="text-[10px] text-muted-foreground/70">({{ effortLabel(dr.entry) }})</span>
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {{ formatDuration(dr.entry.work_ms) }}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {{ formatCost(dr.entry.cost) }}
+                  </TableCell>
+                </TableRow>
+              </template>
+            </template>
           </TableBody>
         </Table>
         <EmptyState v-if="!loading && items.length === 0" :title="t('entries.empty')" class="m-4" />

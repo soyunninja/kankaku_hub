@@ -5,6 +5,7 @@ import {
   LEGACY_AGENT,
   listDistinctAgents,
   normalizeAgentInfo,
+  sumCost,
   summarizeWorkTimeQuality,
 } from '../app/lib/measurement-quality'
 
@@ -183,6 +184,34 @@ describe('computeAverageCost', () => {
   it('treats empty/undefined cost_quality as included, not excluded', () => {
     const entries = [{ cost_quality: '' as const, cost: 10 }, { cost: 20 }]
     expect(computeAverageCost(entries)).toEqual({ average: 15, excludedCount: 0, includedCount: 2 })
+  })
+})
+
+describe('sumCost', () => {
+  it('sums cost across all rows when none are unknown', () => {
+    const entries = [
+      { cost_quality: 'measured' as const, cost: 10 },
+      { cost_quality: 'estimated' as const, cost: 20 },
+    ]
+    expect(sumCost(entries)).toBe(30)
+  })
+
+  it('excludes cost_quality: unknown rows from the sum (never averages in a 0)', () => {
+    const entries = [
+      { cost_quality: 'measured' as const, cost: 10 },
+      { cost_quality: 'unknown' as const, cost: 0 },
+      { cost_quality: 'measured' as const, cost: 20 },
+    ]
+    expect(sumCost(entries)).toBe(30)
+  })
+
+  it('is 0 for an empty set', () => {
+    expect(sumCost([])).toBe(0)
+  })
+
+  it('treats empty/undefined cost_quality as included, not excluded', () => {
+    const entries = [{ cost_quality: '' as const, cost: 10 }, { cost: 20 }]
+    expect(sumCost(entries)).toBe(30)
   })
 })
 

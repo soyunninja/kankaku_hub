@@ -188,6 +188,24 @@ export function computeAverageCost(
   }
 }
 
+/**
+ * Sum of `cost` over a set of rows, excluding rows whose `cost_quality`
+ * is `'unknown'` (same exclusion `computeAverageCost` applies — `cost` is
+ * `0` on an unknown-cost row because it could not be known, so a sum must
+ * skip it rather than adding in a 0 as if it were a real measured zero
+ * cost). Deliberately separate from the plain SUM path in
+ * `aggregate.ts`, which still includes unknown-cost rows — same relation
+ * `computeAverageCost` has to that plain sum.
+ */
+export function sumCost(entries: Pick<QualityFields, 'cost_quality' | 'cost'>[]): number {
+  let sum = 0
+  for (const entry of entries) {
+    if (entry.cost_quality === 'unknown') continue
+    sum += entry.cost ?? 0
+  }
+  return sum
+}
+
 // ---------------------------------------------------------------------
 // Agent filter list
 // ---------------------------------------------------------------------
