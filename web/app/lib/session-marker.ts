@@ -53,12 +53,15 @@ const SHORT_SESSION_ID_LENGTH = 8
 
 /**
  * Short label for a session marker: `session_name` when non-empty
- * (trimmed), else the first 8 chars of `session_id`. Callers with no
+ * (trimmed), else the last 8 chars of `session_id`. Callers with no
  * `session_id` at all render a muted "—" instead of calling this (there
  * is nothing to label) — see `SessionMarker.vue`.
  */
 export function sessionMarkerLabel(sessionId: string, sessionName?: string | null): string {
   const name = sessionName?.trim()
   if (name) return name
-  return sessionId.slice(0, SHORT_SESSION_ID_LENGTH)
+  // The TAIL, not the head: pi's session ids are time-ordered (UUIDv7), so
+  // sessions started minutes apart share their leading characters and only
+  // differ in the random part at the end.
+  return sessionId.slice(-SHORT_SESSION_ID_LENGTH)
 }

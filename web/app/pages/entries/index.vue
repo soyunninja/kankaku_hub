@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sessionMarkerLabel } from '@/lib/session-marker'
 import { ChevronLeft, ChevronRight, X } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientName from '@/components/clients/ClientName.vue'
@@ -98,7 +99,7 @@ function clearSessionFilter() {
 const sessionFilterLabel = computed(() => {
   if (!filters.session_id) return ''
   const match = items.value.find(e => e.session_id === filters.session_id)
-  return match?.session_name || filters.session_id.slice(0, 8)
+  return sessionMarkerLabel(filters.session_id, match?.session_name)
 })
 
 /** `''` when `thinking_level` is empty/unknown — never renders an

@@ -41,19 +41,28 @@ describe('sessionMarkerLabel', () => {
     expect(sessionMarkerLabel('01234567890abcdef', '  Refactor auth  ')).toBe('Refactor auth')
   })
 
-  it('falls back to the first 8 chars of session_id when session_name is empty', () => {
-    expect(sessionMarkerLabel('01234567890abcdef', '')).toBe('01234567')
+  it('falls back to the LAST 8 chars of session_id when session_name is empty', () => {
+    expect(sessionMarkerLabel('01234567890abcdef', '')).toBe('90abcdef')
   })
 
-  it('falls back to the first 8 chars of session_id when session_name is undefined', () => {
-    expect(sessionMarkerLabel('01234567890abcdef', undefined)).toBe('01234567')
+  it('falls back to the LAST 8 chars of session_id when session_name is undefined', () => {
+    expect(sessionMarkerLabel('01234567890abcdef', undefined)).toBe('90abcdef')
   })
 
-  it('falls back to the first 8 chars of session_id when session_name is whitespace-only', () => {
-    expect(sessionMarkerLabel('01234567890abcdef', '   ')).toBe('01234567')
+  it('falls back to the LAST 8 chars of session_id when session_name is whitespace-only', () => {
+    expect(sessionMarkerLabel('01234567890abcdef', '   ')).toBe('90abcdef')
   })
 
   it('returns the whole session_id when it is shorter than 8 chars', () => {
     expect(sessionMarkerLabel('abc', '')).toBe('abc')
+  })
+})
+
+describe('sessionMarkerLabel with time-ordered ids', () => {
+  it('tells apart two pi sessions started minutes apart (UUIDv7 ids share their leading, timestamp characters)', () => {
+    const a = sessionMarkerLabel('01a0c4da-7d5f-7427-ba8b-bc07e68cdc3a', '')
+    const b = sessionMarkerLabel('01a0c4d2-1111-7427-ba8b-0f3e11aa90c1', '')
+    expect(a).toBe('e68cdc3a')
+    expect(b).not.toBe(a)
   })
 })
