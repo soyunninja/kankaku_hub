@@ -77,8 +77,12 @@ function projectLabel(session: SessionSummary) {
   return session.project ? (projects.value.find(p => p.id === session.project)?.name ?? session.project) : '—'
 }
 /** Wall/waiting time no longer get their own always-visible columns (they fit poorly at 1280px) — this is their tooltip text on the Work time cell instead. */
-function wallWaitingTooltip(session: SessionSummary) {
-  return t('sessionsQueue.wallWaitingTooltip', { wall: formatDuration(session.wallMs), waiting: formatDuration(session.waitingMs) })
+/** Session elapsed span ("first activity to last activity") and waiting
+ * time, shown as the Work time cell's tooltip. `elapsedMs`, not the old
+ * summed `wallMs`, which overstates a session's wall time once its rows'
+ * intervals can overlap — see app/lib/session-aggregate.ts. */
+function elapsedWaitingTooltip(session: SessionSummary) {
+  return t('sessionsQueue.elapsedWaitingTooltip', { elapsed: formatDuration(session.elapsedMs), waiting: formatDuration(session.waitingMs) })
 }
 
 // -- Selection --------------------------------------------------------
@@ -357,7 +361,11 @@ async function confirmIgnore() {
           <TableBody>
             <TableRow v-for="session in sessions" :key="session.sessionId">
               <TableCell>
-                <Checkbox :model-value="selected.has(session.sessionId)" @update:model-value="toggleSession(session.sessionId)" />
+                <Checkbox
+                  :model-value="selected.has(session.sessionId)"
+                  :aria-label="t('sessionsQueue.selectRow', { session: sessionName(session) })"
+                  @update:model-value="toggleSession(session.sessionId)"
+                />
               </TableCell>
               <TableCell class="font-medium">
                 <div class="flex flex-col gap-0.5">
@@ -381,15 +389,17 @@ async function confirmIgnore() {
               </TableCell>
               <TableCell class="text-right tabular-nums">
                 <span class="inline-flex items-center justify-end gap-1">
-                  {{ formatDuration(session.workMs) }}
+                  <span :title="session.workMsMayOverlap ? t('tasks.detail.sessions.workApproxTitle') : undefined">
+                    {{ session.workMsMayOverlap ? '≈' : '' }}{{ formatDuration(session.workMs) }}
+                  </span>
                   <Tooltip>
                     <TooltipTrigger as-child>
-                      <button type="button" class="text-muted-foreground" :aria-label="wallWaitingTooltip(session)">
+                      <button type="button" class="text-muted-foreground" :aria-label="elapsedWaitingTooltip(session)">
                         <Info class="size-3.5" aria-hidden="true" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent class="max-w-xs">
-                      {{ wallWaitingTooltip(session) }}
+                      {{ elapsedWaitingTooltip(session) }}
                     </TooltipContent>
                   </Tooltip>
                 </span>

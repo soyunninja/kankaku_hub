@@ -164,16 +164,16 @@ defineOptions({ inheritAttrs: false })
               <dt class="text-muted-foreground">
                 {{ t('dashboard.kpi.workTime') }}
               </dt>
-              <dd class="tabular-nums">
-                {{ formatDuration(row.session.workMs) }}
+              <dd class="tabular-nums" :title="row.session.workMsMayOverlap ? t('tasks.detail.sessions.workApproxTitle') : undefined">
+                {{ row.session.workMsMayOverlap ? '≈' : '' }}{{ formatDuration(row.session.workMs) }}
               </dd>
             </div>
             <div class="min-w-0">
               <dt class="text-muted-foreground">
-                {{ t('dashboard.kpi.wallTime') }}
+                {{ t('tasks.detail.sessions.elapsed') }}
               </dt>
               <dd class="tabular-nums">
-                {{ formatDuration(row.session.wallMs) }}
+                {{ formatDuration(row.session.elapsedMs) }}
               </dd>
             </div>
             <div class="min-w-0">

@@ -2,7 +2,7 @@ import { chunk } from '~/lib/aggregate'
 import { groupBySession, type SessionEntryLike, type SessionSummary } from '~/lib/session-aggregate'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
 
-const FIELDS = 'id,session_id,session_name,started_at,client,project,task,machine,agent,repo_project,session_dir,wall_ms,waiting_ms,work_ms,cost'
+const FIELDS = 'id,session_id,session_name,started_at,ended_at,client,project,task,machine,agent,repo_project,session_dir,wall_ms,waiting_ms,work_ms,cost'
 /** Bound on the unassigned-entries scan — the "sessions without a task"
  * queue is expected to stay small in practice (an owner triages it as it
  * grows); this caps a single fetch instead of blindly pulling the whole

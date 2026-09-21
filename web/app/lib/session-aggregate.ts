@@ -8,6 +8,51 @@
  * queue (create a task from a session, attach a session to an existing
  * task, or ignore it). Pure and network-free: callers fetch the rows,
  * this only groups/sums them, same split as `aggregate.ts`.
+ *
+ * ## Why `wallMs` is not a plain sum here (session-level union)
+ *
+ * Each `task_entries` row's OWN `wall_ms` is already union-consolidated
+ * across its orchestrator and subagents by kankaku's `buildTaskView`
+ * (docs/architecture/aggregation.md) — safe to trust on its own. But a
+ * SESSION groups several such rows (several orchestrator runs), and
+ * `docs/architecture/aggregation.md` documents that a background subagent
+ * from task N can still be running when task N+1 starts: task N's own
+ * `wall_ms` window and task N+1's own `wall_ms` window can then overlap in
+ * real time. Summing `wall_ms` across a session's rows double-counts that
+ * overlap, exactly like summing `work_records` would — the *sum* becomes
+ * an upper bound of the true session wall time, not the true figure.
+ * kankaku's own `buildSessions` (`src/domain/task-view.ts`) computes the
+ * true session `wallMs` by re-unioning every raw orchestrator/subagent
+ * interval across the session's tasks — but the hub never receives those
+ * raw intervals (only each task's already-collapsed `wall_ms`/`work_ms`),
+ * so the web CANNOT re-derive that true union (ADR 0006: the union lives
+ * exactly once, in kankaku). Re-implementing interval union here from
+ * incomplete data would silently produce a *different wrong* number, not
+ * a fix.
+ *
+ * The number the web CAN compute exactly from what it has is the
+ * session's **elapsed span** — `min(started_at)` to `max(ended_at)` across
+ * its rows (`elapsedMs`) — a well-defined, honestly-labelled "first
+ * activity to last activity" duration, never claimed to be a true summed
+ * or unioned wall time. `wallMs` is kept on `SessionSummary` only as the
+ * raw per-row sum (for anything that genuinely wants "total row-seconds
+ * counted", e.g. a future export); UI code must never display it as "wall
+ * time" — use `elapsedMs` instead.
+ *
+ * `workMs` (summed) inherits the same overlap risk as `wallMs`, since
+ * `work_ms = wall_ms - waiting_ms` per row: `sum(work_ms) <= true session
+ * work time` is NOT guaranteed either — it is also only an upper bound
+ * when a session has more than one row. `workMsMayOverlap` flags that.
+ *
+ * `waitingMs` (summed) is the one figure that IS exact, not an
+ * approximation: kankaku's own `buildSessions` computes the true session
+ * `waitingMs` the same way — `waiting is tracked on the orchestrator only`
+ * (aggregation.md) and is summed across a session's tasks there too
+ * (never unioned), because distinct orchestrator turns don't overlap each
+ * other the way a lingering background subagent can overlap the next
+ * turn's start. The web's plain sum over `waiting_ms` matches kankaku's
+ * own session-level definition exactly, verified against
+ * `kankaku/src/domain/task-view.ts#buildSessions`.
  */
 
 export interface SessionEntryLike {
@@ -15,6 +60,7 @@ export interface SessionEntryLike {
   session_id: string
   session_name?: string
   started_at: string
+  ended_at?: string
   client?: string
   project?: string
   task?: string
@@ -37,8 +83,22 @@ export interface SessionSummary {
   firstActivity: string
   lastActivity: string
   entryCount: number
+  /** Sum of the session's rows' `work_ms`. An upper bound, not an exact
+   * figure, when `entryCount > 1` — see the "Why `wallMs` is not a plain
+   * sum" note above. `workMsMayOverlap` flags this for display. */
   workMs: number
+  /** True when `workMs` (and `wallMs`) may overstate the session's true
+   * work/wall time because more than one row's interval could overlap. */
+  workMsMayOverlap: boolean
+  /** Raw sum of the session's rows' `wall_ms`. NOT the session's wall
+   * time — never display this as a duration; use `elapsedMs`. Kept only
+   * for callers that explicitly want "total row-seconds counted". */
   wallMs: number
+  /** `max(ended_at) - min(started_at)` across the session's rows — the
+   * session's honestly-labelled elapsed span ("first activity to last
+   * activity"), safe to display as a duration. */
+  elapsedMs: number
+  /** Exact (not an upper bound) — see the doc comment above. */
   waitingMs: number
   cost: number
   /** Unanimous value across the session's entries, or `MIXED`. */
@@ -129,6 +189,22 @@ function minMaxStarted(entries: SessionEntryLike[]): { first: string, last: stri
   return { first, last }
 }
 
+/** `min(started_at)` to `max(ended_at)` across a session's rows, as an
+ * elapsed duration in ms. Falls back to `started_at` for a row with no
+ * `ended_at` (older field-projection call sites that never fetched it) —
+ * never lets a missing end time collapse the whole session's span. */
+function elapsedMsOf(entries: SessionEntryLike[]): number {
+  let firstStartMs = Date.parse(entries[0]!.started_at)
+  let lastEndMs = Date.parse(entries[0]!.ended_at || entries[0]!.started_at)
+  for (const e of entries) {
+    const startMs = Date.parse(e.started_at)
+    const endMs = Date.parse(e.ended_at || e.started_at)
+    if (startMs < firstStartMs) firstStartMs = startMs
+    if (endMs > lastEndMs) lastEndMs = endMs
+  }
+  return Math.max(0, lastEndMs - firstStartMs)
+}
+
 /**
  * Groups `task_entries`-shaped rows by `session_id`. Sorted by most
  * recent activity first (both queue screens this feeds want that
@@ -153,7 +229,9 @@ export function groupBySession(entries: SessionEntryLike[]): SessionSummary[] {
       lastActivity: last,
       entryCount: rows.length,
       workMs: rows.reduce((sum, e) => sum + (e.work_ms ?? 0), 0),
+      workMsMayOverlap: rows.length > 1,
       wallMs: rows.reduce((sum, e) => sum + (e.wall_ms ?? 0), 0),
+      elapsedMs: elapsedMsOf(rows),
       waitingMs: rows.reduce((sum, e) => sum + (e.waiting_ms ?? 0), 0),
       cost: rows.reduce((sum, e) => sum + (e.cost ?? 0), 0),
       client: uniformOrMixed(rows.map(e => e.client)),

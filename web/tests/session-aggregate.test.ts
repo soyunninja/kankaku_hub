@@ -10,6 +10,7 @@ function entry(overrides: Partial<SessionEntryLike> & { session_id: string, star
     agent: 'pi',
     repo_project: '/home/dev/repo',
     session_name: 'Refactor auth',
+    ended_at: overrides.started_at,
     wall_ms: 0,
     waiting_ms: 0,
     work_ms: 0,
@@ -21,8 +22,8 @@ function entry(overrides: Partial<SessionEntryLike> & { session_id: string, star
 describe('groupBySession', () => {
   it('groups a single session into one summary with summed totals', () => {
     const entries = [
-      entry({ id: 'e1', session_id: 's1', started_at: '2026-01-01T10:00:00.000Z', wall_ms: 1000, waiting_ms: 100, work_ms: 900, cost: 0.1 }),
-      entry({ id: 'e2', session_id: 's1', started_at: '2026-01-01T10:05:00.000Z', wall_ms: 2000, waiting_ms: 200, work_ms: 1800, cost: 0.2 }),
+      entry({ id: 'e1', session_id: 's1', started_at: '2026-01-01T10:00:00.000Z', ended_at: '2026-01-01T10:03:00.000Z', wall_ms: 1000, waiting_ms: 100, work_ms: 900, cost: 0.1 }),
+      entry({ id: 'e2', session_id: 's1', started_at: '2026-01-01T10:05:00.000Z', ended_at: '2026-01-01T10:20:00.000Z', wall_ms: 2000, waiting_ms: 200, work_ms: 1800, cost: 0.2 }),
     ]
     const [summary] = groupBySession(entries)
 
@@ -32,9 +33,13 @@ describe('groupBySession', () => {
       firstActivity: '2026-01-01T10:00:00.000Z',
       lastActivity: '2026-01-01T10:05:00.000Z',
       entryCount: 2,
+      // Raw sum — kept, but NOT the displayable "wall time" (see
+      // app/lib/session-aggregate.ts doc comment); elapsedMs is.
       wallMs: 3000,
+      elapsedMs: 20 * 60 * 1000, // 10:00 -> 10:20
       waitingMs: 300,
       workMs: 2700,
+      workMsMayOverlap: true,
       cost: 0.30000000000000004,
       client: 'client-a',
       project: 'project-a',
@@ -44,6 +49,27 @@ describe('groupBySession', () => {
       repoProject: '/home/dev/repo',
     })
     expect(summary!.entryIds).toEqual(['e1', 'e2'])
+  })
+
+  it('marks a single-entry session as not overlapping, and its elapsed span as just that entry', () => {
+    const [summary] = groupBySession([
+      entry({ id: 'e1', session_id: 's1', started_at: '2026-01-01T10:00:00.000Z', ended_at: '2026-01-01T10:03:00.000Z', wall_ms: 1000, work_ms: 900 }),
+    ])
+    expect(summary!.workMsMayOverlap).toBe(false)
+    expect(summary!.elapsedMs).toBe(3 * 60 * 1000)
+  })
+
+  it('computes elapsedMs from the true min(started_at)/max(ended_at), not row order or the sum of durations', () => {
+    // Second row starts before the first row ends (overlapping), and a
+    // third, later-starting row ends before the second — elapsedMs must
+    // still be the outer envelope, not a sum or a per-row max.
+    const entries = [
+      entry({ id: 'e1', session_id: 's1', started_at: '2026-01-01T10:00:00.000Z', ended_at: '2026-01-01T10:10:00.000Z' }),
+      entry({ id: 'e2', session_id: 's1', started_at: '2026-01-01T10:05:00.000Z', ended_at: '2026-01-01T10:30:00.000Z' }),
+      entry({ id: 'e3', session_id: 's1', started_at: '2026-01-01T10:07:00.000Z', ended_at: '2026-01-01T10:09:00.000Z' }),
+    ]
+    const [summary] = groupBySession(entries)
+    expect(summary!.elapsedMs).toBe(30 * 60 * 1000) // 10:00 -> 10:30
   })
 
   it('splits multiple sessions into separate summaries, most-recent-first', () => {
