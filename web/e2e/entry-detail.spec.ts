@@ -106,7 +106,14 @@ async function openFixture(page: Page, runId: string) {
   await page.waitForTimeout(300)
   const rows = page.locator('table tbody tr')
   await expect(rows).toHaveCount(1)
-  await rows.first().click()
+  // Click the "Started" cell specifically, not the row's own bounding-box
+  // center (`rows.first().click()`): the row now also contains the
+  // session marker button (app/components/entries/SessionMarker.vue),
+  // and for a short, single-row table its wider label can shift the
+  // row's geometric center onto the marker itself, which
+  // `@click.stop`s to filter by session instead of opening the detail
+  // sheet. The first cell is never a nested interactive control.
+  await rows.first().locator('td').first().click()
   await page.waitForTimeout(300)
 }
 
