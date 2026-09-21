@@ -191,6 +191,14 @@ test("rejects an unassigned_only filter without an accompanying client", () => {
 test("rejects wrong types for boolean filters", () => {
   invalid({ filters: { unassigned_only: "true" } });
   invalid({ filters: { without_task: 1 } });
+  invalid({ filters: { session_fully_unassigned: "true" } });
+  invalid({ filters: { session_fully_unassigned: 1 } });
+  invalid({ filters: { session_fully_unassigned: "'; DROP TABLE task_entries;--" } });
+});
+
+test("accepts session_fully_unassigned alongside without_task and group_by=session", () => {
+  const v = valid({ group_by: "session", filters: { without_task: true, session_fully_unassigned: true } });
+  assert.equal(v.filters.session_fully_unassigned, true);
 });
 
 test("rejects an oversized single filter string", () => {
@@ -257,4 +265,21 @@ test("buildQueries applies without_task and exclude_unassigned_client filters", 
   assert.ok(q.grandTotal.sql.includes("te.task = ''"));
   assert.ok(q.grandTotal.sql.includes("te.client != {:p_exclude_client}"));
   assert.equal(q.grandTotal.params.p_exclude_client, "u1");
+});
+
+test("buildQueries adds a NOT EXISTS clause for session_fully_unassigned, with no bound request text", () => {
+  const v = valid({ group_by: "session", filters: { without_task: true, session_fully_unassigned: true } });
+  const q = buildQueries(v);
+  assert.ok(q.grandTotal.sql.includes("NOT EXISTS (SELECT 1 FROM task_entries te_fu WHERE te_fu.session_id = te.session_id AND te_fu.task != '')"));
+  assert.ok(q.page.sql.includes("NOT EXISTS (SELECT 1 FROM task_entries te_fu"));
+  // No user-controlled text can reach this fragment (boolean-only filter) —
+  // confirm no new param was bound for it.
+  assert.ok(!("p_session_fully_unassigned" in q.grandTotal.params));
+});
+
+test("omits the session_fully_unassigned clause when the filter is absent or false", () => {
+  const v1 = valid({ group_by: "session" });
+  assert.ok(!buildQueries(v1).grandTotal.sql.includes("NOT EXISTS"));
+  const v2 = valid({ group_by: "session", filters: { session_fully_unassigned: false } });
+  assert.ok(!buildQueries(v2).grandTotal.sql.includes("NOT EXISTS"));
 });

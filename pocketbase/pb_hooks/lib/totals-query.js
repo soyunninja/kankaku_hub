@@ -94,6 +94,7 @@ function validateDate(value, fieldName, errors) {
 var FILTER_KEYS = [
   "client", "project", "task", "agent", "status", "machine",
   "session_id", "unassigned_only", "without_task", "exclude_unassigned_client",
+  "session_fully_unassigned",
 ];
 
 /**
@@ -177,7 +178,7 @@ function validateRequest(body) {
           continue;
         }
         var fval = body.filters[fkey];
-        if (fkey === "unassigned_only" || fkey === "without_task") {
+        if (fkey === "unassigned_only" || fkey === "without_task" || fkey === "session_fully_unassigned") {
           if (typeof fval !== "boolean") {
             errors.push("invalid_filter_" + fkey);
             continue;
@@ -283,6 +284,23 @@ function buildWhere(req) {
   if (f.exclude_unassigned_client) {
     clauses.push("te.client != {:p_exclude_client}");
     params.p_exclude_client = f.exclude_unassigned_client;
+  }
+  // Sessions-without-task queue parity: the pre-totals client-side path
+  // (web/app/composables/useSessions.ts#fetchUnassignedSessions) only ever
+  // showed a session once EVERY one of its entries was unassigned — a
+  // session with even one triaged (task != '') entry elsewhere was
+  // excluded outright, not just filtered down to its unassigned rows. A
+  // plain `without_task` filter can't express that (it already narrows
+  // the row set to task=='' before grouping, so it can never see a
+  // sibling assigned row in the same session). This filter is evaluated
+  // independent of the WHERE narrowing above via a correlated NOT EXISTS
+  // against the whole table (no bound request text — the identifier and
+  // shape are fixed, only ever a fixed SQL fragment). Always combine with
+  // `without_task: true` at the call site so the WHERE clause still
+  // narrows to task=='' rows for aggregation; this filter only adds the
+  // "and no sibling row anywhere has a task" exclusion.
+  if (f.session_fully_unassigned === true) {
+    clauses.push("NOT EXISTS (SELECT 1 FROM task_entries te_fu WHERE te_fu.session_id = te.session_id AND te_fu.task != '')");
   }
 
   return { where: clauses.join(" AND "), params: params };

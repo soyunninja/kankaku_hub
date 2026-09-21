@@ -508,7 +508,7 @@ defaulting to `"none"`):
     "client": "<id>", "project": "<id>", "task": "<id>", "agent": "pi",
     "status": "completed", "machine": "<name>", "session_id": "<id>",
     "unassigned_only": true, "without_task": true,
-    "exclude_unassigned_client": "<id>"
+    "exclude_unassigned_client": "<id>", "session_fully_unassigned": true
   },
   "group_by": "none | day | client | project | task | session | agent | model | legacy_label",
   "day_boundaries": ["...UTC instant...", "..."],
@@ -524,12 +524,25 @@ defaulting to `"none"`):
   total.
 - `filters` — a fixed whitelist (`client`, `project`, `task`, `agent`,
   `status`, `machine`, `session_id`, `unassigned_only`, `without_task`,
-  `exclude_unassigned_client`); any other key is a `400`.
+  `exclude_unassigned_client`, `session_fully_unassigned`); any other key
+  is a `400`.
   `agent: ""` matches rows with no reported agent (the `LEGACY_AGENT`
   sentinel case, see `app/lib/measurement-quality.ts`).
   `unassigned_only: true` requires `filters.client` to also be set (`400
   unassigned_only_requires_client` otherwise) — it documents intent
   rather than adding SQL beyond the `client` equality already applied.
+  `session_fully_unassigned: true` (only meaningful with
+  `group_by: "session"`, typically combined with `without_task: true`)
+  adds a `NOT EXISTS` clause excluding any row whose `session_id` has a
+  SIBLING row elsewhere with `task != ''` — i.e. only sessions where
+  **every** entry is unassigned. This reproduces the pre-totals
+  `web/app/composables/useSessions.ts#fetchUnassignedSessions` semantic
+  exactly (a session with even one triaged entry was excluded outright,
+  not just filtered down to its unassigned rows), which a plain
+  `without_task` filter cannot express on its own since it already
+  narrows the row set to `task=''` before the sibling check could see a
+  triaged row in the same session. Adds no bound parameter (boolean-only,
+  fixed SQL fragment).
 - `group_by` — one of the 9 listed values; anything else is a `400`.
   This is a fixed server-side whitelist mapped to a hard-coded SQL
   fragment — request text is never used as a SQL identifier.
