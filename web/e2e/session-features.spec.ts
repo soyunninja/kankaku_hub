@@ -212,11 +212,15 @@ test.describe('task detail sheet: expand a session to see all its entries', () =
     const entryIds: string[] = []
 
     try {
-      entryIds.push(await createEntry(request, token, target.id, project.id, runBase, {
-        sessionId, sessionName, task: taskA.id, startedAtOffsetMs: -60_000,
-      }))
+      // Created FIRST on purpose: the hub's task-inheritance hook gives a
+      // new task-less entry the task its session is already attached to, so
+      // a genuinely unassigned row of this session has to exist before any
+      // assigned one does. `startedAtOffsetMs` alone decides display order.
       entryIds.push(await createEntry(request, token, target.id, project.id, runBase, {
         sessionId, sessionName, task: '', startedAtOffsetMs: -30_000,
+      }))
+      entryIds.push(await createEntry(request, token, target.id, project.id, runBase, {
+        sessionId, sessionName, task: taskA.id, startedAtOffsetMs: -60_000,
       }))
       entryIds.push(await createEntry(request, token, target.id, project.id, runBase, {
         sessionId, sessionName, task: taskB.id, startedAtOffsetMs: 0,
