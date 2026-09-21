@@ -2,7 +2,7 @@
 import { History, Keyboard, Pencil, Plus, Trash2 } from '@lucide/vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import RowActions from '@/components/common/RowActions.vue'
-import TaskDetailSheet from '@/components/tasks/TaskDetailSheet.vue'
+import TaskDetailSheet, { type SessionEntriesState } from '@/components/tasks/TaskDetailSheet.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -190,6 +190,38 @@ const detailTaskId = ref<string | null>(null)
 const detailTask = computed(() => detailTaskId.value ? (tasks.value.find(t2 => t2.id === detailTaskId.value) ?? null) : null)
 const detailSessions = ref<TaskSessionRow[]>([])
 const detailSessionsLoading = ref(false)
+
+/**
+ * Feature 2: every `task_entries` row of a session (not just the ones
+ * belonging to the task being viewed), keyed by `sessionId`, fetched
+ * lazily on first expand (`TaskDetailSheet`'s `@expand-session`). Never
+ * cleared between task opens — the same session appearing under a
+ * different task later reuses the cached rows instead of re-fetching
+ * (see `TaskDetailSheet.vue`'s `sessionEntryRows` doc comment: the
+ * same-task/other-task classification is computed live, so a cached
+ * fetch never goes stale across tasks).
+ */
+const sessionEntriesRaw = reactive<Record<string, SessionEntriesState>>({})
+
+/**
+ * ONE `getList(1, 50, …)` page, newest first, never `getFullList` (which
+ * pages until the whole table regardless of `perPage`) — see the
+ * TASKS-REQ doc comment on `TaskDetailSheet.vue`. `listEntries` already
+ * expands `client,project,task`, which covers the `expand: 'task'` this
+ * feature needs for the other-task badge.
+ */
+async function onExpandSession(sessionId: string) {
+  sessionEntriesRaw[sessionId] = { loading: true, items: [], totalItems: 0 }
+  try {
+    const res = await listEntries({ page: 1, perPage: 50, sort: '-started_at', filters: { session_id: sessionId } })
+    sessionEntriesRaw[sessionId] = { loading: false, items: res.items, totalItems: res.totalItems }
+  }
+  catch {
+    // A failed lookup should never block the disclosure itself from
+    // rendering — same silent-failure rule as `fetchResumeInfo` below.
+    sessionEntriesRaw[sessionId] = { loading: false, items: [], totalItems: 0 }
+  }
+}
 
 /**
  * `SessionTotal` (from `fetchSessionTotals`, group_by=session) has no
@@ -561,8 +593,10 @@ async function onDelete(task: TaskRecord) {
             :project-name="projectName(detailTask.project)"
             :sessions="detailSessions"
             :sessions-loading="detailSessionsLoading"
+            :session-entries="sessionEntriesRaw"
             @edit="onDetailEdit"
             @status-change="onDetailStatusChange"
+            @expand-session="onExpandSession"
           />
         </SheetContent>
       </Sheet>

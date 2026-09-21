@@ -18,26 +18,51 @@
  * view model the page maps both the totals-backed and fallback session
  * sources into (see `lib/session-aggregate.ts#TaskSessionRow`), so this
  * component never needs to know which source produced a row.
+ *
+ * Each session row also has a disclosure ("Feature 2") that lists EVERY
+ * `task_entries` row of that session — including rows belonging to
+ * another task or to no task at all — fetched lazily on first expand.
+ * The fetch itself still lives on the page (`sessionEntries` prop,
+ * `expand-session` emit) so this component keeps its "never talks to
+ * PocketBase directly" rule; only which sessions are expanded, and
+ * classifying each fetched row against the CURRENTLY-VIEWED task
+ * (`toSessionEntryRow`, re-evaluated live off `props.task.id` — never
+ * cached at fetch time), are this component's own concern.
  */
-import { Pencil } from '@lucide/vue'
+import { ChevronDown, Pencil } from '@lucide/vue'
 import AgentBadge from '@/components/agents/AgentBadge.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
+import type { TaskEntryRecord, TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 import { MIXED, type TaskSessionRow } from '@/lib/session-aggregate'
+import { toSessionEntryRow } from '@/lib/session-entries'
 import { buildResumeCommand } from '@/lib/session-resume'
+
+/** Fetch state for one session's expanded entries list, keyed by
+ * `sessionId` — owned and populated by the page (`app/pages/tasks/index.vue`),
+ * this component only reads it. `undefined` for a session never expanded
+ * (or not yet fetched) — the loading skeleton/list distinguish
+ * "loading" from "loaded with 0 rows" via `items.length`, never `undefined`
+ * vs. present. */
+export interface SessionEntriesState {
+  loading: boolean
+  items: TaskEntryRecord[]
+  totalItems: number
+}
 
 const props = defineProps<{
   task: TaskRecord
   projectName: string
   sessions: TaskSessionRow[]
   sessionsLoading: boolean
+  sessionEntries: Record<string, SessionEntriesState>
 }>()
 
-const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus] }>()
+const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus]; expandSession: [sessionId: string] }>()
 
 // Touch/keyboard-accessible status control (the "Mover a" board buttons'
 // replacement, TASKS-REQ-011): this Tabs segmented control uses the same
@@ -86,6 +111,45 @@ const sessionRows = computed(() => props.sessions.map((session) => {
     resumeCommand: resume.ok ? resume.command : '',
   }
 }))
+
+// -- session entries disclosure (Feature 2) ------------------------------
+
+/** Which sessions' entry lists are currently expanded — local UI state,
+ * collapsed by default. Keyed by `sessionId` across the whole component
+ * lifetime (not reset when the sheet reopens for a different task): a
+ * session already expanded once for one task stays expanded if the owner
+ * later opens a different task that shares it, which is harmless since
+ * the same-task/other-task classification below is always computed live
+ * against `props.task.id`, never cached. */
+const expandedSessionIds = ref<Set<string>>(new Set())
+
+function isSessionExpanded(sessionId: string): boolean {
+  return expandedSessionIds.value.has(sessionId)
+}
+
+function toggleSessionEntries(sessionId: string) {
+  const next = new Set(expandedSessionIds.value)
+  if (next.has(sessionId)) {
+    next.delete(sessionId)
+  }
+  else {
+    next.add(sessionId)
+    // Fetch on first expand only — a session already present in
+    // `sessionEntries` (loaded or loading) is never re-requested just
+    // because it's toggled closed and open again.
+    if (!props.sessionEntries[sessionId]) emit('expandSession', sessionId)
+  }
+  expandedSessionIds.value = next
+}
+
+/** Maps one session's raw fetched rows (`props.sessionEntries[sessionId].items`,
+ * `TaskEntryRecord[]` with `expand: 'task'`) into the view model the
+ * template renders — classified against the CURRENTLY-VIEWED task, live. */
+function sessionEntryRows(sessionId: string) {
+  const state = props.sessionEntries[sessionId]
+  if (!state) return []
+  return state.items.map(item => toSessionEntryRow(item, props.task.id))
+}
 
 defineOptions({ inheritAttrs: false })
 </script>
@@ -222,6 +286,57 @@ defineOptions({ inheritAttrs: false })
           <p v-else class="rounded-md border border-dashed border-border p-2 text-xs text-muted-foreground">
             {{ t('tasks.detail.sessions.resume.unsupportedAgent') }}
           </p>
+
+          <!-- Every entry of this session (Feature 2), collapsed by default,
+               fetched lazily on first expand. -->
+          <div class="border-t border-border pt-2">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 text-xs font-medium"
+              :aria-expanded="isSessionExpanded(row.session.sessionId)"
+              :aria-controls="`session-entries-${row.session.sessionId}`"
+              @click="toggleSessionEntries(row.session.sessionId)"
+            >
+              {{ t('tasks.detail.sessions.entriesToggle') }}
+              <ChevronDown class="size-3.5 shrink-0 text-muted-foreground transition-transform" :class="isSessionExpanded(row.session.sessionId) ? 'rotate-180' : ''" />
+            </button>
+
+            <div v-show="isSessionExpanded(row.session.sessionId)" :id="`session-entries-${row.session.sessionId}`" class="mt-2">
+              <div v-if="sessionEntries[row.session.sessionId]?.loading" class="space-y-1.5">
+                <Skeleton class="h-6 w-full" />
+                <Skeleton class="h-6 w-full" />
+              </div>
+              <template v-else-if="sessionEntries[row.session.sessionId]">
+                <EmptyState v-if="sessionEntryRows(row.session.sessionId).length === 0" :title="t('tasks.detail.sessions.entriesEmpty')" />
+                <ul v-else class="divide-y divide-border rounded-md border border-border text-xs">
+                  <li v-for="entry in sessionEntryRows(row.session.sessionId)" :key="entry.id" data-testid="session-entry-row" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1.5">
+                    <span class="shrink-0 tabular-nums text-muted-foreground">{{ formatDateTime(entry.startedAt) }}</span>
+                    <span class="min-w-0 flex-1 truncate">
+                      <span v-if="entry.promptHidden" class="text-muted-foreground italic">{{ t('tasks.detail.sessions.entryPromptHidden') }}</span>
+                      <span v-else>{{ entry.promptExcerpt }}</span>
+                    </span>
+                    <span class="shrink-0 tabular-nums">{{ formatDuration(entry.workMs) }}</span>
+                    <span class="shrink-0 tabular-nums">{{ formatCost(entry.cost) }}</span>
+                    <Badge v-if="entry.taskBadge.kind === 'no-task'" variant="outline" class="shrink-0">
+                      {{ t('tasks.detail.sessions.entryNoTask') }}
+                    </Badge>
+                    <Badge v-else-if="entry.taskBadge.kind === 'other-task'" variant="outline" class="shrink-0">
+                      {{ t('tasks.detail.sessions.entryOtherTask', { title: entry.taskBadge.taskTitle }) }}
+                    </Badge>
+                  </li>
+                </ul>
+                <p
+                  v-if="sessionEntries[row.session.sessionId]!.totalItems > sessionEntries[row.session.sessionId]!.items.length"
+                  class="mt-1.5 text-[11px] text-muted-foreground"
+                >
+                  {{ t('tasks.detail.sessions.entriesTruncated', {
+                    shown: sessionEntries[row.session.sessionId]!.items.length,
+                    total: sessionEntries[row.session.sessionId]!.totalItems,
+                  }) }}
+                </p>
+              </template>
+            </div>
+          </div>
         </li>
       </ul>
     </section>
