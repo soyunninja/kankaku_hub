@@ -111,3 +111,17 @@ test("never throws on garbage input", () => {
   assert.equal(isHostAllowed(""), false);
   assert.equal(isUrlAllowed("not a url at all"), false);
 });
+
+// A fully-qualified name with a trailing dot resolves exactly like the name
+// without it, so every blocked form must stay blocked with the dot appended.
+test("a trailing dot does not bypass the blocklist", () => {
+  for (const host of ["localhost.", "LOCALHOST.", "foo.localhost.", "printer.local.", "db.internal.", "127.0.0.1.", "10.0.0.5.", "169.254.169.254.", "localhost.."]) {
+    assert.equal(isHostAllowed(host), false, host);
+  }
+  assert.equal(isUrlAllowed("http://localhost./favicon.ico"), false);
+  assert.equal(isUrlAllowed("https://metadata.internal./"), false);
+});
+
+test("a trailing dot on an ordinary public hostname is still allowed", () => {
+  assert.equal(isHostAllowed("example.com."), true);
+});

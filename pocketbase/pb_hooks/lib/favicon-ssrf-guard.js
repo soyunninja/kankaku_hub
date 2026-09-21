@@ -331,6 +331,13 @@ function isHostAllowed(hostname) {
   if (host.charAt(0) === "[" && host.charAt(host.length - 1) === "]") {
     host = host.slice(1, -1);
   }
+  // A fully-qualified name ("localhost.", "db.internal.", "127.0.0.1.")
+  // resolves exactly like the same name without the trailing dot, so strip
+  // every trailing dot BEFORE any comparison: otherwise each blocked form has
+  // a trivial bypass. A host that is only dots is not a host.
+  while (host.length > 0 && host.charAt(host.length - 1) === ".") {
+    host = host.slice(0, -1);
+  }
   if (host === "") {
     return false;
   }
