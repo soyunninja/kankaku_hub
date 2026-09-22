@@ -125,45 +125,55 @@
   --sidebar-ring: oklch(0.55 0.11 192);
 }
 
+/*
+ * Dark palette: Gentleman-Cute (gentle-pi theme,
+ * themes/Gentleman-Cute.json). Light mode keeps the original teal
+ * palette. Each line's trailing comment names the source hex and the
+ * gentle-pi theme var it came from — see
+ * odd/tasks/dark-theme-gentleman-cute.md for the full mapping.
+ * `--chart-1..5` are duplicated in app/lib/client-avatar.ts's
+ * `CHART_OKLCH_BY_THEME.dark` (kept in sync manually, guarded by
+ * tests/dark-palette.test.ts) — update both together.
+ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.18 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.19 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.72 0.13 192);
-  --primary-foreground: oklch(0.145 0.02 192);
-  --secondary: oklch(0.26 0 0);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.24 0 0);
-  --muted-foreground: oklch(0.68 0 0);
-  --accent: oklch(0.28 0.05 192);
-  --accent-foreground: oklch(0.9 0.05 192);
-  --destructive: oklch(0.65 0.22 27);
-  --destructive-foreground: oklch(0.97 0 0);
-  --success: oklch(0.68 0.15 150);
-  --success-foreground: oklch(0.12 0 0);
-  --warning: oklch(0.8 0.16 85);
-  --warning-foreground: oklch(0.12 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.72 0.13 192);
+  --background: oklch(0.113 0.011 316); /* #060407 bg */
+  --foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
+  --card: oklch(0.155 0.014 332); /* #100A0F bgPanel */
+  --card-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
+  --popover: oklch(0.190 0.007 315); /* #151316 toolSuccessBg */
+  --popover-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
+  --primary: oklch(0.778 0.125 346); /* #F095C8 accent */
+  --primary-foreground: oklch(0.113 0.011 316); /* #060407 bg */
+  --secondary: oklch(0.229 0.026 332); /* #241822 secondary */
+  --secondary-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
+  --muted: oklch(0.195 0.017 335); /* #1A1218 muted (bg) */
+  --muted-foreground: oklch(0.673 0.035 345); /* #A78E9B muted (text) */
+  --accent: oklch(0.219 0.041 347); /* #28121E selection */
+  --accent-foreground: oklch(0.847 0.106 345); /* #FFB1DD activePink */
+  --destructive: oklch(0.727 0.174 9.4); /* #FF718F error */
+  --destructive-foreground: oklch(0.113 0.011 316); /* #060407 bg */
+  --success: oklch(0.884 0.068 157); /* #B4E7C7 mint */
+  --success-foreground: oklch(0.113 0.011 316); /* #060407 bg */
+  --warning: oklch(0.820 0.114 72); /* #F2B86D peach */
+  --warning-foreground: oklch(0.113 0.011 316); /* #060407 bg */
+  --border: oklch(0.362 0.060 354 / 55%); /* #563040 border */
+  --input: oklch(0.362 0.060 354 / 75%); /* #563040 border */
+  --ring: oklch(0.778 0.125 346); /* #F095C8 accent */
 
-  --chart-1: oklch(0.72 0.13 192);
-  --chart-2: oklch(0.75 0.16 45);
-  --chart-3: oklch(0.7 0.12 280);
-  --chart-4: oklch(0.78 0.15 140);
-  --chart-5: oklch(0.72 0.18 350);
+  --chart-1: oklch(0.778 0.125 346); /* #F095C8 accent */
+  --chart-2: oklch(0.824 0.097 88); /* #E0C27A champagne */
+  --chart-3: oklch(0.821 0.064 255); /* #A9C7EE powderBlue */
+  --chart-4: oklch(0.884 0.068 157); /* #B4E7C7 mint */
+  --chart-5: oklch(0.820 0.114 72); /* #F2B86D peach */
 
-  --sidebar: oklch(0.16 0 0);
-  --sidebar-foreground: oklch(0.97 0 0);
-  --sidebar-primary: oklch(0.72 0.13 192);
-  --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.26 0.04 192);
-  --sidebar-accent-foreground: oklch(0.9 0.05 192);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.72 0.13 192);
+  --sidebar: oklch(0.155 0.014 332); /* #100A0F bgPanel */
+  --sidebar-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
+  --sidebar-primary: oklch(0.778 0.125 346); /* #F095C8 accent */
+  --sidebar-primary-foreground: oklch(0.113 0.011 316); /* #060407 bg */
+  --sidebar-accent: oklch(0.219 0.041 347); /* #28121E selection */
+  --sidebar-accent-foreground: oklch(0.847 0.106 345); /* #FFB1DD activePink */
+  --sidebar-border: oklch(0.234 0.034 350); /* #2A1720 borderSubtle */
+  --sidebar-ring: oklch(0.778 0.125 346); /* #F095C8 accent */
 }
 
 @layer base {

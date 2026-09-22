@@ -7,7 +7,7 @@
 | Owners repos | kankaku-hub |
 | Related ADRs | none dedicated — implementation detail of [phase-3-web](../phases/phase-3-web.md) |
 | Code | `web/nuxt.config.ts`, `web/app/components/app-shell/ThemeToggle.vue`, `web/app/components/app-shell/LocaleSwitcher.vue`, `web/i18n/locales/es.json`, `web/i18n/locales/en.json`, `web/i18n/locales/ja.json`, `web/i18n/GLOSSARY.md`, `web/app/lib/format.ts`, `web/app/composables/useFormatters.ts`, `web/app/assets/css/tailwind.css` |
-| Tests | `web/tests/i18n.test.ts`, `web/tests/format.test.ts`, `web/e2e/i18n-ja.spec.ts`, `web/e2e/screenshots-ja.spec.ts`, manual Playwright verification per `ESTADO.md` |
+| Tests | `web/tests/i18n.test.ts`, `web/tests/format.test.ts`, `web/tests/dark-palette.test.ts`, `web/e2e/i18n-ja.spec.ts`, `web/e2e/screenshots-ja.spec.ts`, manual Playwright verification per `ESTADO.md` |
 
 ## Purpose
 
@@ -50,6 +50,12 @@ requirements.
    `:lang(ja)`-scoped line-breaking rules, so Japanese text never falls
    back to a mismatched font or breaks mid-word/right-before-closing-
    punctuation.
+10. `THEME-REQ-010` — Every foreground/background token pair the dark
+    theme renders (text on page/card, muted text on page/card, and each
+    of primary/destructive/success/warning/accent/sidebar's foreground on
+    its own background) SHALL meet WCAG AA contrast (>= 4.5:1), verified
+    by computing the ratio from the tokens' actual OKLCH values, not by
+    inspection.
 
 ## Scenarios
 
@@ -172,6 +178,29 @@ composable unchanged.
 8. Capture doc screenshots (see `web/docs/screenshots/`) and look at them
    for mismatched fonts, tofu, or awkward wraps before calling it done.
 
+## Dark palette
+
+The dark theme's colors (`app/assets/css/tailwind.css`'s `.dark` block)
+come from the owner's gentle-pi theme "Gentleman-Cute"
+(`~/.local/src/gentle-pi-main/themes/Gentleman-Cute.json`). Light mode
+(`:root`) and the Astro marketing site are unchanged — this only affects
+the Nuxt dashboard's dark theme. Each `.dark` line carries a trailing
+comment naming its source hex and gentle-pi theme var, and the block has
+a header comment pointing back at the source file.
+
+Sync rule: `--chart-1..5` in the `.dark` block are duplicated in
+`app/lib/client-avatar.ts`'s `CHART_OKLCH_BY_THEME.dark` (used to derive
+`ClientAvatar`'s deterministic background colors and to verify
+`--avatar-foreground`'s contrast against them). The two must always carry
+the exact same five OKLCH triples; `tests/dark-palette.test.ts` parses
+both and fails if they diverge.
+
+WCAG guard: `tests/dark-palette.test.ts` also parses the `.dark` block
+directly and computes (via `client-avatar.ts`'s exported
+`oklchToLinearSrgb`/`relativeLuminance`/`contrastRatio` helpers) the
+contrast ratio for every foreground/background pair the dark theme
+renders — see `THEME-REQ-010`.
+
 ## Out of scope
 
 - Locales beyond es/en/ja.
@@ -201,3 +230,4 @@ solid first draft, not a finished, owner-approved translation.
 | `THEME-REQ-007` | `web/e2e/i18n-ja.spec.ts` | covered |
 | `THEME-REQ-008` | `web/tests/format.test.ts`, `web/e2e/i18n-ja.spec.ts` (KPI duration units) | covered |
 | `THEME-REQ-009` | manual screenshot review per `ESTADO.md` | not covered by an automated test found in this pass |
+| `THEME-REQ-010` | `web/tests/dark-palette.test.ts` | covered |
