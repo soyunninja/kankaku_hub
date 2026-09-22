@@ -54,13 +54,19 @@ export interface SessionEntriesState {
   totalItems: number
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   task: TaskRecord
   projectName: string
   sessions: TaskSessionRow[]
   sessionsLoading: boolean
   sessionEntries: Record<string, SessionEntriesState>
-}>()
+  /** False for a non-owner (viewer) — hides the status control and the
+   * "Edit" button below (odd/tasks/viewer-role.md T2). Defaults to
+   * `true` so any other, older caller behaves exactly as before. */
+  canWrite?: boolean
+}>(), {
+  canWrite: true,
+})
 
 const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus]; expandSession: [sessionId: string] }>()
 
@@ -169,7 +175,7 @@ defineOptions({ inheritAttrs: false })
       <div class="flex flex-wrap items-center gap-2">
         <span class="text-xs text-muted-foreground">{{ projectName }}</span>
       </div>
-      <div class="flex flex-col gap-1.5">
+      <div v-if="canWrite" data-testid="write-action" class="flex flex-col gap-1.5">
         <span id="task-detail-status-label" class="text-xs font-medium text-muted-foreground">
           {{ t('common.status') }}
         </span>
@@ -181,7 +187,15 @@ defineOptions({ inheritAttrs: false })
           </TabsList>
         </Tabs>
       </div>
-      <Button size="sm" variant="outline" class="w-fit gap-1.5" @click="emit('edit')">
+      <div v-else class="flex flex-col gap-1.5">
+        <span class="text-xs font-medium text-muted-foreground">
+          {{ t('common.status') }}
+        </span>
+        <Badge variant="outline" class="w-fit">
+          {{ t(`tasks.status.${task.status}`) }}
+        </Badge>
+      </div>
+      <Button v-if="canWrite" data-testid="write-action" size="sm" variant="outline" class="w-fit gap-1.5" @click="emit('edit')">
         <Pencil class="size-3.5" />
         {{ t('tasks.edit') }}
       </Button>

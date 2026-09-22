@@ -8,6 +8,12 @@ export const screenshotsDir = path.join(fileURLToPath(new URL('.', import.meta.u
 export const OWNER_EMAIL = 'david@kankaku.local'
 export const OWNER_PASSWORD = 'kankaku-dev-owner'
 
+/** The read-only `viewer` demo account `scripts/isolated-stack.sh` creates
+ * (odd/tasks/viewer-role.md T1/T2) — never present on the owner's own
+ * :8090 instance, only on an isolated stack started with `--seed`. */
+export const VIEWER_EMAIL = 'demo@kankaku.local'
+export const VIEWER_PASSWORD = 'kankaku-demo-viewer'
+
 /**
  * PocketBase's own absolute origin — mirrors the base-URL resolution
  * `app/plugins/pocketbase.client.ts` does client-side
@@ -39,8 +45,13 @@ export function pbUrl(apiPath: string): string {
  * through the web app) and returns the auth token, for specs that need
  * to seed/clean up fixture data via the API. */
 export async function apiLogin(request: APIRequestContext): Promise<string> {
+  return apiLoginAs(request, OWNER_EMAIL, OWNER_PASSWORD)
+}
+
+/** Same as `apiLogin`, for an arbitrary account (e.g. `VIEWER_EMAIL`/`VIEWER_PASSWORD`). */
+export async function apiLoginAs(request: APIRequestContext, email: string, password: string): Promise<string> {
   const res = await request.post(pbUrl('/api/collections/users/auth-with-password'), {
-    data: { identity: OWNER_EMAIL, password: OWNER_PASSWORD },
+    data: { identity: email, password },
   })
   expect(res.ok(), await res.text()).toBeTruthy()
   const body = await res.json()
@@ -174,9 +185,14 @@ export async function useFlatEntriesView(page: Page): Promise<void> {
 }
 
 export async function login(page: Page) {
+  await loginAs(page, OWNER_EMAIL, OWNER_PASSWORD)
+}
+
+/** Same as `login`, for an arbitrary account (e.g. `VIEWER_EMAIL`/`VIEWER_PASSWORD`). */
+export async function loginAs(page: Page, email: string, password: string) {
   await page.goto('/login')
-  await page.fill('#email', OWNER_EMAIL)
-  await page.fill('#password', OWNER_PASSWORD)
+  await page.fill('#email', email)
+  await page.fill('#password', password)
   await page.click('button[type=submit]')
   await page.waitForURL('/')
 }

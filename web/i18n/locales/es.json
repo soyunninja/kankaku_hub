@@ -33,6 +33,9 @@
     "submit": "Entrar",
     "error": "Correo o contraseña incorrectos"
   },
+  "auth": {
+    "readOnly": "Solo lectura"
+  },
   "common": {
     "loading": "Cargando…",
     "save": "Guardar",

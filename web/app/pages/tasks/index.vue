@@ -32,6 +32,7 @@ const { fetchSessionTotals, fetchSessionsForTask } = useSessions()
 const { list: listEntries } = useEntriesExplorer()
 const { fetchTotals } = useTotals()
 const toast = useToast()
+const { canWrite } = useAuth()
 
 const filterProject = ref('')
 const view = ref<'board' | 'list'>('board')
@@ -163,6 +164,7 @@ async function onColumnDrop(status: TaskStatus, event: DragEvent) {
   const id = event.dataTransfer?.getData('text/plain') || draggingTaskId.value
   draggingTaskId.value = null
   dragOverStatus.value = null
+  if (!canWrite.value) return
   if (!id) return
   const task = tasks.value.find(t2 => t2.id === id)
   if (!task || task.status === status) return
@@ -362,6 +364,7 @@ function onCardKeydown(task: TaskRecord, status: TaskStatus, event: KeyboardEven
   const isPrev = event.key === 'ArrowLeft' || event.key === '['
   const isNext = event.key === 'ArrowRight' || event.key === ']'
   if (!isPrev && !isNext) return
+  if (!canWrite.value) return
 
   event.preventDefault()
   const idx = statuses.indexOf(status)
@@ -452,7 +455,7 @@ async function onDelete(task: TaskRecord) {
               {{ t('tasks.keyboardHint.text') }}
             </TooltipContent>
           </Tooltip>
-          <Button size="sm" @click="openCreate">
+          <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
             <Plus class="size-4" />
             {{ t('tasks.new') }}
           </Button>
@@ -485,9 +488,9 @@ async function onDelete(task: TaskRecord) {
             <Card
               v-for="task in byStatus(status)" :key="task.id"
               :ref="(el) => setCardEl(task.id, el)"
-              draggable="true"
-              class="cursor-grab gap-0 py-0 touch-none outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring"
-              :class="draggingTaskId === task.id ? 'opacity-50' : ''"
+              :draggable="canWrite"
+              class="gap-0 py-0 touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              :class="[canWrite ? 'cursor-grab active:cursor-grabbing' : '', draggingTaskId === task.id ? 'opacity-50' : '']"
               role="button"
               tabindex="0"
               :aria-label="`${task.title} — ${t(`tasks.status.${status}`)}`"
@@ -546,7 +549,7 @@ async function onDelete(task: TaskRecord) {
                   {{ t('tasks.cost') }}
                 </th>
                 <th class="p-3 text-right">
-                  {{ t('common.actions') }}
+                  {{ canWrite ? t('common.actions') : '' }}
                 </th>
               </tr>
             </thead>
@@ -571,6 +574,8 @@ async function onDelete(task: TaskRecord) {
                 </td>
                 <td class="p-3 text-right">
                   <RowActions
+                    v-if="canWrite"
+                    data-testid="write-action"
                     :actions="[
                       { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(task) },
                       { icon: Trash2, label: t('common.delete'), onClick: () => onDelete(task), destructive: true },
@@ -594,6 +599,7 @@ async function onDelete(task: TaskRecord) {
             :sessions="detailSessions"
             :sessions-loading="detailSessionsLoading"
             :session-entries="sessionEntriesRaw"
+            :can-write="canWrite"
             @edit="onDetailEdit"
             @status-change="onDetailStatusChange"
             @expand-session="onExpandSession"
@@ -627,12 +633,12 @@ async function onDelete(task: TaskRecord) {
               <Label for="t-desc">{{ t('common.description') }}</Label>
               <Textarea id="t-desc" v-model="form.description" />
             </div>
-            <DialogFooter class="justify-between sm:justify-between">
-              <Button v-if="editing" type="button" variant="ghost" class="text-destructive" @click="onDelete(editing); dialogOpen = false">
+            <DialogFooter v-if="canWrite" class="justify-between sm:justify-between">
+              <Button v-if="editing" data-testid="write-action" type="button" variant="ghost" class="text-destructive" @click="onDelete(editing); dialogOpen = false">
                 <Trash2 class="size-4" />
                 {{ t('common.delete') }}
               </Button>
-              <Button type="submit">
+              <Button data-testid="write-action" type="submit">
                 {{ t('common.save') }}
               </Button>
             </DialogFooter>

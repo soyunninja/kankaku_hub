@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { LogOut, Menu, Search } from '@lucide/vue'
 import { Avatar } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { isReadOnlyRole } from '@/lib/roles'
 import { resolveBreadcrumbLabels } from '@/lib/nav-items'
 import LocaleSwitcher from './LocaleSwitcher.vue'
 import ThemeToggle from './ThemeToggle.vue'
@@ -12,6 +14,10 @@ const { t } = useI18n()
 const route = useRoute()
 const { user, logout } = useAuth()
 const router = useRouter()
+
+/** Small "Read only" badge next to the user avatar for the `viewer` role
+ * (odd/tasks/viewer-role.md T2) — owners see today's header unchanged. */
+const isReadOnly = computed(() => isReadOnlyRole(user.value?.role))
 
 // Segment -> label comes from the shared NAV_ITEMS registry
 // (app/lib/nav-items.ts), not a locally-maintained map, so a route added
@@ -51,6 +57,10 @@ async function onLogout() {
 
     <ThemeToggle />
     <LocaleSwitcher />
+
+    <Badge v-if="isReadOnly" data-testid="read-only-badge" variant="outline" class="shrink-0 gap-1 text-xs font-normal text-muted-foreground">
+      {{ t('auth.readOnly') }}
+    </Badge>
 
     <DropdownMenu>
       <DropdownMenuTrigger as-child>

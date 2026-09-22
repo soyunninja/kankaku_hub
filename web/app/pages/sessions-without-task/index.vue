@@ -45,6 +45,7 @@ const { convertToTask, attachToExisting, ignoreSession } = useSessionsQueue()
 const { refresh: refreshQueueCount } = useSessionsQueueCount()
 const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
+const { canWrite } = useAuth()
 
 /** Same lazy, "only when configured" narrative fetch as the entries page
  * (`app/pages/entries/index.vue`) — see its own doc comment on
@@ -456,7 +457,7 @@ async function confirmIgnore() {
       </div>
     </div>
 
-    <div v-else-if="selectedCount > 0" class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-4 py-2">
+    <div v-else-if="canWrite && selectedCount > 0" data-testid="write-action" class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-4 py-2">
       <span class="text-sm">{{ t('sessionsQueue.selected', { count: selectedCount }) }}</span>
       <div class="flex gap-2">
         <Button size="sm" variant="outline" @click="requestIgnore(selectedSessions())">
@@ -480,7 +481,7 @@ async function confirmIgnore() {
           <TableHeader>
             <TableRow>
               <TableHead class="w-8">
-                <Checkbox :model-value="allSelectedState" :aria-label="t('sessionsQueue.selectAll')" @update:model-value="toggleSelectAll" />
+                <Checkbox v-if="canWrite" :model-value="allSelectedState" :aria-label="t('sessionsQueue.selectAll')" @update:model-value="toggleSelectAll" />
               </TableHead>
               <TableHead>{{ t('common.name') }}</TableHead>
               <TableHead>{{ t('common.client') }}</TableHead>
@@ -498,7 +499,7 @@ async function confirmIgnore() {
                 {{ t('sessionsQueue.lastActivity') }}
               </TableHead>
               <TableHead class="text-right">
-                {{ t('common.actions') }}
+                {{ canWrite ? t('common.actions') : '' }}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -506,6 +507,7 @@ async function confirmIgnore() {
             <TableRow v-for="session in sessions" :key="session.sessionId">
               <TableCell>
                 <Checkbox
+                  v-if="canWrite"
                   :model-value="selected.has(session.sessionId)"
                   :aria-label="t('sessionsQueue.selectRow', { session: sessionName(session) })"
                   @update:model-value="toggleSession(session.sessionId)"
@@ -558,9 +560,9 @@ async function confirmIgnore() {
                 {{ formatDate(session.lastActivity) }}
               </TableCell>
               <TableCell class="text-right">
-                <DropdownMenu>
+                <DropdownMenu v-if="canWrite">
                   <DropdownMenuTrigger as-child>
-                    <Button size="icon-sm" variant="ghost" :aria-label="t('sessionsQueue.actionsAria', { session: sessionName(session) })">
+                    <Button data-testid="write-action" size="icon-sm" variant="ghost" :aria-label="t('sessionsQueue.actionsAria', { session: sessionName(session) })">
                       <MoreHorizontal class="size-4" />
                     </Button>
                   </DropdownMenuTrigger>

@@ -35,13 +35,20 @@ import type { ClientRecord, ProjectRecord, TaskEntryRecord, TaskRecord, WorkReco
 import { buildResumeCommand } from '@/lib/session-resume'
 import { resolveThinkingLevel } from '@/lib/thinking-level'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   entry: TaskEntryRecord
   workRecords: WorkRecordRecord[]
   clients: ClientRecord[]
   projects: ProjectRecord[]
   tasks: TaskRecord[]
-}>()
+  /** False for a non-owner (viewer) — the assignment section renders the
+   * current client/project/task as read-only text instead of selects,
+   * and hides "Save" (odd/tasks/viewer-role.md T2). Defaults to `true`
+   * so any other, older caller behaves exactly as before. */
+  canWrite?: boolean
+}>(), {
+  canWrite: true,
+})
 
 const emit = defineEmits<{ save: [] }>()
 
@@ -389,7 +396,7 @@ defineOptions({ inheritAttrs: false })
           </div>
         </dl>
 
-        <div class="space-y-2 rounded-md border border-dashed border-border p-3">
+        <div v-if="canWrite" data-testid="write-action" class="space-y-2 rounded-md border border-dashed border-border p-3">
           <Select v-model="client" :aria-label="t('common.client')" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
           <Select v-model="project" :aria-label="t('common.project')" :placeholder="t('common.none')" :options="projectSelectOptions" />
           <Select v-model="task" data-testid="entry-task-select" :aria-label="t('common.task')" :options="taskSelectOptions" />

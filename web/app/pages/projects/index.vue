@@ -29,6 +29,7 @@ const { projects, loading, ensureLoaded, create, update } = useProjects()
 const { fetchRange } = useTaskEntries()
 const { fetchRangeTotals } = useTotals()
 const toast = useToast()
+const { canWrite } = useAuth()
 
 const filterClient = ref('')
 const totalsByProject = ref<Record<string, { cost: number, workMs: number }>>({})
@@ -136,7 +137,7 @@ async function toggleArchive(project: ProjectRecord) {
             v-model="filterClient" class="w-48" :placeholder="t('projects.filterByClient')"
             :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
           />
-          <Button size="sm" @click="openCreate">
+          <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
             <Plus class="size-4" />
             {{ t('projects.new') }}
           </Button>
@@ -162,7 +163,7 @@ async function toggleArchive(project: ProjectRecord) {
                   {{ t('common.cost') }}
                 </TableHead>
                 <TableHead class="text-right">
-                  {{ t('common.actions') }}
+                  {{ canWrite ? t('common.actions') : '' }}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -189,6 +190,8 @@ async function toggleArchive(project: ProjectRecord) {
                 </TableCell>
                 <TableCell class="text-right" @click.stop>
                   <RowActions
+                    v-if="canWrite"
+                    data-testid="write-action"
                     :actions="[
                       { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(p) },
                       { icon: p.active ? Archive : ArchiveRestore, label: p.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(p) },

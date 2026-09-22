@@ -173,7 +173,7 @@ export interface DailyTotalRecord {
   entries: number
 }
 
-export type UserRole = 'owner' | 'service'
+export type UserRole = 'owner' | 'service' | 'viewer'
 
 export interface UserRecord {
   id: string

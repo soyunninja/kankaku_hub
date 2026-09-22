@@ -40,6 +40,7 @@ const { list, getOne, listWorkRecords, updateAssignment, fetchAgentOptions, list
 const { fetchSessionTotalsForEntries } = useSessions()
 const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
+const { canWrite } = useAuth()
 
 /** Deep-link support so the dashboard's measurement-quality notice can
  * navigate here pre-filtered (e.g. `/entries?quality=waitingUnavailable
@@ -828,6 +829,7 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
           :clients="clients"
           :projects="projects"
           :tasks="tasks"
+          :can-write="canWrite"
           @save="saveAssignment"
         />
       </SheetContent>

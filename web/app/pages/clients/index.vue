@@ -40,9 +40,7 @@ const { ensureLoaded: ensureProjects, byClient: projectsByClient } = useProjects
 const { fetchRange } = useTaskEntries()
 const { fetchRangeTotals } = useTotals()
 const toast = useToast()
-const { user } = useAuth()
-
-const isOwner = computed(() => user.value?.role === 'owner')
+const { isOwner, canWrite } = useAuth()
 
 const totalsByClient = ref<Record<string, { cost: number, workMs: number }>>({})
 /** True when the fallback path's `fetchRange` scan was capped before
@@ -255,7 +253,7 @@ async function onRefreshFavicon() {
         <h1 class="text-xl font-semibold tracking-tight">
           {{ t('clients.title') }}
         </h1>
-        <Button size="sm" @click="openCreate">
+        <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
           <Plus class="size-4" />
           {{ t('clients.new') }}
         </Button>
@@ -280,7 +278,7 @@ async function onRefreshFavicon() {
                   {{ t('clients.totalCost') }}
                 </TableHead>
                 <TableHead class="text-right">
-                  {{ t('common.actions') }}
+                  {{ canWrite ? t('common.actions') : '' }}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -324,6 +322,8 @@ async function onRefreshFavicon() {
                 </TableCell>
                 <TableCell class="text-right" @click.stop>
                   <RowActions
+                    v-if="canWrite"
+                    data-testid="write-action"
                     :actions="[
                       { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(c), disabled: c.unassigned },
                       { icon: c.active ? Archive : ArchiveRestore, label: c.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(c), disabled: c.unassigned },
@@ -476,7 +476,7 @@ async function onRefreshFavicon() {
                 </h3>
                 <Button
                   v-if="isOwner && !detailClient.unassigned"
-                  data-testid="favicon-refresh-button"
+                  data-testid="favicon-refresh-button write-action"
                   variant="ghost"
                   size="icon"
                   class="size-7"

@@ -33,6 +33,9 @@
     "submit": "Sign in",
     "error": "Wrong email or password"
   },
+  "auth": {
+    "readOnly": "Read only"
+  },
   "common": {
     "loading": "Loading…",
     "save": "Save",

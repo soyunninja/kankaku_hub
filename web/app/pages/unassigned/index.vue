@@ -23,6 +23,7 @@ const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { fetchUnassignedGroups, fetchGroupEntries, fetchUnassigned, bulkAssign } = useUnassignedQueue()
 const toast = useToast()
+const { canWrite } = useAuth()
 
 /** Groups-listing page size (mirrors `entries/index.vue`'s `perPage`). */
 const GROUPS_PAGE_SIZE = 25
@@ -360,7 +361,7 @@ async function confirmAssign() {
       {{ t('totals.fallbackTruncated', { count: fallbackEntries.length }) }}
     </p>
 
-    <div v-if="selectedCount > 0" class="flex items-center justify-between rounded-md border border-border bg-muted/40 px-4 py-2">
+    <div v-if="canWrite && selectedCount > 0" data-testid="write-action" class="flex items-center justify-between rounded-md border border-border bg-muted/40 px-4 py-2">
       <span class="text-sm">{{ t('unassigned.selected', { count: selectedCount }) }}</span>
       <Button size="sm" @click="openAssignSelection">
         {{ t('unassigned.assignSelected') }}
@@ -391,7 +392,7 @@ async function confirmAssign() {
                 {{ t('common.cost') }}
               </TableHead>
               <TableHead class="text-right">
-                {{ t('common.actions') }}
+                {{ canWrite ? t('common.actions') : '' }}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -412,6 +413,7 @@ async function confirmAssign() {
                 </TableCell>
                 <TableCell>
                   <Checkbox
+                    v-if="canWrite"
                     :model-value="groupState(g)"
                     :aria-label="t('unassigned.selectGroup', { group: g.legacyLabel })"
                     @update:model-value="toggleGroup(g)"
@@ -443,7 +445,7 @@ async function confirmAssign() {
                   {{ formatCost(g.cost) }}
                 </TableCell>
                 <TableCell class="text-right">
-                  <Button size="sm" variant="outline" @click="openAssignGroup(g)">
+                  <Button v-if="canWrite" data-testid="write-action" size="sm" variant="outline" @click="openAssignGroup(g)">
                     {{ t('unassigned.assignGroup') }}
                   </Button>
                 </TableCell>
@@ -454,6 +456,7 @@ async function confirmAssign() {
                     <TableCell />
                     <TableCell>
                       <Checkbox
+                        v-if="canWrite"
                         :model-value="selected.has(e.id)"
                         :aria-label="t('unassigned.selectEntry', { entry: e.session_name || e.session_id || e.id })"
                         @update:model-value="toggleEntry(e.id)"
@@ -482,6 +485,7 @@ async function confirmAssign() {
                     <TableCell />
                     <TableCell>
                       <Checkbox
+                        v-if="canWrite"
                         :model-value="selected.has(e.id)"
                         :aria-label="t('unassigned.selectEntry', { entry: e.session_name || e.session_id || e.id })"
                         @update:model-value="toggleEntry(e.id)"
