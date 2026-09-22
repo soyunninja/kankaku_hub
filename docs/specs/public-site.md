@@ -49,8 +49,9 @@ is an authenticated dashboard over one owner's real data (see ADR 0025).
    per locale (in the Guide), used verbatim (not translated) in all three
    locales; no page SHALL use a literal Spanish/Japanese calque of it
    ("tiempo de pared", "tiempo de muro", or a Japanese 壁時計 rendering).
-9. `SITE-REQ-009` — Every screenshot of the hub SHALL be captioned as
-   showing fictional demo data.
+9. `SITE-REQ-009` — The screenshots section SHALL state, once and in every
+   locale, that the hub captures show fictional demo data (the section lede,
+   `home.screenshotsLine`); individual figures carry no caption.
 10. `SITE-REQ-010` — The site SHALL meet WCAG AA contrast in both themes,
     verified by an automated axe-core pass with zero violations across all
     pages and both color schemes.
@@ -137,7 +138,7 @@ is an authenticated dashboard over one owner's real data (see ADR 0025).
 | `SITE-REQ-006` | `site/scripts/build-font.mjs`, `site/public/fonts/` | covered |
 | `SITE-REQ-007` | `site/src/i18n/ui.ts` (`common.comingSoon`), Home status strip, Guide "Connect the hub" | covered |
 | `SITE-REQ-008` | `site/src/content/docs/*/guide.mdx` (single mention each) | covered |
-| `SITE-REQ-009` | `site/src/components/ScreenshotFigure.astro` (`common.fictionalDataCaption`) | covered |
+| `SITE-REQ-009` | `site/src/components/pages/HomePage.astro` (`home.screenshotsLine`, all locales) | covered |
 | `SITE-REQ-010` | `site/tests/a11y.spec.ts` | covered |
 | `SITE-REQ-011` | `site/tests/smoke.spec.ts` ("no horizontal overflow") | covered |
 | `SITE-REQ-012` | `site/astro.config.mjs` | covered |
