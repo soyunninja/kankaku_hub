@@ -15,6 +15,11 @@ export interface Narrative {
 export interface EngramStatus {
   configured: boolean
   reachable: boolean
+  /** True only when `configured` is true and the daemon rejected the
+   * request as unauthenticated (401/403 — `ENGRAM_HTTP_TOKEN` is set on
+   * the daemon and no/no matching `KANKAKU_ENGRAM_TOKEN` is configured on
+   * the PocketBase process). `reachable` is always false in that case. */
+  unauthorized?: boolean
 }
 
 /** Thrown internally (never leaked to a caller of this composable — see

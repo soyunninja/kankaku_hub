@@ -149,7 +149,8 @@ Salió **limpio**: las reglas de acceso (incluida la API por lotes), el hook de
   máquina: añade la variable al arranque de `scripts/dev.sh` (o expórtala
   antes) y reinicia PocketBase; Nuxt no necesita nada. Estado visible en
   Ajustes, tarjeta "Engram". Una sesión de pi retomada hereda el objetivo del
-  último resumen guardado.
+  último resumen guardado. Si el daemon usa `ENGRAM_HTTP_TOKEN`, pon el mismo
+  valor en `KANKAKU_ENGRAM_TOKEN`.
 
 ## Verificación
 

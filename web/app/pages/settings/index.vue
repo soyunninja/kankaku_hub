@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { EngramStatus } from '@/composables/useEngramNarrative'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -17,7 +18,7 @@ const hubUrl = useHubUrl()
  * "not configured", which is also the correct state when the operator
  * never set `KANKAKU_ENGRAM_URL` at all. */
 const { ensureStatus: ensureEngramStatus } = useEngramNarrative()
-const engramStatus = ref<{ configured: boolean, reachable: boolean } | null>(null)
+const engramStatus = ref<EngramStatus | null>(null)
 onMounted(async () => {
   engramStatus.value = await ensureEngramStatus()
 })
@@ -105,6 +106,10 @@ onMounted(async () => {
       <CardContent class="flex flex-col gap-2 text-sm">
         <div v-if="!engramStatus?.configured" class="text-muted-foreground">
           {{ t('engram.notConfigured') }}
+        </div>
+        <div v-else-if="engramStatus.unauthorized" class="flex justify-between">
+          <span class="text-muted-foreground">{{ t('engram.status') }}</span>
+          <span>{{ t('engram.unauthorized') }}</span>
         </div>
         <div v-else class="flex justify-between">
           <span class="text-muted-foreground">{{ t('engram.status') }}</span>

@@ -23,9 +23,11 @@ var ELLIPSIS = "…";
  * test) — never reads `process.env`/`$os` directly, so this stays pure
  * and Node-testable. Never throws, even if `getenv` itself throws.
  *
- * @returns {{url: string, timeoutSeconds: number}} `url` is trimmed with
- *   trailing slashes stripped, empty string when unset. `timeoutSeconds`
- *   defaults to 2 for anything missing, blank, non-numeric or <= 0.
+ * @returns {{url: string, timeoutSeconds: number, token: string}} `url` is
+ *   trimmed with trailing slashes stripped, empty string when unset.
+ *   `timeoutSeconds` defaults to 2 for anything missing, blank,
+ *   non-numeric or <= 0. `token` is trimmed, empty string when unset —
+ *   see `authHeaders`.
  */
 function readConfig(getenv) {
   var rawUrl = "";
@@ -54,7 +56,33 @@ function readConfig(getenv) {
     }
   }
 
-  return { url: url, timeoutSeconds: timeoutSeconds };
+  var rawToken = "";
+  try {
+    rawToken = getenv("KANKAKU_ENGRAM_TOKEN");
+  } catch (_err) {
+    rawToken = "";
+  }
+  var token = String(rawToken || "").trim();
+
+  return { url: url, timeoutSeconds: timeoutSeconds, token: token };
+}
+
+/**
+ * Builds the `Authorization` header to send with every daemon request,
+ * per the optional-bearer-token contract: the Engram daemon (`engram
+ * serve`) rejects every request with 401 when it was started with
+ * `ENGRAM_HTTP_TOKEN` set and the request carries no matching
+ * `Authorization: Bearer <token>` header. Never throws.
+ *
+ * @param {{token?: string}} config As returned by `readConfig`.
+ * @returns {{Authorization?: string}} `{}` when no token is configured.
+ */
+function authHeaders(config) {
+  var token = (config && config.token) || "";
+  if (!token) {
+    return {};
+  }
+  return { Authorization: "Bearer " + token };
 }
 
 /**
@@ -305,13 +333,22 @@ function buildNarrative(input) {
 /**
  * Shapes the /api/kankaku/engram/status response body.
  *
- * @param {{configured: boolean, healthOk: boolean}} input
- * @returns {{configured: boolean, reachable: boolean}}
+ * @param {{configured: boolean, healthOk: boolean, unauthorized?: boolean}} input
+ *   `unauthorized` is true when the daemon's `/health` answered 401/403
+ *   (an `ENGRAM_HTTP_TOKEN` is set on the daemon and either no
+ *   `KANKAKU_ENGRAM_TOKEN` was configured here or it does not match).
+ * @returns {{configured: boolean, reachable: boolean, unauthorized?: true}}
+ *   `unauthorized` is only ever present (and true) when `configured` is
+ *   true and the daemon rejected the request as unauthenticated —
+ *   reachable is always false in that case.
  */
 function buildStatus(input) {
   input = input || {};
   if (!input.configured) {
     return { configured: false, reachable: false };
+  }
+  if (input.unauthorized) {
+    return { configured: true, reachable: false, unauthorized: true };
   }
   return { configured: true, reachable: !!input.healthOk };
 }
@@ -336,6 +373,7 @@ function promptsUrl(base, project, limit) {
 
 module.exports = {
   readConfig: readConfig,
+  authHeaders: authHeaders,
   validateSessionIdsBody: validateSessionIdsBody,
   parseGoal: parseGoal,
   pickSummaryForSession: pickSummaryForSession,

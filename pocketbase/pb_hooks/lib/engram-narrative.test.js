@@ -4,6 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const {
   readConfig,
+  authHeaders,
   validateSessionIdsBody,
   parseGoal,
   pickSummaryForSession,
@@ -60,6 +61,37 @@ test("readConfig: never throws when getenv itself throws", () => {
   const cfg = readConfig(throwingGetenv);
   assert.equal(cfg.url, "");
   assert.equal(cfg.timeoutSeconds, 2);
+});
+
+test("readConfig: empty token when unset", () => {
+  const cfg = readConfig(fakeGetenv({}));
+  assert.equal(cfg.token, "");
+});
+
+test("readConfig: reads and trims KANKAKU_ENGRAM_TOKEN", () => {
+  const cfg = readConfig(fakeGetenv({ KANKAKU_ENGRAM_TOKEN: "  s3cr3t  " }));
+  assert.equal(cfg.token, "s3cr3t");
+});
+
+test("readConfig: never throws when getenv throws only for the token key", () => {
+  const cfg = readConfig((key) => {
+    if (key === "KANKAKU_ENGRAM_TOKEN") throw new Error("boom");
+    return "";
+  });
+  assert.equal(cfg.token, "");
+});
+
+// ---------------------------------------------------------------------
+// authHeaders
+// ---------------------------------------------------------------------
+
+test("authHeaders: empty object when no token is configured", () => {
+  assert.deepEqual(authHeaders({ token: "" }), {});
+  assert.deepEqual(authHeaders({}), {});
+});
+
+test("authHeaders: Bearer header when a token is configured", () => {
+  assert.deepEqual(authHeaders({ token: "s3cr3t" }), { Authorization: "Bearer s3cr3t" });
 });
 
 // ---------------------------------------------------------------------
@@ -315,6 +347,21 @@ test("buildStatus: configured and healthy", () => {
 
 test("buildStatus: configured but unreachable", () => {
   assert.deepEqual(buildStatus({ configured: true, healthOk: false }), { configured: true, reachable: false });
+});
+
+test("buildStatus: configured and unauthorized (401/403 from the daemon) reports unauthorized, never reachable", () => {
+  assert.deepEqual(buildStatus({ configured: true, healthOk: false, unauthorized: true }), {
+    configured: true,
+    reachable: false,
+    unauthorized: true,
+  });
+});
+
+test("buildStatus: not configured never reports unauthorized even if the flag is passed", () => {
+  assert.deepEqual(buildStatus({ configured: false, healthOk: false, unauthorized: true }), {
+    configured: false,
+    reachable: false,
+  });
 });
 
 // ---------------------------------------------------------------------

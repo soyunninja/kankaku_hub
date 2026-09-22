@@ -69,6 +69,7 @@ PocketBase-process env vars read by `pocketbase/pb_hooks/`:
 |---|---|---|
 | `KANKAKU_ENGRAM_URL` | unset (feature disabled) | Base URL of an operator-run [Engram](https://github.com/soyunninja/engram) daemon (`engram serve`), e.g. `http://127.0.0.1:7437`. Enables the session-narrative proxy — see [`docs/architecture/hub-backend.md`](docs/architecture/hub-backend.md#engram-narrative-read-only-proxy-pocketbasepb_hooksengrampbjs). |
 | `KANKAKU_ENGRAM_TIMEOUT_SECONDS` | `2` | Per-request timeout for calls to the Engram daemon above. |
+| `KANKAKU_ENGRAM_TOKEN` | unset | Optional bearer token sent as `Authorization: Bearer <token>` on every Engram request. Required only when the daemon itself was started with `ENGRAM_HTTP_TOKEN` set — set both to the same value. |
 
 ## The billing boundary
 

@@ -39,6 +39,18 @@ describe('useEngramNarrative', () => {
     expect(second).toEqual({ configured: true, reachable: true })
   })
 
+  it('ensureStatus: exposes the unauthorized flag reported by the status route', async () => {
+    const send = vi.fn(async () => ({ configured: true, reachable: false, unauthorized: true }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { send } }))
+
+    const { useEngramNarrative } = await import('../app/composables/useEngramNarrative')
+    const { ensureStatus } = useEngramNarrative()
+
+    const status = await ensureStatus()
+    expect(status).toEqual({ configured: true, reachable: false, unauthorized: true })
+    expect(status?.unauthorized).toBe(true)
+  })
+
   it('ensureStatus: a 404 disables the composable — no further status or sessions calls are made', async () => {
     const send = vi.fn(async () => { throw { status: 404 } })
     vi.stubGlobal('useNuxtApp', () => ({ $pb: { send } }))

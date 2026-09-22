@@ -423,6 +423,7 @@
     "notConfigured": "Engram is not configured for this hub.",
     "reachable": "Connected",
     "unreachable": "Configured, but unreachable",
+    "unauthorized": "Not authorized (token)",
     "goal": "Goal: {goal}",
     "showMore": "Show more",
     "showLess": "Show less",

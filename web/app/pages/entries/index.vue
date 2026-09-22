@@ -23,6 +23,7 @@ import { resolveAgent } from '@/lib/agents'
 import { entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/lib/entries-session-filters'
 import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
+import { narrativeBody, narrativeBodyLineCount } from '@/lib/narrative-format'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 import { sessionTitle } from '@/lib/session-title'
 import { resolveThinkingLevel } from '@/lib/thinking-level'
@@ -144,6 +145,23 @@ const expandedNarratives = reactive(new Set<string>())
 function toggleNarrativeExpanded(sessionId: string) {
   if (expandedNarratives.has(sessionId)) expandedNarratives.delete(sessionId)
   else expandedNarratives.add(sessionId)
+}
+
+/** The goal-stripped, heading-flattened text to render under the goal
+ * line (`app/lib/narrative-format.ts#narrativeBody`) — `''` when this
+ * session has no narrative, or its summary/first_prompt reduces to
+ * nothing once the goal section is stripped (see that helper's doc
+ * comment). Rendering only checks this, never the raw `summary`/
+ * `first_prompt` fields, so the block never shows a repeated goal or raw
+ * markdown headings (see odd/tasks/engram-narrative.md task T6). */
+function narrativeBodyOf(sessionId: string): string {
+  const narrative = sessionNarratives.get(sessionId)
+  return narrative ? narrativeBody(narrative) : ''
+}
+/** Whether the "show more"/"show less" toggle is worth showing at all —
+ * only when the body clamps to more than the `line-clamp-6` preview. */
+function narrativeHasMore(sessionId: string): boolean {
+  return narrativeBodyLineCount(narrativeBodyOf(sessionId)) > 6
 }
 
 /**
@@ -653,10 +671,14 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                         {{ t('engram.fromFirstPrompt') }}
                       </p>
                       <p
+                        v-if="narrativeBodyOf(row.sessionId)"
                         class="whitespace-pre-wrap text-sm text-muted-foreground"
                         :class="expandedNarratives.has(row.sessionId) ? '' : 'line-clamp-6'"
-                      >{{ sessionNarratives.get(row.sessionId)!.summary || sessionNarratives.get(row.sessionId)!.first_prompt }}</p>
-                      <Button size="sm" variant="ghost" class="mt-1 h-auto px-1.5 py-0.5 text-xs" @click.stop="toggleNarrativeExpanded(row.sessionId)">
+                      >{{ narrativeBodyOf(row.sessionId) }}</p>
+                      <Button
+                        v-if="narrativeHasMore(row.sessionId)"
+                        size="sm" variant="ghost" class="mt-1 h-auto px-1.5 py-0.5 text-xs" @click.stop="toggleNarrativeExpanded(row.sessionId)"
+                      >
                         {{ expandedNarratives.has(row.sessionId) ? t('engram.showLess') : t('engram.showMore') }}
                       </Button>
                     </div>

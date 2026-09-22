@@ -44,20 +44,26 @@ routerAdd("GET", "/api/kankaku/engram/status", (e) => {
     }
 
     let healthOk = false;
+    let unauthorized = false;
     try {
       const res = $http.send({
         url: config.url + "/health",
         method: "GET",
         timeout: config.timeoutSeconds,
+        headers: engramNarrative.authHeaders(config),
       });
       healthOk = !!res && res.statusCode >= 200 && res.statusCode < 300;
+      unauthorized = !!res && (res.statusCode === 401 || res.statusCode === 403);
     } catch (_err) {
       // Daemon unreachable/timed out — reported as configured but not
       // reachable, never a hub-side failure.
       healthOk = false;
     }
 
-    return e.json(200, engramNarrative.buildStatus({ configured: true, healthOk: healthOk }));
+    return e.json(
+      200,
+      engramNarrative.buildStatus({ configured: true, healthOk: healthOk, unauthorized: unauthorized })
+    );
   }
 
   try {
@@ -83,10 +89,12 @@ routerAdd("POST", "/api/kankaku/engram/sessions", (e) => {
   }
 
   /** GET `url` and return its parsed JSON body, or null on any failure
-   * (non-2xx, timeout, network error, malformed JSON) — never throws. */
-  function httpGetJson(url, timeoutSeconds) {
+   * (non-2xx — including a 401/403 from an `ENGRAM_HTTP_TOKEN`-protected
+   * daemon when no/no matching `KANKAKU_ENGRAM_TOKEN` is configured here
+   * — timeout, network error, malformed JSON) — never throws. */
+  function httpGetJson(url, timeoutSeconds, headers) {
     try {
-      const res = $http.send({ url: url, method: "GET", timeout: timeoutSeconds });
+      const res = $http.send({ url: url, method: "GET", timeout: timeoutSeconds, headers: headers });
       if (!res || res.statusCode < 200 || res.statusCode >= 300) {
         return null;
       }
@@ -131,13 +139,14 @@ routerAdd("POST", "/api/kankaku/engram/sessions", (e) => {
     // filter (see engram-narrative.js's pick*ForSession doc comments).
     const observationsCache = {};
     const promptsCache = {};
+    const headers = engramNarrative.authHeaders(config);
 
     function observationsForProject(project) {
       if (Object.prototype.hasOwnProperty.call(observationsCache, project)) {
         return observationsCache[project];
       }
       const url = engramNarrative.observationsUrl(config.url, project, OBSERVATIONS_LIMIT);
-      const rows = asRowArray(httpGetJson(url, config.timeoutSeconds), "observations");
+      const rows = asRowArray(httpGetJson(url, config.timeoutSeconds, headers), "observations");
       observationsCache[project] = rows;
       return rows;
     }
@@ -147,7 +156,7 @@ routerAdd("POST", "/api/kankaku/engram/sessions", (e) => {
         return promptsCache[project];
       }
       const url = engramNarrative.promptsUrl(config.url, project, PROMPTS_LIMIT);
-      const rows = asRowArray(httpGetJson(url, config.timeoutSeconds), "prompts");
+      const rows = asRowArray(httpGetJson(url, config.timeoutSeconds, headers), "prompts");
       promptsCache[project] = rows;
       return rows;
     }
@@ -156,7 +165,7 @@ routerAdd("POST", "/api/kankaku/engram/sessions", (e) => {
     for (let i = 0; i < validated.ids.length; i++) {
       const id = validated.ids[i];
       try {
-        const sessionJson = httpGetJson(engramNarrative.sessionUrl(config.url, id), config.timeoutSeconds);
+        const sessionJson = httpGetJson(engramNarrative.sessionUrl(config.url, id), config.timeoutSeconds, headers);
         if (!sessionJson || !sessionJson.project) {
           // Unknown session (404) or a malformed response — skip this
           // id, never fail the whole batch.

@@ -423,6 +423,7 @@
     "notConfigured": "このハブにはEngramが設定されていません。",
     "reachable": "接続済み",
     "unreachable": "設定済みですが接続できません",
+    "unauthorized": "認証されていません（トークン）",
     "goal": "目標: {goal}",
     "showMore": "もっと見る",
     "showLess": "閉じる",

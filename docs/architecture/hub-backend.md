@@ -474,12 +474,19 @@ first user prompt when no summary exists — next to kankaku's time and
 cost. See `odd/tasks/engram-narrative.md` for the full feature contract.
 
 - `GET /api/kankaku/engram/status` → `200 {configured: bool, reachable:
-  bool}`. Not configured (no `KANKAKU_ENGRAM_URL`) → `404
-  {code: "engram_not_configured"}` — the same 404-means-unavailable
+  bool, unauthorized?: true}`. Not configured (no `KANKAKU_ENGRAM_URL`) →
+  `404 {code: "engram_not_configured"}` — the same 404-means-unavailable
   convention the totals endpoint's error shapes follow, so the web layer
   can type it the same way. `reachable` is `GET {url}/health` succeeding
   (2xx) within the configured timeout; any failure (unreachable, timeout,
-  non-2xx) reports `reachable: false`, never a hub-side error.
+  non-2xx) reports `reachable: false`, never a hub-side error. When
+  `/health` answers 401/403 the response instead sets `unauthorized: true`
+  (and `reachable: false`) — the Engram daemon rejects unauthenticated
+  requests once it is started with `ENGRAM_HTTP_TOKEN` set; set
+  `KANKAKU_ENGRAM_TOKEN` on the PocketBase process to the same value to
+  authenticate (see `lib/engram-narrative.js`'s `authHeaders`, sent as
+  `Authorization: Bearer <token>` on every daemon request when configured,
+  `{}` otherwise).
 - `POST /api/kankaku/engram/sessions` body `{ids: string[]}` (max 50,
   deduped) → `200 {sessions: {[id]: Narrative}}`, only for ids that
   actually have data. Not configured → the same 404 as above; an invalid
@@ -496,7 +503,11 @@ cost. See `odd/tasks/engram-narrative.md` for the full feature contract.
   &limit=200`, earliest first. `Narrative = {project, title, goal?,
   summary?, first_prompt?, source: "summary"|"prompt", created_at?}` —
   `title` is the parsed goal line, else the first prompt collapsed to one
-  line and truncated to 120 characters with an ellipsis, else `''`.
+  line and truncated to 120 characters with an ellipsis, else `''`. Every
+  request to the daemon (`/health`, `/sessions/{id}`, `/observations`,
+  `/prompts/recent`) carries the same `authHeaders(config)` from above; a
+  401/403 here is treated like any other daemon failure — the offending
+  session id is skipped, never a hub-side error.
 
 **Why server-side**: the daemon sends no CORS headers, so the browser
 cannot call it directly — every request is proxied through PocketBase
