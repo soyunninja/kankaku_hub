@@ -22,11 +22,70 @@ scripts/dev.sh                  # or: npm run dev
 scripts/create-dev-accounts.sh  # or: npm run pb:accounts
 
 # 4. Seed demo data (deterministic, safe to re-run)
-node pocketbase/seed/seed.js    # or: npm run pb:seed
+node pocketbase/seed/seed.js --i-know   # or: npm run pb:seed
 ```
 
 `pocketbase/pb_data/` is gitignored but persists on disk; deleting it and
 re-running steps 2–4 rebuilds everything from scratch.
+
+### Seed demo data
+
+`pocketbase/seed/seed.js` refuses to run against port 8090 — the owner's
+live PocketBase — unless `--i-know` is passed (mirrors the same guard on
+`pocketbase/seed/bulk.js`). `npm run pb:seed` already passes it, since
+running the seed against your own real local instance is the normal,
+intentional use of this recipe; passing `PB_URL` at a different port (an
+isolated stack, see below) never needs the flag.
+
+`SEED_PROFILE` selects the dataset shape (default `standard`):
+
+- `standard` — today's small realistic dataset: 5 clients, 10 projects, 25
+  tasks, ~437 task_entries over 60 days.
+- `rich` — a much larger, still fully fictional dataset for screenshots and
+  a future public demo: ~12 clients, ~30 projects, ~90 tasks, ~3000
+  task_entries over 180 days grouped into sessions, a `thinking_level`/
+  agent/model/quality mix, and a handful of "Sin determinar" rows. Client
+  websites are restricted to the `.example`/`.test` TLDs so the favicon
+  fetch feature can never reach a real site. Never point this profile at
+  the owner's real `pocketbase/pb_data` — always seed it into a fresh,
+  isolated data dir (see `scripts/isolated-stack.sh` below).
+
+```bash
+SEED_PROFILE=rich PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
+```
+
+Both profiles are idempotent: every row has a stable natural key, so
+re-running the script never duplicates data. The pure catalogs/generators
+live in `pocketbase/seed/lib/seed-data.js` (unit tested by
+`pocketbase/seed/lib/seed-data.test.js` / `npm run seed:test`); `seed.js`
+itself only orchestrates the PocketBase calls.
+
+### Isolated stack for e2e/screenshots
+
+Never run e2e specs or bulk/rich seeding against the owner's live
+`pocketbase/pb_data`, `:8090`, `:3000` or `:4321` — that has already caused
+real accidents (see `web/e2e/helpers.ts`'s `assertPbWritesAllowed` doc
+comment). `scripts/isolated-stack.sh` replaces the ad-hoc "start a second
+PocketBase and Nuxt by hand on other ports" recipe with one script that
+refuses to point at those owner paths/ports and always seeds into a fresh
+directory:
+
+```bash
+scripts/isolated-stack.sh up /tmp/kankaku-e2e --seed --seed-profile rich
+# ... prints the exact env to export for Playwright ...
+scripts/isolated-stack.sh status /tmp/kankaku-e2e
+scripts/isolated-stack.sh down /tmp/kankaku-e2e --purge
+```
+
+`up` accepts `--pb-port` (default 8092), `--web-port` (default 3002),
+`--seed`, `--seed-profile standard|rich`, `--engram-url <URL>` and
+`--no-web` (skip building/starting the Nuxt dev server, e.g. when only the
+PocketBase API is needed). It refuses outright — before starting
+anything — when the data directory resolves inside/equal to
+`pocketbase/pb_data`, or when the chosen port is 8090, 3000, 4321, or
+already listening. After a screenshot run against this stack, remember to
+`git checkout -- web/docs/screenshots` unless the new screenshots were
+intentional.
 
 ### Dev accounts
 
