@@ -28,6 +28,7 @@ configuration, edge cases, out-of-scope, and a traceability table to tests.
 | Web commands reference | kankaku-hub | phase-3 | implemented | [web-commands-reference.md](web-commands-reference.md) |
 | Security and privacy | kankaku, kankaku-hub | phase-2 | implemented | [security-and-privacy.md](security-and-privacy.md) |
 | Public site | kankaku-hub | phase-site-public-website | implemented | [public-site.md](public-site.md) |
+| Engram session narrative | kankaku-hub | phase-3 | implemented | [engram-narrative.md](engram-narrative.md) |
 
 | Subagent detection | kankaku | phase-6 | planned | [subagent-detection.md](subagent-detection.md) |
 

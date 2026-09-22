@@ -34,6 +34,7 @@ during implementation that the proposal does not number explicitly.
 | [0025](0025-public-site-is-a-separate-astro-project.md) | The public site is a separate Astro project, not part of the hub app | accepted | 2026-09-20 |
 | [0026](0026-day-boundaries-are-local.md) | Day boundaries are the viewer's local day everywhere except the UTC-bucketed daily-totals view | accepted | 2026-09-21 |
 | [0027](0027-totals-computed-server-side.md) | Totals are computed server-side over `task_entries` with client-supplied local-day boundaries | accepted | 2026-09-21 |
+| [0028](0028-engram-narrative-read-only-proxy.md) | Session narratives come from Engram through a read-only, server-side proxy | accepted | 2026-09-22 |
 
 See [`../templates/adr-template.md`](../templates/adr-template.md) for the
 format, and [`../contributing-to-docs.md`](../contributing-to-docs.md) for

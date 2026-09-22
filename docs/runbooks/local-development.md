@@ -114,6 +114,50 @@ Env vars for `e2e:hub`: `KANKAKU_E2E_SCRATCH` (scratch root, default
 instead of cleaning up), `KANKAKU_E2E_VERBOSE=1` (print server output on
 failure).
 
+### Optional: Engram narratives
+
+Shows each session's [Engram](https://github.com/soyunninja/engram) Goal
+(or first prompt) on the entries table and the sessions-without-task
+queue — see [`../specs/engram-narrative.md`](../specs/engram-narrative.md).
+Entirely optional; skip this if you don't run Engram locally.
+
+```bash
+# Before scripts/dev.sh (or scripts/dev-all.sh), in the same terminal:
+export KANKAKU_ENGRAM_URL=http://127.0.0.1:7437
+# Only if your Engram daemon was started with ENGRAM_HTTP_TOKEN set:
+export KANKAKU_ENGRAM_TOKEN=<the same token>
+
+cd kankaku-hub
+scripts/dev.sh   # restart PocketBase so it picks up the new env vars
+```
+
+Check **Settings → Engram** in the web app: it should show "Conectado"
+(reachable) once both the daemon and PocketBase are running with the env
+var set. `KANKAKU_ENGRAM_URL` unset (the default) means the feature is
+fully disabled and every screen renders exactly as without it.
+
+**Running the e2e spec with the fake daemon** (see the header comment of
+[`web/e2e/engram-narrative.spec.ts`](../../web/e2e/engram-narrative.spec.ts)
+for the full explanation) — the "with Engram" path needs a fake Engram
+HTTP server plus `E2E_ENGRAM=1`, on the isolated e2e stack only, never
+the owner's live `:8090`/`:3000`:
+
+```bash
+# 1. Start the fake daemon with the two session ids the spec expects:
+FAKE_ENGRAM_SESSIONS=e2e-engram-summary-session,e2e-engram-prompt-session \
+  node web/e2e/fixtures/fake-engram.mjs
+# Listens on 127.0.0.1:7438 by default (FAKE_ENGRAM_PORT to override).
+
+# 2. Point the isolated PocketBase at it and run the e2e suite with the flag:
+KANKAKU_ENGRAM_URL=http://127.0.0.1:7438 E2E_ENGRAM=1 \
+  E2E_ALLOW_PB_WRITES=1 pnpm --dir web test:e2e
+```
+
+Without `E2E_ENGRAM=1`, the "with Engram configured" spec is skipped and
+only the "without Engram" spec runs (against a PocketBase that has
+`KANKAKU_ENGRAM_URL` unset, the normal case for every other e2e run in
+this repo).
+
 ## Running the whole system together
 
 1. Start the hub (`kankaku-hub`, steps above).

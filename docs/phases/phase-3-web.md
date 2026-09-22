@@ -47,6 +47,12 @@ put data there, and on phase 2b for the assignment queue to be useful.
 - `web/e2e/{smoke,polish,commands}.spec.ts`, `web/tests/*.test.ts`.
 - `web/docs/screenshots/` (regenerated from the production build, both
   themes, 9 screens + mobile dashboard + mobile commands reference).
+- Engram session narrative (added after the initial phase closeout —
+  [engram-narrative.md](../specs/engram-narrative.md),
+  [ADR 0028](../adr/0028-engram-narrative-read-only-proxy.md)): a
+  read-only PocketBase proxy in front of an operator-run Engram daemon,
+  surfaced on the entries table, the sessions-without-task queue, and a
+  read-only Settings card.
 
 ## Acceptance criteria
 
@@ -86,6 +92,16 @@ put data there, and on phase 2b for the assignment queue to be useful.
   block (env vars, credentials file shape, a same-origin connect snippet,
   and the `pi -e` load command). Commits: `2ff7a39` (screen, data,
   components, i18n, nav), `af4d500` (tests + e2e + screenshots).
+- Engram session narrative (also added after the initial phase
+  closeout, on branch `feat/engram-narrative`, see
+  [engram-narrative.md](../specs/engram-narrative.md) for the full
+  traceability table): `pocketbase/pb_hooks/lib/engram-narrative.test.js`
+  (`npm run hooks:test`), `web/tests/{session-title,narrative-format,
+  use-engram-narrative}.test.ts` (Vitest), `web/e2e/engram-narrative.spec.ts`
+  (Playwright, both the "without Engram" and the `E2E_ENGRAM=1`
+  fake-daemon path). Commits (per `odd/tasks/engram-narrative.md`):
+  `2038b10` (hooks), `3988937` (web), `e279ed2` (token/unauthorized/body
+  formatting follow-up).
 
 ## Known gaps
 
