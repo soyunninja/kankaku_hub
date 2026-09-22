@@ -86,6 +86,19 @@ export const KANKAKU_ENV_VARS: KankakuEnvVarDef[] = [
   { name: 'KANKAKU_SYNC_MIN_INTERVAL_MINUTES', default: '5', i18nKey: 'syncMinInterval' },
 ]
 
+/**
+ * Environment variables for the Engram narrative feature (see
+ * docs/specs/engram-narrative.md and docs/architecture/hub-backend.md).
+ * Unlike {@link KANKAKU_ENV_VARS}, these are read by the hub's own
+ * PocketBase process, never by the pi extension — see the "Engram
+ * (optional)" Card on the commands page.
+ */
+export const HUB_ENV_VARS: KankakuEnvVarDef[] = [
+  { name: 'KANKAKU_ENGRAM_URL', default: '', i18nKey: 'url' },
+  { name: 'KANKAKU_ENGRAM_TOKEN', default: '', i18nKey: 'token' },
+  { name: 'KANKAKU_ENGRAM_TIMEOUT_SECONDS', default: '2', i18nKey: 'timeout' },
+]
+
 /** A command with its already-localized searchable text, for {@link filterCommands}. */
 export interface SearchableCommand extends KankakuCommandDef {
   description: string

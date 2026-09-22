@@ -483,6 +483,17 @@
         "syncAuto": "「0」にすると「session_start」「agent_settled」時の自動同期を無効化します。「/kankaku sync」は引き続き使用できます。",
         "syncMinInterval": "自動同期の最短間隔（分）です。「0」で間隔制限を無効化します。手動同期には影響しません。"
       },
+      "engram": {
+        "title": "Engram（オプション）",
+        "body": "ハブサーバーにEngramが設定されている場合、各セッションの目標と作業内容の要約が、時間とコストの隣に表示されます。読み取りはサーバー側でGETのみで行われ、Engramがなくても動作は何も変わりません。",
+        "note": "これらの変数はPocketBaseのプロセスに設定するもので、piには設定しません。設定後は再起動してください。状態は「設定 → Engram」で確認できます。",
+        "serverVarsTitle": "ハブサーバー側",
+        "vars": {
+          "url": "Engramデーモン（engram serve）のURLです。",
+          "token": "Bearerトークンです。デーモンがENGRAM_HTTP_TOKENで起動している場合のみ必要です。",
+          "timeout": "デーモンへの呼び出し1回あたりの待機時間（秒）です。"
+        }
+      },
       "credentialsTitle": "認証情報ファイル",
       "credentialsBody": "環境変数の代わりに、kankakuは「~/.kankaku/credentials.json」も読み込みます（「chmod 600」を推奨）。環境変数はフィールドごとにこのファイルより優先されます。",
       "connectTitle": "このハブにkankakuを接続",

@@ -4,6 +4,7 @@ import es from '../i18n/locales/es.json'
 import {
   COMMAND_GROUPS,
   filterCommands,
+  HUB_ENV_VARS,
   KANKAKU_COMMANDS,
   KANKAKU_ENV_VARS,
 } from '../app/lib/kankaku-commands'
@@ -49,6 +50,27 @@ describe('KANKAKU_ENV_VARS', () => {
         const meaning = readPath(dict, `commands.config.env.${v.i18nKey}`)
         expect(typeof meaning === 'string' && meaning.trim().length > 0, `commands.config.env.${v.i18nKey}`).toBe(true)
       }
+    }
+  })
+})
+
+describe('HUB_ENV_VARS', () => {
+  it('lists the three Engram variables with their documented defaults', () => {
+    expect(HUB_ENV_VARS.map(v => v.name)).toEqual([
+      'KANKAKU_ENGRAM_URL',
+      'KANKAKU_ENGRAM_TOKEN',
+      'KANKAKU_ENGRAM_TIMEOUT_SECONDS',
+    ])
+    expect(HUB_ENV_VARS.map(v => v.default)).toEqual(['', '', '2'])
+  })
+
+  it('has a unique name per variable, and an es meaning string', () => {
+    const names = HUB_ENV_VARS.map(v => v.name)
+    expect(new Set(names).size).toBe(names.length)
+
+    for (const v of HUB_ENV_VARS) {
+      const meaning = readPath(es, `commands.config.engram.vars.${v.i18nKey}`)
+      expect(typeof meaning === 'string' && meaning.trim().length > 0, `commands.config.engram.vars.${v.i18nKey}`).toBe(true)
     }
   })
 })

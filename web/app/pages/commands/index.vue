@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   COMMAND_GROUPS,
   filterCommands,
+  HUB_ENV_VARS,
   KANKAKU_COMMANDS,
   KANKAKU_ENV_VARS,
 } from '@/lib/kankaku-commands'
@@ -57,6 +58,11 @@ const credentialsSnippet = computed(() =>
 )
 
 const LOAD_IN_PI_SNIPPET = 'pi -e /absolute/path/to/kankaku'
+
+const ENGRAM_SNIPPET = [
+  'export KANKAKU_ENGRAM_URL="http://127.0.0.1:7437"',
+  '# export KANKAKU_ENGRAM_TOKEN="<token>"   # only if the daemon runs with ENGRAM_HTTP_TOKEN',
+].join('\n')
 </script>
 
 <template>
@@ -166,6 +172,53 @@ const LOAD_IN_PI_SNIPPET = 'pi -e /absolute/path/to/kankaku'
                   </TableCell>
                   <TableCell class="max-w-xs align-top text-xs whitespace-normal text-muted-foreground">
                     {{ t(`commands.config.env.${ev.i18nKey}`) }}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle class="text-sm font-medium text-foreground">
+            {{ t('commands.config.engram.title') }}
+          </CardTitle>
+          <CardDescription>{{ t('commands.config.engram.body') }}</CardDescription>
+        </CardHeader>
+        <CardContent class="flex flex-col gap-3 text-sm">
+          <div class="flex items-start gap-2">
+            <pre class="min-w-0 flex-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-words text-foreground">{{ ENGRAM_SNIPPET }}</pre>
+            <CopyButton :text="ENGRAM_SNIPPET" />
+          </div>
+          <p class="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+            <NuxtLink to="/settings" class="underline decoration-dotted underline-offset-2 hover:text-foreground">
+              {{ t('commands.config.engram.note') }}
+            </NuxtLink>
+          </p>
+          <div class="overflow-x-auto">
+            <p class="pb-2 text-xs font-medium text-foreground">
+              {{ t('commands.config.engram.serverVarsTitle') }}
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{{ t('commands.config.envColumns.name') }}</TableHead>
+                  <TableHead>{{ t('commands.config.envColumns.default') }}</TableHead>
+                  <TableHead>{{ t('commands.config.envColumns.meaning') }}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="ev in HUB_ENV_VARS" :key="ev.name">
+                  <TableCell class="align-top font-mono text-xs">
+                    {{ ev.name }}
+                  </TableCell>
+                  <TableCell class="align-top font-mono text-xs text-muted-foreground">
+                    {{ ev.default }}
+                  </TableCell>
+                  <TableCell class="max-w-xs align-top text-xs whitespace-normal text-muted-foreground">
+                    {{ t(`commands.config.engram.vars.${ev.i18nKey}`) }}
                   </TableCell>
                 </TableRow>
               </TableBody>

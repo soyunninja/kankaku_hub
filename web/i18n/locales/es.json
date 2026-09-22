@@ -483,6 +483,17 @@
         "syncAuto": "«0» desactiva la sincronización automática en «session_start»/«agent_settled»; «/kankaku sync» sigue funcionando.",
         "syncMinInterval": "Minutos mínimos entre sincronizaciones automáticas; «0» desactiva el límite. Nunca afecta a una sincronización manual."
       },
+      "engram": {
+        "title": "Engram (opcional)",
+        "body": "Si el servidor del hub tiene Engram configurado, cada sesión muestra su objetivo y un resumen de lo hecho junto al tiempo y el coste. La lectura la hace el servidor, solo con GET. Sin Engram no cambia nada.",
+        "note": "Estas variables van en el proceso de PocketBase, no en pi. Reinícialo después. El estado se ve en Ajustes → Engram.",
+        "serverVarsTitle": "En el servidor del hub",
+        "vars": {
+          "url": "URL del daemon de Engram (engram serve)",
+          "token": "Token Bearer, solo si el daemon usa ENGRAM_HTTP_TOKEN",
+          "timeout": "Segundos de espera por llamada al daemon"
+        }
+      },
       "credentialsTitle": "Fichero de credenciales",
       "credentialsBody": "En vez de variables de entorno, kankaku también lee «~/.kankaku/credentials.json» (recomendado «chmod 600»). Las variables de entorno tienen prioridad, campo a campo, sobre este fichero.",
       "connectTitle": "Conectar kankaku a este hub",
