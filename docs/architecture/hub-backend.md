@@ -465,6 +465,66 @@ comparison against the client-side path it replaces (both all-time cases
 are still an order of magnitude faster and transfer orders of magnitude
 less than fetching and summing the full table client-side).
 
+## Engram narrative (read-only proxy) (`pocketbase/pb_hooks/engram.pb.js`)
+
+Two auth-gated routes proxy an operator-run [Engram](https://github.com/soyunninja/engram)
+daemon (`engram serve`, default `127.0.0.1:7437`) so the web dashboard can
+show WHAT a session was about — its Engram session-summary Goal, or the
+first user prompt when no summary exists — next to kankaku's time and
+cost. See `odd/tasks/engram-narrative.md` for the full feature contract.
+
+- `GET /api/kankaku/engram/status` → `200 {configured: bool, reachable:
+  bool}`. Not configured (no `KANKAKU_ENGRAM_URL`) → `404
+  {code: "engram_not_configured"}` — the same 404-means-unavailable
+  convention the totals endpoint's error shapes follow, so the web layer
+  can type it the same way. `reachable` is `GET {url}/health` succeeding
+  (2xx) within the configured timeout; any failure (unreachable, timeout,
+  non-2xx) reports `reachable: false`, never a hub-side error.
+- `POST /api/kankaku/engram/sessions` body `{ids: string[]}` (max 50,
+  deduped) → `200 {sessions: {[id]: Narrative}}`, only for ids that
+  actually have data. Not configured → the same 404 as above; an invalid
+  body → `400 {code: "invalid_body", error: <reason>}`. For each id: `GET
+  {url}/sessions/{id}` (404 or malformed → skip that id) resolves the
+  Engram `project`; then `GET {url}/observations?project=…
+  &type=session_summary&limit=200` (cached per project within the
+  request — several session ids commonly share a project) filtered
+  client-side by `session_id` (**the daemon's `?project=` filter does
+  IGNORE the session, so every row for the project comes back and must be
+  filtered here** — see `lib/engram-narrative.js`'s
+  `pickSummaryForSession`/`pickFirstPromptForSession`), newest first; if
+  none, the same treatment for `GET {url}/prompts/recent?project=…
+  &limit=200`, earliest first. `Narrative = {project, title, goal?,
+  summary?, first_prompt?, source: "summary"|"prompt", created_at?}` —
+  `title` is the parsed goal line, else the first prompt collapsed to one
+  line and truncated to 120 characters with an ellipsis, else `''`.
+
+**Why server-side**: the daemon sends no CORS headers, so the browser
+cannot call it directly — every request is proxied through PocketBase
+with `$http.send`, the exact pattern `pb_hooks/favicon.pb.js` already
+established for outbound HTTP from a hook. **Auth**: both routes use
+`$apis.requireAuth()`, the same check `pb_hooks/totals.pb.js` uses (any
+authenticated hub user — owner or service — no new privilege beyond what
+`task_entries` already grants). **Privacy**: the response can contain
+whatever free-form content the operator's own Engram instance holds for
+that session (a summary's Goal/body, or a raw first prompt) — this is the
+operator's own data being read back to their own authenticated hub, not
+third-party content, but it is still unredacted prose, so the route is
+deliberately read-only and never persists what it fetches.
+
+All parsing (goal-line extraction, summary/prompt selection, request
+validation, URL building) lives in the pure `pb_hooks/lib/engram-narrative.js`,
+unit tested with `node --test`/`npm run hooks:test`
+(`pb_hooks/lib/engram-narrative.test.js`) independent of a running
+PocketBase instance and independent of an actual Engram daemon — same
+split as `totals-query.js` and the favicon feature's `lib/*.js` files.
+`engram.pb.js` itself only wires that module to `$os.getenv`/`$http.send`
+and is exercised against a real running instance (a fake Engram HTTP
+server is not covered by `hooks:test`; see `odd/tasks/engram-narrative.md`
+task T3 for the e2e coverage plan). Both handlers wrap their entire body
+in a try/catch, same as `favicon.pb.js`'s outer catch — an unanticipated
+error (a malformed daemon response, for instance) reports a safe fallback
+instead of a 500.
+
 ## Migrations policy
 
 `pocketbase/pb_migrations/*.js` files ARE the schema (`AGENTS.md`, "the

@@ -61,6 +61,15 @@ REST API: http://127.0.0.1:8090/api/
 Local dev credentials are in `ESTADO.md` (not committed as a separate
 secrets file since these are throwaway local-only accounts).
 
+## Configuration (environment variables)
+
+PocketBase-process env vars read by `pocketbase/pb_hooks/`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `KANKAKU_ENGRAM_URL` | unset (feature disabled) | Base URL of an operator-run [Engram](https://github.com/soyunninja/engram) daemon (`engram serve`), e.g. `http://127.0.0.1:7437`. Enables the session-narrative proxy — see [`docs/architecture/hub-backend.md`](docs/architecture/hub-backend.md#engram-narrative-read-only-proxy-pocketbasepb_hooksengrampbjs). |
+| `KANKAKU_ENGRAM_TIMEOUT_SECONDS` | `2` | Per-request timeout for calls to the Engram daemon above. |
+
 ## The billing boundary
 
 Clients, projects, tasks, time and token cost are stored. Hourly rates,
