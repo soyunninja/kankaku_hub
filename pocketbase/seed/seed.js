@@ -1,34 +1,107 @@
 #!/usr/bin/env node
 // Dev-only seed script. No dependencies, Node >= 20 (uses global fetch).
 //
-// Inserts a realistic demo dataset: clients, projects, tasks, task_entries
-// spread over the last 60 days (some with subagents -> work_records
-// children), plus a batch of "Sin determinar" entries with varied
-// legacy_client_label spellings to exercise the reassignment queue
-// described in docs/proposal.md §5.3.
+// Two profiles, selected via SEED_PROFILE (default "standard"):
 //
-// Deterministic and re-runnable: every row has a stable natural key
-// (clients.code, projects.code, tasks.external_ref, task_entries.task_id,
-// work_records.kankaku_id) and the script looks up existing rows before
-// creating, so running it twice never duplicates data.
+//   standard (default)  Today's small realistic dataset: 5 clients, 10
+//                        projects, 25 tasks, task_entries spread over the
+//                        last 60 days (some with subagents -> work_records
+//                        children), plus a batch of "Sin determinar"
+//                        entries with varied legacy_client_label spellings
+//                        to exercise the reassignment queue described in
+//                        docs/proposal.md §5.3. Unchanged from before this
+//                        file grew a "rich" profile: re-running standard is
+//                        still a no-op on an already-seeded standard
+//                        dataset.
 //
-// Demo clients also carry plausible values for the four optional contact
-// fields (`website`, `contact_email`, `contact_phone`, `notes`). Unlike the
-// rest of this script (which only ever creates missing rows), the contact
-// fields ARE re-applied to already-existing demo clients on every run: they
-// are pure demo/display data, not something a script needs to treat as
-// owner-authored, so keeping them in sync with this file's canonical values
-// is more useful than leaving old runs stale after the fields are edited
-// here. The "Sin determinar" client is seeded by migration
-// `1758300008_seed_unassigned_client.js`, not by this script, and is never
-// touched here — its contact fields stay empty, same as its other fields.
+//   rich                A much larger, still fully fictional dataset for
+//                        screenshots and a future public demo instance:
+//                        ~12 clients, ~30 projects, ~90 tasks, ~3000
+//                        task_entries over 180 days, grouped into sessions
+//                        of 1-15 entries (~40% of sessions named), a
+//                        thinking_level mix, pi rows carrying
+//                        agent_version/plugin_version, ~10% rows from
+//                        other agents (opencode, codex, claude-code) with
+//                        plausible models, several machines, a model/
+//                        quality mix, subagent_count > 0 on ~15% of rows
+//                        with matching work_records, some interrupted/
+//                        aborted statuses, and a handful of "Sin
+//                        determinar" legacy rows. Client websites are
+//                        restricted to the .example/.test TLDs (RFC 2606)
+//                        so the favicon-fetch feature can never reach a
+//                        real site even if triggered against this data.
+//                        The pure catalogs/generators live in
+//                        pocketbase/seed/lib/seed-data.js (unit tested in
+//                        seed-data.test.js); this file only orchestrates
+//                        the PocketBase calls.
+//
+// Both profiles are deterministic and re-runnable: every row has a stable
+// natural key (clients.code, projects.code, tasks.external_ref,
+// task_entries.task_id, work_records.kankaku_id) and the script looks up
+// existing rows before creating, so running it twice never duplicates
+// data. Rich-profile task_entries use the "seed-te-rich-" prefix (which
+// itself starts with the standard profile's "seed-te-" prefix) — see
+// `isStandardSeedRow` in lib/seed-data.js for why the standard profile's
+// own repair passes must never touch rich rows.
+//
+// SAFETY: like pocketbase/seed/bulk.js, refuses to run against an instance
+// on port 8090 (the owner's live PocketBase) unless --i-know is passed
+// explicitly. This is also the normal way to run the everyday
+// `node pocketbase/seed/seed.js` / `npm run pb:seed` recipe against your
+// own real local instance — see docs/runbooks/local-development.md.
 //
 // Usage:
-//   PB_URL=http://127.0.0.1:8090 node pocketbase/seed/seed.js
+//   PB_URL=http://127.0.0.1:8090 node pocketbase/seed/seed.js --i-know
+//   SEED_PROFILE=rich PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
+
+const seedData = require("./lib/seed-data.js");
+
+function parseArgs(argv) {
+  const out = {};
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith("--")) continue;
+    const key = arg.slice(2);
+    const next = argv[i + 1];
+    if (next !== undefined && !next.startsWith("--")) {
+      out[key] = next;
+      i++;
+    }
+    else {
+      out[key] = true;
+    }
+  }
+  return out;
+}
+const args = parseArgs(process.argv.slice(2));
 
 const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
 const SUPERUSER_EMAIL = process.env.PB_SUPERUSER_EMAIL || "admin@kankaku.local";
 const SUPERUSER_PASSWORD = process.env.PB_SUPERUSER_PASSWORD || "kankaku-dev-admin";
+const SEED_PROFILE = process.env.SEED_PROFILE || "standard";
+
+function isPort8090(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.port === "8090" || (parsed.port === "" && url.includes(":8090"));
+  }
+  catch (_e) {
+    return url.includes(":8090");
+  }
+}
+
+if (isPort8090(PB_URL) && !args["i-know"]) {
+  console.error(`Refusing to run against ${PB_URL} (port 8090 — this repo's environment rules reserve it`);
+  console.error("for the owner's live PocketBase). Pass --i-know to override (this is also the normal way");
+  console.error("to run the everyday seed recipe against your own real local instance), or point PB_URL at");
+  console.error("an isolated copy of pb_data on a different port (see docs/runbooks/local-development.md).");
+  process.exit(1);
+}
+
+if (SEED_PROFILE !== "standard" && SEED_PROFILE !== "rich") {
+  console.error(`Unknown SEED_PROFILE "${SEED_PROFILE}" — expected "standard" or "rich".`);
+  process.exit(1);
+}
 
 const BATCH_SIZE = 50;
 const REGULAR_ENTRY_COUNT = 400;
@@ -37,25 +110,20 @@ const OPENCODE_ENTRY_COUNT = 7;
 const OPENCODE_SUBAGENT_LINKAGE = ["linked", "unlinked", "not_applicable", "not_applicable"];
 const WINDOW_DAYS = 60;
 
+const RICH_ENTRY_COUNT = 2985;
+const RICH_UNASSIGNED_COUNT = 15;
+const RICH_WINDOW_DAYS = 180;
+
 // --- deterministic PRNG (mulberry32) so re-runs generate the exact same
-// dataset shape, which is what makes the idempotency check meaningful. ---
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const rand = mulberry32(424242);
-const pick = (arr) => arr[Math.floor(rand() * arr.length)];
-const randInt = (min, max) => Math.floor(min + rand() * (max - min + 1));
-const randFloat = (min, max, decimals = 4) => {
-  const v = min + rand() * (max - min);
-  return Number(v.toFixed(decimals));
-};
+// dataset shape, which is what makes the idempotency check meaningful. The
+// PRNG itself, plus every other pure helper below, lives in
+// lib/seed-data.js (unit tested) — these are thin wrappers bound to this
+// module's own shared `rand` sequence, kept so the rest of this file can
+// keep calling `pick(arr)`/`randInt(min, max)` exactly as before. ---
+const rand = seedData.mulberry32(424242);
+const pick = (arr) => seedData.pick(rand, arr);
+const randInt = (min, max) => seedData.randInt(rand, min, max);
+const randFloat = (min, max, decimals = 4) => seedData.randFloat(rand, min, max, decimals);
 
 // --- tiny PocketBase REST client -------------------------------------------
 
@@ -143,7 +211,7 @@ async function batchUpdate(requests) {
   return results;
 }
 
-// --- demo catalog ------------------------------------------------------
+// --- standard profile: demo catalog ------------------------------------
 
 const CLIENTS = [
   {
@@ -234,81 +302,55 @@ const MODELS = ["claude-sonnet-5", "claude-opus-4.5", "claude-haiku-4.5"];
 const MACHINES = ["MacBook-Pro-David.local", "vps-kankaku-01"];
 const LEGACY_LABELS = ["cajamar", "Cajamar", "Caja Mar", "cjamar", "turismo nijar", "TurismoNijar", "acme sl", "ACME"];
 const SEGMENT_TAGS = ["review", "test", "build"];
+const SESSION_MAX_SIZE = 6;
+const MIXED_SESSION_EVERY = 18;
 
 // kankaku's real `segments` shape is a tag -> milliseconds map (see
-// src/domain/hub-entry.ts in the kankaku repo), NOT the [{start,end}]
-// interval shape this script used to emit — that mismatch meant the web
-// dashboard's entry detail sheet could never be exercised against
-// realistic segments data locally. ~55% of rows get one or two tags whose
-// total never exceeds workMs; the rest get {} (an entry with no tagged
-// segments is also a real, common case worth seeding).
+// src/domain/hub-entry.ts in the kankaku repo). ~55% of rows get one or two
+// tags whose total never exceeds workMs; the rest get {} (an entry with no
+// tagged segments is also a real, common case worth seeding). Delegates to
+// the tested, generic `buildTaggedSegments` in lib/seed-data.js.
 function buildSegments(workMs) {
-  if (workMs <= 0 || rand() < 0.45) return {};
-  const tagCount = randInt(1, 2);
-  const tags = [...SEGMENT_TAGS].sort(() => rand() - 0.5).slice(0, tagCount);
-  const segments = {};
-  let remaining = workMs;
-  for (const tag of tags) {
-    const ms = randInt(1, Math.max(1, Math.floor(remaining * 0.6)));
-    segments[tag] = ms;
-    remaining -= ms;
-  }
-  return segments;
+  return seedData.buildTaggedSegments(rand, workMs, SEGMENT_TAGS);
 }
 
-// Repair for demo rows seeded before the fix above: they still carry the old
-// [{start,end}] array in `segments`. Uses its OWN generator, seeded from the
-// row's task_id, so it never advances the shared `rand` sequence (which
-// would change every value generated after it) and stays repeatable.
-function hashString(text) {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
+// Repair for demo rows seeded before the tag-map fix above: they still
+// carry the old [{start,end}] array in `segments`. Uses ITS OWN generator,
+// seeded from the row's task_id, so it never advances the shared `rand`
+// sequence (which would change every value generated after it) and stays
+// repeatable.
 function buildSegmentsFor(taskId, workMs) {
-  const local = mulberry32(hashString(taskId));
-  if (workMs <= 0 || local() < 0.45) return {};
-  const tagCount = 1 + Math.floor(local() * 2);
-  const tags = [...SEGMENT_TAGS].sort(() => local() - 0.5).slice(0, tagCount);
-  const segments = {};
-  let remaining = workMs;
-  for (const tag of tags) {
-    const ms = 1 + Math.floor(local() * Math.max(1, Math.floor(remaining * 0.6)));
-    segments[tag] = ms;
-    remaining -= ms;
-  }
-  return segments;
+  const local = seedData.mulberry32(seedData.hashString(taskId));
+  return seedData.buildTaggedSegments(local, workMs, SEGMENT_TAGS);
 }
 
-// `task_id ~ "seed-te-"` is a SQL "contains", not "starts with" — the
-// server-side filter alone would also match a real synced row whose
-// task_id happens to CONTAIN "seed-te-" anywhere (e.g. a hypothetical
-// "my-seed-te-123" from a real client). Every repair pass below must
-// also apply this client-side prefix check before touching a row, so a
-// row is only ever repaired when its task_id actually STARTS WITH the
-// seed's own prefix — never on a substring coincidence.
-const SEED_TASK_ID_PREFIX = "seed-te-";
-function isSeedRow(row) {
-  return typeof row.task_id === "string" && row.task_id.startsWith(SEED_TASK_ID_PREFIX);
-}
+// `task_id ~ "seed-te-"` is a SQL "contains", not "starts with" — see
+// lib/seed-data.js's header comment. Every repair pass below uses
+// `isStandardSeedRow` (not the more permissive `isSeedRow`), which also
+// excludes rich-profile rows: those were never affected by either legacy
+// bug this repairs.
+const isStandardSeedRow = seedData.isStandardSeedRow;
 
 // Self-check, run on every invocation before any network call: proves the
-// guard actually distinguishes "starts with" from "contains" rather than
-// silently degrading back to the server filter's substring match.
+// guards actually distinguish "starts with" from "contains", and that a
+// rich-profile row is never treated as a standard-profile one even though
+// its prefix contains the standard prefix.
 {
   const assert = require("node:assert");
-  assert.strictEqual(isSeedRow({ task_id: "seed-te-0001" }), true);
+  assert.strictEqual(seedData.isSeedRow({ task_id: "seed-te-0001" }), true);
   assert.strictEqual(
-    isSeedRow({ task_id: "my-seed-te-0001" }),
+    seedData.isSeedRow({ task_id: "my-seed-te-0001" }),
     false,
     "isSeedRow must reject a task_id that only CONTAINS the seed prefix"
   );
-  assert.strictEqual(isSeedRow({ task_id: "unrelated" }), false);
-  assert.strictEqual(isSeedRow({}), false);
+  assert.strictEqual(seedData.isSeedRow({ task_id: "unrelated" }), false);
+  assert.strictEqual(seedData.isSeedRow({}), false);
+  assert.strictEqual(isStandardSeedRow({ task_id: "seed-te-0001" }), true);
+  assert.strictEqual(
+    isStandardSeedRow({ task_id: `${seedData.RICH_TASK_ID_PREFIX}0001` }),
+    false,
+    "isStandardSeedRow must never treat a rich-profile row as a standard one"
+  );
 }
 
 async function fetchLegacySegmentRows() {
@@ -318,7 +360,7 @@ async function fetchLegacySegmentRows() {
     const data = await pbFetch(
       `/api/collections/task_entries/records?page=${page}&perPage=500&fields=id,task_id,work_ms,segments&filter=${encodeURIComponent('task_id ~ "seed-te-"')}`
     );
-    for (const item of data.items) if (isSeedRow(item) && Array.isArray(item.segments)) rows.push(item);
+    for (const item of data.items) if (isStandardSeedRow(item) && Array.isArray(item.segments)) rows.push(item);
     if (page >= data.totalPages) break;
     page++;
   }
@@ -327,75 +369,25 @@ async function fetchLegacySegmentRows() {
 
 // --- session grouping ----------------------------------------------------
 //
-// A "session" = several task_entries rows sharing one `session_id` (one
-// `pi --session <id>` run, possibly spanning several consolidated rows).
-// Before this, every entry got its own unique `session-${taskId}`, which
-// made the "sessions without a task" queue show N one-entry sessions —
-// unrealistic. Grouping decisions use their OWN generator, seeded from a
-// stable per-stream key, so they never advance the shared `rand`
-// sequence (same isolation pattern as `buildSegmentsFor` above).
-//
-// `makeSessionAssigner` streams: called once per candidate row IN TASK_ID
-// ORDER with a caller-computed `bucketKey` (see call sites below — the
-// task id when the row has one, else a client/project fallback), it keeps
-// ONE "open" session per bucket ALIVE FOR THE WHOLE STREAM (not just while
-// rows are consecutive) — every row asks for its bucket's currently-open
-// session and extends it if it still has room, or opens a fresh 1-6 row
-// one otherwise — so rows working the same task end up grouped together
-// regardless of how far apart they land in creation order (task implies
-// client/project, so this also keeps client/project consistent per
-// session, the realistic norm). A handful of sessions (every Nth one
-// opened) are deliberately flagged "mixed": once open, a mixed session
-// takes priority over every bucket and absorbs the next few rows
-// regardless of their bucket, so a few sessions realistically span more
-// than one task — and, since a task boundary implies a client/project
-// boundary here, sometimes client/project too (see
-// docs/specs/web-sessions.md, SESSIONS-REQ-002's `MIXED` sentinel).
-// Feeding it the same (taskId, bucketKey) tuples in the same order always
-// reproduces the same groupings — what makes both a fresh run and the
-// idempotent repair pass below deterministic.
-const SESSION_MAX_SIZE = 6;
-const MIXED_SESSION_EVERY = 18;
+// A "session" = several task_entries rows sharing one `session_id`. See
+// `makeSessionAssigner` in lib/seed-data.js for the full grouping
+// rationale (one open session per bucket, kept alive for the whole
+// stream; a `mixed` session absorbs rows regardless of bucket for a
+// stretch). These wrappers pin the standard profile's own pools/sizes so
+// every call site below keeps its original two-argument shape.
 
 function noTaskBucketKey(client, project) {
-  return `no-task:${client || ""}:${project || ""}`;
+  return seedData.noTaskBucketKey(client, project);
 }
 
 function makeSessionAssigner(streamKey) {
-  const local = mulberry32(hashString(streamKey));
-  const openByKey = new Map();
-  let activeMixed = null;
-  let sessionsOpened = 0;
-
-  function openSession(taskId) {
-    sessionsOpened++;
-    return {
-      sessionId: `session-${taskId}`,
-      sessionName: TASK_TITLES[Math.floor(local() * TASK_TITLES.length)],
-      machine: MACHINES[Math.floor(local() * MACHINES.length)],
-      mixed: sessionsOpened % MIXED_SESSION_EVERY === 0,
-      remaining: 1 + Math.floor(local() * SESSION_MAX_SIZE),
-    };
-  }
-
-  return function assignSession(taskId, bucketKey) {
-    let target;
-
-    if (activeMixed && activeMixed.remaining > 0) {
-      target = activeMixed;
-    } else {
-      let open = openByKey.get(bucketKey);
-      if (!open || open.remaining <= 0) {
-        open = openSession(taskId);
-        openByKey.set(bucketKey, open);
-        if (open.mixed) activeMixed = open;
-      }
-      target = open;
-    }
-
-    target.remaining--;
-    return { session_id: target.sessionId, session_name: target.sessionName, machine: target.machine };
-  };
+  return seedData.makeSessionAssigner(streamKey, {
+    namePool: TASK_TITLES,
+    machinePool: MACHINES,
+    minSize: 1,
+    maxSize: SESSION_MAX_SIZE,
+    mixedEvery: MIXED_SESSION_EVERY,
+  });
 }
 
 async function fetchSessionRepairRows() {
@@ -405,20 +397,21 @@ async function fetchSessionRepairRows() {
     const data = await pbFetch(
       `/api/collections/task_entries/records?page=${page}&perPage=500&fields=id,task_id,client,project,task,machine,session_id,session_name&filter=${encodeURIComponent('task_id ~ "seed-te-"')}`
     );
-    for (const item of data.items) if (isSeedRow(item)) rows.push(item);
+    for (const item of data.items) if (isStandardSeedRow(item)) rows.push(item);
     if (page >= data.totalPages) break;
     page++;
   }
   return rows;
 }
 
-// Repairs session_id/session_name/machine for EVERY seed-te- row (freshly
-// created this run or left over from before this fix), so re-running the
-// script is idempotent and an already-seeded owner-facing dev DB gets
-// repaired in place too. Recomputes the same three streams
-// (regular/unassigned/opencode) used at creation time, sorted by task_id
-// so the recomputation always matches creation-time order, and only
-// returns rows whose stored value actually differs from the target.
+// Repairs session_id/session_name/machine for EVERY standard-profile
+// seed-te- row (freshly created this run or left over from before this
+// fix), so re-running the script is idempotent and an already-seeded
+// owner-facing dev DB gets repaired in place too. Recomputes the same
+// three streams (regular/unassigned/opencode) used at creation time,
+// sorted by task_id so the recomputation always matches creation-time
+// order, and only returns rows whose stored value actually differs from
+// the target.
 function computeSessionRepairUpdates(rows) {
   const regular = [];
   const unassigned = [];
@@ -572,7 +565,7 @@ function buildOpencodeEntryPayload({
   sessionName,
   sessionMachine,
 }) {
-  const local = mulberry32(hashString(`opencode-demo-${taskId}`));
+  const local = seedData.mulberry32(seedData.hashString(`opencode-demo-${taskId}`));
   const startedAt = new Date(Date.now() - Math.floor(local() * WINDOW_DAYS * 24 * 60 * 60 * 1000));
   const wallMs = Math.floor(3 * 60 * 1000 + local() * (4 * 60 * 60 * 1000 - 3 * 60 * 1000));
   // opencode's plugin exposes no waiting-time signal: work_ms == wall_ms is
@@ -640,8 +633,8 @@ function buildOpencodeEntryPayload({
   };
 }
 
-async function main() {
-  console.log(`Seeding ${PB_URL} ...`);
+async function seedStandardProfile() {
+  console.log(`Seeding ${PB_URL} (profile=standard) ...`);
   await authenticate();
 
   // 1. clients -----------------------------------------------------------
@@ -831,8 +824,9 @@ async function main() {
   console.log(`task_entries: ${entryCreates.length} created`);
 
   // 5b. Repair demo rows still holding the legacy array-shaped `segments`.
-  // Only seed rows (task_id "seed-te-…") with an ARRAY value are touched, so a
-  // real synced entry or an already-correct row is never modified.
+  // Only standard-profile seed rows (task_id "seed-te-…", excluding rich
+  // rows) with an ARRAY value are touched, so a real synced entry, a rich
+  // row, or an already-correct row is never modified.
   const legacyRows = await fetchLegacySegmentRows();
   await batchUpdate(
     legacyRows.map((row) => ({
@@ -844,12 +838,12 @@ async function main() {
   );
   console.log(`task_entries: ${legacyRows.length} had legacy segments repaired`);
 
-  // 5c. Repair session_id/session_name/machine for every seed-te- row so
-  // sessions group realistically (several entries per session, consistent
-  // client/project/machine, a few crossing tasks) instead of the old
-  // one-entry-per-session scheme. Covers rows left over from before this
-  // fix as well as rows just created above — see the session-grouping
-  // comment near `makeSessionAssigner`.
+  // 5c. Repair session_id/session_name/machine for every standard-profile
+  // seed-te- row so sessions group realistically (several entries per
+  // session, consistent client/project/machine, a few crossing tasks)
+  // instead of the old one-entry-per-session scheme. Covers rows left over
+  // from before this fix as well as rows just created above — see the
+  // session-grouping comment near `makeSessionAssigner`.
   const sessionRepairRows = await fetchSessionRepairRows();
   const sessionUpdates = computeSessionRepairUpdates(sessionRepairRows);
   await batchUpdate(sessionUpdates);
@@ -942,7 +936,216 @@ async function main() {
   await batchCreate(workRecordCreates);
   console.log(`work_records: ${workRecordCreates.length} created`);
 
-  console.log("Seed complete.");
+  console.log("Seed complete (standard).");
+}
+
+// --- rich profile ---------------------------------------------------------
+//
+// Orchestration only: every generator/catalog is pure and lives in
+// lib/seed-data.js (RICH_PROFILE, buildRichEntryPayload,
+// buildRichWorkRecordPayloads), unit tested in seed-data.test.js.
+
+async function seedRichProfile() {
+  console.log(`Seeding ${PB_URL} (profile=rich) ...`);
+  await authenticate();
+
+  const RICH = seedData.RICH_PROFILE;
+
+  // 1. clients -------------------------------------------------------------
+  const existingClients = await fetchAllValues("clients", "code");
+  const clientCreates = RICH.CLIENTS.filter((c) => !existingClients.has(c.code)).map((c) => ({
+    key: c.code,
+    collection: "clients",
+    body: {
+      name: c.name,
+      code: c.code,
+      active: true,
+      unassigned: false,
+      website: c.website,
+      contact_email: c.contact_email,
+      contact_phone: c.contact_phone,
+      notes: c.notes,
+    },
+  }));
+  const createdClients = await batchCreate(clientCreates);
+  for (const { key, record } of createdClients) existingClients.set(key, record);
+  const clientIdByCode = new Map([...existingClients].map(([code, rec]) => [code, rec.id]));
+  console.log(`[rich] clients: ${clientCreates.length} created, ${RICH.CLIENTS.length} total expected`);
+
+  // 2. projects --------------------------------------------------------------
+  const existingProjects = await fetchAllValues("projects", "code");
+  const projectCreates = RICH.PROJECTS.filter((p) => !existingProjects.has(p.code)).map((p) => ({
+    key: p.code,
+    collection: "projects",
+    body: {
+      name: p.name,
+      code: p.code,
+      client: clientIdByCode.get(p.client),
+      repo_paths: [p.repo],
+      active: true,
+    },
+  }));
+  const createdProjects = await batchCreate(projectCreates);
+  for (const { key, record } of createdProjects) existingProjects.set(key, record);
+  const projectIdByCode = new Map([...existingProjects].map(([code, rec]) => [code, rec.id]));
+  console.log(`[rich] projects: ${projectCreates.length} created, ${RICH.PROJECTS.length} total expected`);
+
+  // 3. tasks -------------------------------------------------------------
+  const existingTasks = await fetchAllValues("tasks", "external_ref");
+  const taskCreates = RICH.TASKS.filter((t) => !existingTasks.has(t.ref)).map((t) => ({
+    key: t.ref,
+    collection: "tasks",
+    body: {
+      title: t.title,
+      project: projectIdByCode.get(t.project),
+      status: pick(["open", "doing", "done", "done"]),
+      external_ref: t.ref,
+    },
+  }));
+  const createdTasks = await batchCreate(taskCreates);
+  for (const { key, record } of createdTasks) existingTasks.set(key, record);
+  console.log(`[rich] tasks: ${taskCreates.length} created, ${RICH.TASKS.length} total expected`);
+
+  const taskList = RICH.TASKS.map((t) => ({ ...t, id: existingTasks.get(t.ref).id }));
+
+  // 4. task_entries ---------------------------------------------------------
+  const existingEntryIds = await fetchAllValues("task_entries", "task_id");
+  const entryCreates = [];
+  const now = Date.now();
+
+  const assignRichSession = seedData.makeSessionAssigner("rich-session-groups-regular", {
+    sessionIdPrefix: "session-rich-",
+    namePool: RICH.SESSION_NAME_POOL,
+    machinePool: RICH.MACHINES,
+    minSize: 1,
+    maxSize: 15,
+    namedProbability: 0.4,
+  });
+
+  for (let i = 1; i <= RICH_ENTRY_COUNT; i++) {
+    const taskId = `${seedData.RICH_TASK_ID_PREFIX}${String(i).padStart(4, "0")}`;
+    if (existingEntryIds.has(taskId)) continue;
+
+    const useTask = rand() < 0.9;
+    const task = useTask ? pick(taskList) : null;
+    const projectCode = task ? task.project : pick(RICH.PROJECTS).code;
+    const project = RICH.PROJECTS.find((p) => p.code === projectCode);
+    const entryClient = clientIdByCode.get(project.client);
+    const entryProject = projectIdByCode.get(project.code);
+    const bucketKey = task ? task.id : seedData.noTaskBucketKey(entryClient, entryProject);
+    const session = assignRichSession(taskId, bucketKey);
+
+    entryCreates.push({
+      key: taskId,
+      collection: "task_entries",
+      body: seedData.buildRichEntryPayload(
+        {
+          taskId,
+          clientId: entryClient,
+          projectId: entryProject,
+          taskRecordId: task ? task.id : null,
+          repoProject: project.repo,
+          sessionId: session.session_id,
+          sessionName: session.session_name,
+          sessionMachine: session.machine,
+          now,
+          windowDays: RICH_WINDOW_DAYS,
+        },
+        rand
+      ),
+    });
+  }
+
+  // 5. task_entries: a handful of "Sin determinar" legacy rows -------------
+  const unassignedClientId = clientIdByCode.get("sin-determinar");
+  if (!unassignedClientId) {
+    throw new Error('"Sin determinar" client not found — did migrations run?');
+  }
+
+  const assignRichUnassignedSession = seedData.makeSessionAssigner("rich-session-groups-unassigned", {
+    sessionIdPrefix: "session-rich-",
+    namePool: RICH.SESSION_NAME_POOL,
+    machinePool: RICH.MACHINES,
+    minSize: 1,
+    maxSize: 15,
+    namedProbability: 0.4,
+  });
+
+  for (let i = 1; i <= RICH_UNASSIGNED_COUNT; i++) {
+    const taskId = `${seedData.RICH_TASK_ID_PREFIX}un-${String(i).padStart(3, "0")}`;
+    if (existingEntryIds.has(taskId)) continue;
+
+    const session = assignRichUnassignedSession(taskId, seedData.noTaskBucketKey(unassignedClientId, ""));
+
+    entryCreates.push({
+      key: taskId,
+      collection: "task_entries",
+      body: seedData.buildRichEntryPayload(
+        {
+          taskId,
+          clientId: unassignedClientId,
+          projectId: null,
+          taskRecordId: null,
+          repoProject: "",
+          legacyLabel: pick(RICH.LEGACY_LABELS),
+          sessionId: session.session_id,
+          sessionName: session.session_name,
+          sessionMachine: session.machine,
+          now,
+          windowDays: RICH_WINDOW_DAYS,
+        },
+        rand
+      ),
+    });
+  }
+
+  const createdEntries = await batchCreate(entryCreates);
+  for (const { key, record } of createdEntries) existingEntryIds.set(key, record);
+  console.log(`[rich] task_entries: ${entryCreates.length} created`);
+
+  // 6. work_records for entries with subagent_count > 0 ---------------------
+  const existingWorkRecordIds = await fetchAllValues("work_records", "kankaku_id");
+  const workRecordCreates = [];
+
+  for (const { key, record } of createdEntries) {
+    const subagentCount = record.subagent_count || 0;
+    if (subagentCount === 0) continue;
+
+    const { orchestrator, subagents } = seedData.buildRichWorkRecordPayloads(record, subagentCount, rand);
+
+    const orchestratorId = `${key}-orch`;
+    if (!existingWorkRecordIds.has(orchestratorId)) {
+      workRecordCreates.push({
+        key: orchestratorId,
+        collection: "work_records",
+        body: { kankaku_id: orchestratorId, task_entry: record.id, ...orchestrator },
+      });
+    }
+
+    subagents.forEach((sub, idx) => {
+      const subId = `${key}-sub-${idx + 1}`;
+      if (existingWorkRecordIds.has(subId)) return;
+      workRecordCreates.push({
+        key: subId,
+        collection: "work_records",
+        body: { kankaku_id: subId, task_entry: record.id, ...sub },
+      });
+    });
+  }
+
+  await batchCreate(workRecordCreates);
+  console.log(`[rich] work_records: ${workRecordCreates.length} created`);
+
+  console.log("Seed complete (rich).");
+}
+
+async function main() {
+  if (SEED_PROFILE === "rich") {
+    await seedRichProfile();
+  }
+  else {
+    await seedStandardProfile();
+  }
 }
 
 main().catch((err) => {

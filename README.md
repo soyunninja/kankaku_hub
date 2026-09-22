@@ -51,8 +51,10 @@ scripts/dev.sh
 scripts/create-dev-accounts.sh
 
 # 4. Seed demo data: clients, projects, tasks, task_entries, work_records
-#    (deterministic, safe to re-run — see pocketbase/seed/seed.js)
-node pocketbase/seed/seed.js
+#    (deterministic, safe to re-run — see pocketbase/seed/seed.js). --i-know
+#    is required because this targets port 8090; set SEED_PROFILE=rich for
+#    the larger, fully fictional dataset used for screenshots/demos.
+node pocketbase/seed/seed.js --i-know
 ```
 
 Dashboard: http://127.0.0.1:8090/_/
