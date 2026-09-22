@@ -25,10 +25,12 @@ import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import type { Narrative } from '@/composables/useEngramNarrative'
 import type { SessionTotal } from '@/composables/useSessions'
 import type { SessionQueueTarget } from '@/composables/useSessionsQueue'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { MIXED, type SessionSummary } from '@/lib/session-aggregate'
+import { sessionTitle } from '@/lib/session-title'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('sessionsQueue.title')) })
@@ -41,7 +43,23 @@ const { fetchUnassignedSessionTotals, fetchUnassignedSessions } = useSessions()
 const { list: listEntries } = useEntriesExplorer()
 const { convertToTask, attachToExisting, ignoreSession } = useSessionsQueue()
 const { refresh: refreshQueueCount } = useSessionsQueueCount()
+const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
+
+/** Same lazy, "only when configured" narrative fetch as the entries page
+ * (`app/pages/entries/index.vue`) — see its own doc comment on
+ * `loadEngramNarratives` for the full contract. */
+const sessionNarratives = reactive(new Map<string, Narrative>())
+async function loadEngramNarratives(sessionIds: string[]) {
+  const status = await ensureEngramStatus()
+  if (!status?.configured) return
+  const narratives = await engramForSessions(sessionIds)
+  for (const [id, narrative] of narratives) sessionNarratives.set(id, narrative)
+}
+
+function sessionTitleFor(session: QueueRow): string {
+  return sessionTitle(session.sessionId, session.sessionName, sessionNarratives.get(session.sessionId)?.title)
+}
 
 /**
  * One row's display shape, shared by BOTH data sources this page can
@@ -165,6 +183,8 @@ async function load() {
     totalPages.value = 1
   }
   loading.value = false
+  // Fire-and-forget, same contract as the entries page's own call site.
+  loadEngramNarratives(sessions.value.map(s => s.sessionId))
 }
 onMounted(load)
 watch(page, () => { if (!fallbackMode.value) load() })
@@ -493,7 +513,10 @@ async function confirmIgnore() {
               </TableCell>
               <TableCell class="font-medium">
                 <div class="flex flex-col gap-0.5">
-                  <span class="max-w-48 truncate">{{ sessionName(session) }}</span>
+                  <span class="max-w-48 truncate">{{ sessionTitleFor(session) }}</span>
+                  <span v-if="sessionNarratives.get(session.sessionId)?.title?.trim()" data-testid="session-original-label" class="max-w-48 truncate text-[11px] font-normal text-muted-foreground">
+                    {{ sessionName(session) }}
+                  </span>
                   <span class="flex items-center gap-1 text-xs font-normal text-muted-foreground">
                     <span class="max-w-32 truncate">{{ session.machine || '—' }}</span>
                     <span aria-hidden="true">·</span>

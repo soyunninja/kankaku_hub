@@ -10,6 +10,17 @@ const { user } = useAuth()
 const config = useRuntimeConfig()
 
 const hubUrl = useHubUrl()
+
+/** Read-only mirror of `/api/kankaku/engram/status` — informational
+ * only, same idiom as the Connection card above it. `null` (not yet
+ * loaded, or Engram unreachable-to-the-point-of-erroring) renders as
+ * "not configured", which is also the correct state when the operator
+ * never set `KANKAKU_ENGRAM_URL` at all. */
+const { ensureStatus: ensureEngramStatus } = useEngramNarrative()
+const engramStatus = ref<{ configured: boolean, reachable: boolean } | null>(null)
+onMounted(async () => {
+  engramStatus.value = await ensureEngramStatus()
+})
 </script>
 
 <template>
@@ -81,6 +92,23 @@ const hubUrl = useHubUrl()
         <div class="flex justify-between">
           <span class="text-muted-foreground">{{ t('settings.currency') }}</span>
           <span class="tabular-nums">USD</span>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle class="text-sm font-medium text-foreground">
+          {{ t('engram.title') }}
+        </CardTitle>
+      </CardHeader>
+      <CardContent class="flex flex-col gap-2 text-sm">
+        <div v-if="!engramStatus?.configured" class="text-muted-foreground">
+          {{ t('engram.notConfigured') }}
+        </div>
+        <div v-else class="flex justify-between">
+          <span class="text-muted-foreground">{{ t('engram.status') }}</span>
+          <span>{{ engramStatus.reachable ? t('engram.reachable') : t('engram.unreachable') }}</span>
         </div>
       </CardContent>
     </Card>

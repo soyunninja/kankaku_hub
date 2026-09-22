@@ -417,6 +417,17 @@
     "schema": "Resumen del esquema",
     "version": "Versión"
   },
+  "engram": {
+    "title": "Engram",
+    "status": "Estado",
+    "notConfigured": "Engram no está configurado para este hub.",
+    "reachable": "Conectado",
+    "unreachable": "Configurado, pero inalcanzable",
+    "goal": "Objetivo: {goal}",
+    "showMore": "Mostrar más",
+    "showLess": "Mostrar menos",
+    "fromFirstPrompt": "A partir del primer prompt"
+  },
   "commands": {
     "title": "Comandos",
     "subtitle": "Referencia de todos los subcomandos de /kankaku dentro de pi.",

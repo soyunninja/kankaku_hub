@@ -129,6 +129,28 @@ Salió **limpio**: las reglas de acceso (incluida la API por lotes), el hook de
 "En curso", el saneado del comando de reanudar (rutas hostiles), que nada suma
 `work_records`, el japonés, y todo lo que afirma la web pública.
 
+## Vista por sesiones, paletas y Engram (22-09)
+
+- **Registros abre agrupado por sesión.** Una fila por sesión (inicio, sesión,
+  cliente, proyecto, tarea, agente, entradas, tiempo, coste) con los totales
+  del servidor, y al expandir, una subtabla con sus registros. La vista plana
+  sigue disponible con el interruptor; el navegador recuerda la elección.
+- **Paletas.** El modo oscuro usa los colores de Gentleman-Cute y el claro el
+  rosa de Gentleman-Sexy, con texto blanco en botones y avatar. Un test
+  (`web/tests/dark-palette.test.ts`) vigila que cada par texto/fondo cumpla
+  contraste AA en los dos modos y que la tabla de colores de las gráficas en
+  `client-avatar.ts` coincida con el CSS.
+- **Narrativa de Engram (opcional).** Si el proceso de PocketBase arranca con
+  `KANKAKU_ENGRAM_URL=http://127.0.0.1:7437` (tu daemon `engram serve`), cada
+  sesión muestra su objetivo como título, y al expandirla, el resumen de lo
+  hecho; la cola "Sin tarea" también usa ese título. La lectura la hace
+  PocketBase del lado del servidor (el daemon no permite CORS) y solo con
+  GET. **Sin la variable, la web es idéntica a antes.** Para activarlo en tu
+  máquina: añade la variable al arranque de `scripts/dev.sh` (o expórtala
+  antes) y reinicia PocketBase; Nuxt no necesita nada. Estado visible en
+  Ajustes, tarjeta "Engram". Una sesión de pi retomada hereda el objetivo del
+  último resumen guardado.
+
 ## Verificación
 
 - Web: `pnpm lint` 0 errores · `pnpm typecheck` limpio · **289** tests unitarios

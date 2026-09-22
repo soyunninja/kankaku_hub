@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { EntriesExplorerFilters } from '@/composables/useEntriesExplorer'
+import type { Narrative } from '@/composables/useEngramNarrative'
 import type { SessionTotal } from '@/composables/useSessions'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { resolveAgent } from '@/lib/agents'
@@ -23,6 +24,7 @@ import { entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/l
 import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
+import { sessionTitle } from '@/lib/session-title'
 import { resolveThinkingLevel } from '@/lib/thinking-level'
 
 const { t } = useI18n()
@@ -35,6 +37,7 @@ const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, ensureLoaded: ensureTasks, refresh: refreshTasks, byId: taskById } = useTasks()
 const { list, getOne, listWorkRecords, updateAssignment, fetchAgentOptions, listAgents } = useEntriesExplorer()
 const { fetchSessionTotalsForEntries } = useSessions()
+const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
 
 /** Deep-link support so the dashboard's measurement-quality notice can
@@ -125,6 +128,41 @@ const sessionRows = ref<SessionTotal[]>([])
 const sessionTotalGroups = ref(0)
 const sessionTotalPages = ref(1)
 
+/**
+ * Engram narrative per session id, populated lazily after each
+ * `loadSessions()` resolves (see `loadEngramNarratives` below) — a
+ * `reactive` Map so template reads (`sessionNarratives.get(...)`) update
+ * once entries arrive, same reactivity idiom `sessionRowEntries` above
+ * already uses. Absent entirely (never even attempted) whenever
+ * `ensureEngramStatus()` says Engram isn't configured, so a hub without
+ * `KANKAKU_ENGRAM_URL` renders byte-for-byte as before this feature.
+ */
+const sessionNarratives = reactive(new Map<string, Narrative>())
+/** Sessions whose expanded narrative block is showing the FULL summary
+ * rather than the `line-clamp-6` preview. */
+const expandedNarratives = reactive(new Set<string>())
+function toggleNarrativeExpanded(sessionId: string) {
+  if (expandedNarratives.has(sessionId)) expandedNarratives.delete(sessionId)
+  else expandedNarratives.add(sessionId)
+}
+
+/**
+ * Fire-and-forget: fetches narratives for the sessions just loaded onto
+ * this page, ONLY once `ensureEngramStatus()` confirms Engram is
+ * configured (so an unconfigured hub makes exactly one status call per
+ * page load and no `sessions` calls at all — see
+ * `useEngramNarrative`'s own `disabled` short-circuit for why later
+ * `loadSessions()` calls on this same page don't repeat the status
+ * call either). Never awaited by `refresh()` — the session rows render
+ * immediately; narratives fill in whenever they arrive.
+ */
+async function loadEngramNarratives(sessionIds: string[]) {
+  const status = await ensureEngramStatus()
+  if (!status?.configured) return
+  const narratives = await engramForSessions(sessionIds)
+  for (const [id, narrative] of narratives) sessionNarratives.set(id, narrative)
+}
+
 /** Per-session lazy fetch state for the expanded entries list, keyed by
  * `sessionId` — same shape/idiom as `pages/tasks/index.vue`'s
  * `sessionEntriesRaw`, but with an explicit `error` flag (this screen
@@ -207,10 +245,11 @@ function clearSessionFilter() {
  * two are never both populated at once — see `refresh`). */
 const sessionFilterLabel = computed(() => {
   if (!filters.session_id) return ''
+  const narrativeTitle = sessionNarratives.get(filters.session_id)?.title
   const flatMatch = items.value.find(e => e.session_id === filters.session_id)
-  if (flatMatch) return sessionMarkerLabel(filters.session_id, flatMatch.session_name)
+  if (flatMatch) return sessionTitle(filters.session_id, flatMatch.session_name, narrativeTitle)
   const sessionMatch = sessionRows.value.find(s => s.sessionId === filters.session_id)
-  return sessionMarkerLabel(filters.session_id, sessionMatch?.sessionName)
+  return sessionTitle(filters.session_id, sessionMatch?.sessionName, narrativeTitle)
 })
 
 /** `''` when `thinking_level` is empty/unknown — never renders an
@@ -315,6 +354,10 @@ async function refresh() {
     try {
       await loadSessions()
       groupingFallback.value = false
+      // Fire-and-forget: never blocks the just-loaded session rows from
+      // rendering, and never rejects (see loadEngramNarratives's own
+      // never-throws contract via useEngramNarrative).
+      loadEngramNarratives(sessionRows.value.map(r => r.sessionId))
     }
     catch (err) {
       if (!(err instanceof TotalsRouteUnavailableError)) throw err
@@ -537,7 +580,16 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                     {{ formatDateTime(row.minStartedAt) }}
                   </TableCell>
                   <TableCell>
-                    <SessionMarker :session-id="row.sessionId" :session-name="row.sessionName" @click="filterToSession(row.sessionId)" />
+                    <div class="flex flex-col gap-0.5">
+                      <SessionMarker
+                        :session-id="row.sessionId" :session-name="row.sessionName"
+                        :label="sessionTitle(row.sessionId, row.sessionName, sessionNarratives.get(row.sessionId)?.title)"
+                        @click="filterToSession(row.sessionId)"
+                      />
+                      <span v-if="sessionNarratives.has(row.sessionId)" data-testid="session-original-label" class="ml-1 max-w-40 truncate text-[11px] text-muted-foreground">
+                        {{ sessionMarkerLabel(row.sessionId, row.sessionName) }}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <template v-if="row.distinctClient === 1">
@@ -589,6 +641,25 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                      mode uses, and open the same EntryDetailSheet on click. -->
                 <TableRow v-if="expandedSessions.has(row.sessionId)" :id="`session-group-entries-${row.sessionId}`" data-testid="session-group-entries">
                   <TableCell :colspan="columnCount" class="bg-muted/30 p-2">
+                    <!-- Engram narrative block, ABOVE the nested entries
+                         table — nothing renders when this session has no
+                         narrative (not configured, unreachable, or
+                         Engram simply has nothing for this session). -->
+                    <div v-if="sessionNarratives.get(row.sessionId)" data-testid="session-narrative" class="mb-2 rounded-md border border-border bg-background p-3">
+                      <p v-if="sessionNarratives.get(row.sessionId)!.goal" class="text-sm font-medium">
+                        {{ t('engram.goal', { goal: sessionNarratives.get(row.sessionId)!.goal }) }}
+                      </p>
+                      <p v-else-if="sessionNarratives.get(row.sessionId)!.source === 'prompt'" class="text-xs font-medium text-muted-foreground">
+                        {{ t('engram.fromFirstPrompt') }}
+                      </p>
+                      <p
+                        class="whitespace-pre-wrap text-sm text-muted-foreground"
+                        :class="expandedNarratives.has(row.sessionId) ? '' : 'line-clamp-6'"
+                      >{{ sessionNarratives.get(row.sessionId)!.summary || sessionNarratives.get(row.sessionId)!.first_prompt }}</p>
+                      <Button size="sm" variant="ghost" class="mt-1 h-auto px-1.5 py-0.5 text-xs" @click.stop="toggleNarrativeExpanded(row.sessionId)">
+                        {{ expandedNarratives.has(row.sessionId) ? t('engram.showLess') : t('engram.showMore') }}
+                      </Button>
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow>

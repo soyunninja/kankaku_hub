@@ -19,12 +19,18 @@ import { sessionColor, sessionMarkerLabel } from '@/lib/session-marker'
 const props = defineProps<{
   sessionId: string
   sessionName?: string
+  /** Overrides the default `sessionMarkerLabel(sessionId, sessionName)`
+   * text without touching that function's own byte-for-byte contract —
+   * used by the Engram narrative feature (`app/lib/session-title.ts`) to
+   * show a session's narrative title here instead, while the marker's
+   * colour/click/tooltip behaviour stays exactly the same. */
+  label?: string
 }>()
 
 const emit = defineEmits<{ click: [] }>()
 const { t } = useI18n()
 
-const label = computed(() => sessionMarkerLabel(props.sessionId, props.sessionName))
+const label = computed(() => props.label ?? sessionMarkerLabel(props.sessionId, props.sessionName))
 const color = computed(() => sessionColor(props.sessionId))
 const fullIdTitle = computed(() => t('entries.sessionMarker.fullId', { id: props.sessionId }))
 </script>

@@ -417,6 +417,17 @@
     "schema": "スキーマ概要",
     "version": "バージョン"
   },
+  "engram": {
+    "title": "Engram",
+    "status": "状態",
+    "notConfigured": "このハブにはEngramが設定されていません。",
+    "reachable": "接続済み",
+    "unreachable": "設定済みですが接続できません",
+    "goal": "目標: {goal}",
+    "showMore": "もっと見る",
+    "showLess": "閉じる",
+    "fromFirstPrompt": "最初のプロンプトから"
+  },
   "commands": {
     "title": "コマンド",
     "subtitle": "pi内のすべての/kankakuサブコマンドのリファレンスです。",
