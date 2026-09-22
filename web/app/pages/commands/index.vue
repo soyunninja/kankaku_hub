@@ -193,9 +193,9 @@ const ENGRAM_SNIPPET = [
             <CopyButton :text="ENGRAM_SNIPPET" />
           </div>
           <p class="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-            <NuxtLink to="/settings" class="underline decoration-dotted underline-offset-2 hover:text-foreground">
-              {{ t('commands.config.engram.note') }}
-            </NuxtLink>
+            <!-- Plain text on purpose: the Commands page is a reference with no
+                 in-app navigation (see e2e/commands.spec.ts "reference only"). -->
+            {{ t('commands.config.engram.note') }}
           </p>
           <div class="overflow-x-auto">
             <p class="pb-2 text-xs font-medium text-foreground">
