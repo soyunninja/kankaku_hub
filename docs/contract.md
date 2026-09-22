@@ -15,9 +15,18 @@ a plain-HTTP URL unless it's localhost.
 
 ## Authentication
 
-Auth collection: the built-in `users` collection (holds both the human
-owner and the kankaku service account, distinguished by a `role` field:
-`owner` | `service`).
+Auth collection: the built-in `users` collection (holds the human owner,
+the kankaku service account, and — since migration `1758300021` — an
+optional read-only demo account, distinguished by a `role` field: `owner`
+| `service` | `viewer`).
+
+`service` keeps create/update access on `task_entries` and `work_records`
+(the sync client's contract below is unaffected by this migration).
+`viewer` can list/view every collection and call every hook route, exactly
+like `owner`/`service`, but cannot create, update, or delete anything —
+every write attempt (including on `task_entries`/`work_records`) 403s.
+`owner` is unchanged. See
+[ADR 0029](adr/0029-viewer-role-read-only.md) for why.
 
 `POST /api/collections/users/auth-with-password`
 
@@ -653,3 +662,10 @@ shown to the owner (`web/app/composables/useTotals.ts`'s
   returns the generic `{"data":{},"message":"Failed to create
   record.","status":400}` shape. Don't try to auto-create a missing
   project from the sync client; surface it to the user instead.
+- A `role: "viewer"` account (migration `1758300021`, ADR 0029) is
+  read-only everywhere: it can auth and list/view exactly like
+  `owner`/`service`, but every create/update/delete — including on
+  `task_entries`/`work_records`, which `service` can still write — returns
+  the same 400/403 shape as an unauthenticated request. The sync client
+  never authenticates as `viewer`; this only matters for a hub demo
+  instance.

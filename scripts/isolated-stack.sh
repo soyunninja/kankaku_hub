@@ -30,6 +30,8 @@ OWNER_EMAIL="david@kankaku.local"
 OWNER_PASSWORD="kankaku-dev-owner"
 SERVICE_EMAIL="kankaku-sync@kankaku.local"
 SERVICE_PASSWORD="kankaku-dev-sync"
+DEMO_EMAIL="demo@kankaku.local"
+DEMO_PASSWORD="kankaku-demo-viewer"
 
 usage() {
   cat >&2 <<'EOF'
@@ -204,6 +206,7 @@ cmd_up() {
   token="$(pb_authenticate "$pb_url")"
   create_user_if_missing "$pb_url" "$token" "$OWNER_EMAIL" "$OWNER_PASSWORD" "owner"
   create_user_if_missing "$pb_url" "$token" "$SERVICE_EMAIL" "$SERVICE_PASSWORD" "service"
+  create_user_if_missing "$pb_url" "$token" "$DEMO_EMAIL" "$DEMO_PASSWORD" "viewer"
 
   if [ "$do_seed" = "1" ]; then
     echo "==> Seeding (profile=$seed_profile)"
@@ -249,6 +252,11 @@ cmd_up() {
     echo "export PW_BASE_URL=http://localhost:$web_port"
   fi
   echo "export PW_OUTPUT_DIR=$abs_dir/pw-out"
+  echo ""
+  echo "# Accounts (owner/service always created; demo is read-only, role=viewer):"
+  echo "#   owner:   $OWNER_EMAIL / $OWNER_PASSWORD"
+  echo "#   service: $SERVICE_EMAIL / $SERVICE_PASSWORD"
+  echo "#   demo:    $DEMO_EMAIL / $DEMO_PASSWORD"
   echo ""
   echo "Reminder: after a screenshot run against this stack, run"
   echo "  git checkout -- web/docs/screenshots"

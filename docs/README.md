@@ -51,7 +51,7 @@ docs/
     hub-backend.md             PocketBase collections, rules, migrations
     hub-web.md                 the Nuxt SPA
     aggregation.md             the interval-union rule (D6) in detail
-  adr/                        28 architecture decision records (D1-D8 + 20 later decisions)
+  adr/                        29 architecture decision records (D1-D8 + 21 later decisions)
   specs/                      23 normative capability specs
   phases/                     9 roadmap phases (5 done, 4 planned)
   runbooks/                   local dev, connecting kankaku, deploy (planned), release (planned), troubleshooting

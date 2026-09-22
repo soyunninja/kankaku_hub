@@ -151,6 +151,14 @@ Salió **limpio**: las reglas de acceso (incluida la API por lotes), el hook de
   Ajustes, tarjeta "Engram". Una sesión de pi retomada hereda el objetivo del
   último resumen guardado. Si el daemon usa `ENGRAM_HTTP_TOKEN`, pon el mismo
   valor en `KANKAKU_ENGRAM_TOKEN`.
+- **Rol `viewer` de solo lectura** (migración `1758300021`, ADR 0029): puede
+  leer todo pero no escribir nada; en `task_entries`/`work_records` la
+  escritura queda limitada a `owner` y `service` (antes cualquier cuenta
+  autenticada podía escribir ahí). `scripts/isolated-stack.sh` crea de forma
+  idempotente una tercera cuenta demo (`demo@kankaku.local` /
+  `kankaku-demo-viewer`, rol `viewer`) y la imprime en el resumen, pensada
+  para una instancia pública de demostración con datos ficticios. **Hay que
+  reiniciar PocketBase** para que la migración se aplique.
 
 ## Verificación
 

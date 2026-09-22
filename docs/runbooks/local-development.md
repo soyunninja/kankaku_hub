@@ -99,6 +99,54 @@ These are throwaway local-only credentials, intentionally not treated as a
 secret — do not reuse them anywhere real (see
 [`deploy-to-vps.md`](deploy-to-vps.md) for rotation before any deployment).
 
+### Demo instance (read-only)
+
+`scripts/isolated-stack.sh` also provisions a third, read-only account
+(migration `1758300021`, [ADR 0029](../adr/0029-viewer-role-read-only.md))
+so a fresh isolated stack always has a public-demo-ready login without any
+extra step:
+
+| Account | Email | Password | Role |
+|---|---|---|---|
+| Demo (viewer) | `demo@kankaku.local` | `kankaku-demo-viewer` | `role: viewer` |
+
+A `viewer` can log in and browse every screen — clients, projects, tasks,
+entries, sessions, totals, the Engram narrative proxy when configured —
+but every write (create/update/delete, including on
+`task_entries`/`work_records`) is rejected server-side with a 400/403,
+regardless of what the UI shows.
+
+```bash
+scripts/isolated-stack.sh up /tmp/kankaku-demo --seed --seed-profile rich
+```
+
+then hand out the `demo@kankaku.local` credentials above against the
+printed `NUXT_PUBLIC_PB_URL`/web port. **The seeded data is entirely
+fictional** — generated client/project/task names and synthetic
+`task_entries`/`work_records` rows, never real client information — so it
+is safe to leave running for others to browse.
+
+To serve the demo as a single origin (no separate Nuxt dev server, closer
+to how a real deployment looks), build the web app once and point
+PocketBase's `--publicDir` at that build instead of the script's own empty
+placeholder directory — the same single-process shape ["Single-process
+mode"](#single-process-mode-as-in-production) below and
+[`deploy-to-vps.md`](deploy-to-vps.md) already use:
+
+```bash
+cd web && pnpm generate   # static build to web/.output/public
+```
+
+`scripts/isolated-stack.sh` does not currently take a `--publicDir`
+override — it always serves an empty placeholder directory alongside the
+API — so serving that build through the isolated stack today means
+running PocketBase directly with the flags `cmd_up` uses (same `--dir`,
+`--migrationsDir`, `--hooksDir`, plus `--publicDir web/.output/public`
+instead of its empty one) rather than through `isolated-stack.sh up`
+itself; see [`deploy-to-vps.md`](deploy-to-vps.md) §1 for the exact
+`pocketbase serve` invocation to copy. This is a description of the
+option, not a step this runbook has run.
+
 ## kankaku-hub — web (Nuxt SPA)
 
 Requires `pnpm`.
