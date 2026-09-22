@@ -1,4 +1,5 @@
 import { chunk } from '~/lib/aggregate'
+import type { GroupableEntriesFilters } from '~/lib/entries-session-filters'
 import { groupBySession, type SessionEntryLike, type SessionSummary } from '~/lib/session-aggregate'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
 import type { TotalsGroup } from '~/lib/totals-map'
@@ -140,6 +141,40 @@ export function useSessions() {
     return toSessionTotalsPage(response)
   }
 
+  /**
+   * Server-totals-backed session rows for the Entries screen's grouped
+   * mode (`app/pages/entries/index.vue`). `group_by: 'session'`, sorted
+   * `-min_started_at` (most recently active session first). `filters`
+   * is expected to already be the `groupable` subset
+   * `app/lib/entries-session-filters.ts#splitEntriesFiltersForTotals`
+   * produced — this composable does not know which Entries filter
+   * fields the totals contract can honor, that mapping lives there on
+   * purpose so it can be tested and reused independent of this fetch.
+   * `from`/`to` are the Entries screen's `dateStart`/`dateEnd`, already
+   * converted to UTC instants (`entries-session-filters.ts#entriesDateRangeToTotalsRange`).
+   * Throws `TotalsRouteUnavailableError` (from `useTotals`) untouched —
+   * the page must catch it and fall back to the flat page + client-side
+   * grouping, exactly like every other totals call site.
+   */
+  async function fetchSessionTotalsForEntries(opts: {
+    filters: GroupableEntriesFilters
+    from?: string
+    to?: string
+    page?: number
+    perPage?: number
+  }): Promise<SessionTotalsPage> {
+    const response = await fetchTotals({
+      groupBy: 'session',
+      filters: opts.filters,
+      from: opts.from,
+      to: opts.to,
+      sort: '-min_started_at',
+      page: opts.page,
+      perPage: opts.perPage,
+    })
+    return toSessionTotalsPage(response)
+  }
+
   /** `@deprecated` fallback-only — used when `fetchSessionTotals` throws
    * `TotalsRouteUnavailableError`. Sessions that touched a given task,
    * most-recent-first. */
@@ -217,5 +252,5 @@ export function useSessions() {
     return new Set(rows.map(r => r.session_id))
   }
 
-  return { fetchSessionTotals, fetchUnassignedSessionTotals, fetchSessionsForTask, fetchUnassignedSessions }
+  return { fetchSessionTotals, fetchUnassignedSessionTotals, fetchSessionTotalsForEntries, fetchSessionsForTask, fetchUnassignedSessions }
 }

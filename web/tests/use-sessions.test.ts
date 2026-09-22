@@ -123,6 +123,52 @@ describe('useSessions', () => {
     })
   })
 
+  it('fetchSessionTotalsForEntries: requests group_by=session with the given filters/date-range/page, sorted -min_started_at', async () => {
+    const fetchTotals = vi.fn(async () => totalsResponse([sessionGroup()]))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: {} }))
+    vi.stubGlobal('useTotals', () => ({ fetchTotals }))
+
+    const { useSessions } = await import('../app/composables/useSessions')
+    const { fetchSessionTotalsForEntries } = useSessions()
+
+    const page = await fetchSessionTotalsForEntries({
+      filters: { client: 'client-a' },
+      from: '2026-01-01 00:00:00.000Z',
+      to: '2026-01-31 23:59:59.999Z',
+      page: 2,
+      perPage: 25,
+    })
+
+    expect(fetchTotals).toHaveBeenCalledWith({
+      groupBy: 'session',
+      filters: { client: 'client-a' },
+      from: '2026-01-01 00:00:00.000Z',
+      to: '2026-01-31 23:59:59.999Z',
+      sort: '-min_started_at',
+      page: 2,
+      perPage: 25,
+    })
+
+    expect(page.sessions).toHaveLength(1)
+    expect(page.sessions[0]!.sessionId).toBe('sess-1')
+    // task info (distinctTask/sampleTask) is available on the reshaped
+    // row, inherited from TotalsGroup — no separate mapping needed.
+    expect(page.sessions[0]!.distinctTask).toBe(1)
+    expect(page.sessions[0]!.sampleTask).toBe('task-a')
+  })
+
+  it('fetchSessionTotalsForEntries: propagates TotalsRouteUnavailableError untouched', async () => {
+    class FakeUnavailable extends Error {}
+    const fetchTotals = vi.fn(async () => { throw new FakeUnavailable('unavailable') })
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: {} }))
+    vi.stubGlobal('useTotals', () => ({ fetchTotals }))
+
+    const { useSessions } = await import('../app/composables/useSessions')
+    const { fetchSessionTotalsForEntries } = useSessions()
+
+    await expect(fetchSessionTotalsForEntries({ filters: {} })).rejects.toThrow(FakeUnavailable)
+  })
+
   it('still exports fetchSessionsForTask and fetchUnassignedSessions as @deprecated fallbacks', async () => {
     vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: vi.fn() } }))
     vi.stubGlobal('useTotals', () => ({ fetchTotals: vi.fn() }))
