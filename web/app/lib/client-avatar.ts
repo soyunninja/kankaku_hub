@@ -78,18 +78,21 @@ export const AVATAR_FOREGROUND_VAR = 'var(--avatar-foreground)'
  * own "copy, kept in sync manually" header). This lets
  * `avatarForegroundContrast` actually compute, rather than merely
  * assert, that `--avatar-foreground` meets WCAG AA (4.5:1) against every
- * one of these ten backgrounds — see `client-avatar.test.ts`. The dark
- * values are the Gentleman-Cute gentle-pi theme's accent/champagne/
- * powderBlue/mint/peach; `tests/dark-palette.test.ts` guards this array
- * against `.dark`'s `--chart-1..5` in tailwind.css directly.
+ * one of these ten backgrounds — see `client-avatar.test.ts`. The light
+ * chart-1 is the Gentleman-Sexy pink accent (#F43888) and chart-5 is
+ * champagne (#E0C27A, moved off pink so it stays distinct from chart-1);
+ * chart-2/3/4 are unchanged. The dark values are the Gentleman-Cute
+ * gentle-pi theme's accent/champagne/powderBlue/mint/peach.
+ * `tests/dark-palette.test.ts` guards this array against both `:root`'s
+ * and `.dark`'s `--chart-1..5` in tailwind.css directly.
  */
 export const CHART_OKLCH_BY_THEME: Record<'light' | 'dark', Array<[number, number, number]>> = {
   light: [
-    [0.55, 0.11, 192],
+    [0.65, 0.228, 1],
     [0.65, 0.15, 40],
     [0.6, 0.1, 280],
     [0.7, 0.14, 140],
-    [0.65, 0.18, 350],
+    [0.824, 0.097, 88],
   ],
   dark: [
     [0.778, 0.125, 346],

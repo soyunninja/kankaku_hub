@@ -1,10 +1,11 @@
 /**
- * Guards for the dark palette (Gentleman-Cute, see
- * odd/tasks/dark-theme-gentleman-cute.md): keeps `--chart-1..5` in
- * `app/assets/css/tailwind.css`'s `.dark` block and
- * `CHART_OKLCH_BY_THEME.dark` in `app/lib/client-avatar.ts` from silently
+ * Guards for both palettes (see odd/tasks/dark-theme-gentleman-cute.md):
+ * dark comes from the gentle-pi theme "Gentleman-Cute", light's brand
+ * accent comes from "Gentleman-Sexy" (#F43888). Keeps each theme's
+ * `--chart-1..5` in `app/assets/css/tailwind.css` (`.dark` / `:root`) and
+ * `CHART_OKLCH_BY_THEME` in `app/lib/client-avatar.ts` from silently
  * drifting apart, and computes (rather than assumes) WCAG AA contrast for
- * every foreground/background pair the dark theme actually renders.
+ * every foreground/background pair each theme actually renders.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -21,6 +22,14 @@ import {
 const cssPath = resolve(process.cwd(), 'app/assets/css/tailwind.css')
 const css = readFileSync(cssPath, 'utf-8')
 
+/** Extracts the `:root { ... }` block's raw body (first match only — the
+ * file has exactly one `:root` rule with color tokens). */
+function rootBlock(): string {
+  const match = css.match(/:root\s*\{([\s\S]*?)\n\}/)
+  if (!match) throw new Error('could not find a :root { ... } block in tailwind.css')
+  return match[1]
+}
+
 /** Extracts the `.dark { ... }` block's raw body (first match only — the
  * file has exactly one `.dark` rule). */
 function darkBlock(): string {
@@ -29,13 +38,13 @@ function darkBlock(): string {
   return match[1]
 }
 
-/** Parses a token's `oklch(L C H)` or `oklch(L C H / A%)` value out of the
- * `.dark` block body. Returns the L/C/H triple; alpha (if present) is
- * ignored, since the contrast pairs checked here are all alpha-less. */
+/** Parses a token's `oklch(L C H)` or `oklch(L C H / A%)` value out of a
+ * block body. Returns the L/C/H triple; alpha (if present) is ignored,
+ * since the contrast pairs checked here are all alpha-less. */
 function readToken(block: string, name: string): [number, number, number] {
   const re = new RegExp(`--${name}:\\s*oklch\\(\\s*([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)`)
   const match = block.match(re)
-  if (!match) throw new Error(`token --${name} not found in .dark block`)
+  if (!match) throw new Error(`token --${name} not found in block`)
   return [Number(match[1]), Number(match[2]), Number(match[3])]
 }
 
@@ -43,33 +52,54 @@ function luminanceOf(triple: [number, number, number]): number {
   return relativeLuminance(oklchToLinearSrgb(...triple))
 }
 
-describe('dark palette / chart color sync', () => {
-  it('--chart-1..5 in tailwind.css .dark match CHART_OKLCH_BY_THEME.dark exactly', () => {
-    const block = darkBlock()
-    const fromCss = [1, 2, 3, 4, 5].map(n => readToken(block, `chart-${n}`))
-    expect(fromCss).toEqual(CHART_OKLCH_BY_THEME.dark)
+/** Same ten foreground/background pairs checked in both themes. */
+const pairs: Array<[string, string]> = [
+  ['foreground', 'background'],
+  ['foreground', 'card'],
+  ['muted-foreground', 'background'],
+  ['muted-foreground', 'card'],
+  ['primary-foreground', 'primary'],
+  ['destructive-foreground', 'destructive'],
+  ['success-foreground', 'success'],
+  ['warning-foreground', 'warning'],
+  ['accent-foreground', 'accent'],
+  ['sidebar-foreground', 'sidebar'],
+]
+
+describe('palette guards', () => {
+  describe('dark palette / chart color sync', () => {
+    it('--chart-1..5 in tailwind.css .dark match CHART_OKLCH_BY_THEME.dark exactly', () => {
+      const block = darkBlock()
+      const fromCss = [1, 2, 3, 4, 5].map(n => readToken(block, `chart-${n}`))
+      expect(fromCss).toEqual(CHART_OKLCH_BY_THEME.dark)
+    })
   })
-})
 
-describe('dark palette / WCAG AA contrast (computed, not assumed)', () => {
-  const pairs: Array<[string, string]> = [
-    ['foreground', 'background'],
-    ['foreground', 'card'],
-    ['muted-foreground', 'background'],
-    ['muted-foreground', 'card'],
-    ['primary-foreground', 'primary'],
-    ['destructive-foreground', 'destructive'],
-    ['success-foreground', 'success'],
-    ['warning-foreground', 'warning'],
-    ['accent-foreground', 'accent'],
-    ['sidebar-foreground', 'sidebar'],
-  ]
+  describe('dark palette / WCAG AA contrast (computed, not assumed)', () => {
+    it('every foreground/background pair reaches at least 4.5:1', () => {
+      const block = darkBlock()
+      for (const [fg, bg] of pairs) {
+        const ratio = contrastRatio(luminanceOf(readToken(block, fg)), luminanceOf(readToken(block, bg)))
+        expect(ratio, `${fg} / ${bg} must be >= 4.5, got ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+  })
 
-  it('every foreground/background pair reaches at least 4.5:1', () => {
-    const block = darkBlock()
-    for (const [fg, bg] of pairs) {
-      const ratio = contrastRatio(luminanceOf(readToken(block, fg)), luminanceOf(readToken(block, bg)))
-      expect(ratio, `${fg} / ${bg} must be >= 4.5, got ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
-    }
+  describe('light palette / chart color sync', () => {
+    it('--chart-1..5 in tailwind.css :root match CHART_OKLCH_BY_THEME.light exactly', () => {
+      const block = rootBlock()
+      const fromCss = [1, 2, 3, 4, 5].map(n => readToken(block, `chart-${n}`))
+      expect(fromCss).toEqual(CHART_OKLCH_BY_THEME.light)
+    })
+  })
+
+  describe('light palette / WCAG AA contrast (computed, not assumed)', () => {
+    it('every foreground/background pair reaches at least 4.5:1', () => {
+      const block = rootBlock()
+      for (const [fg, bg] of pairs) {
+        const ratio = contrastRatio(luminanceOf(readToken(block, fg)), luminanceOf(readToken(block, bg)))
+        expect(ratio, `${fg} / ${bg} must be >= 4.5, got ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
+      }
+    })
   })
 })

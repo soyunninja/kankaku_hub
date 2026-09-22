@@ -50,9 +50,9 @@ requirements.
    `:lang(ja)`-scoped line-breaking rules, so Japanese text never falls
    back to a mismatched font or breaks mid-word/right-before-closing-
    punctuation.
-10. `THEME-REQ-010` — Every foreground/background token pair the dark
-    theme renders (text on page/card, muted text on page/card, and each
-    of primary/destructive/success/warning/accent/sidebar's foreground on
+10. `THEME-REQ-010` — Every foreground/background token pair either theme
+    renders (text on page/card, muted text on page/card, and each of
+    primary/destructive/success/warning/accent/sidebar's foreground on
     its own background) SHALL meet WCAG AA contrast (>= 4.5:1), verified
     by computing the ratio from the tokens' actual OKLCH values, not by
     inspection.
@@ -178,28 +178,46 @@ composable unchanged.
 8. Capture doc screenshots (see `web/docs/screenshots/`) and look at them
    for mismatched fonts, tofu, or awkward wraps before calling it done.
 
-## Dark palette
+## Palette
 
-The dark theme's colors (`app/assets/css/tailwind.css`'s `.dark` block)
-come from the owner's gentle-pi theme "Gentleman-Cute"
-(`~/.local/src/gentle-pi-main/themes/Gentleman-Cute.json`). Light mode
-(`:root`) and the Astro marketing site are unchanged — this only affects
-the Nuxt dashboard's dark theme. Each `.dark` line carries a trailing
-comment naming its source hex and gentle-pi theme var, and the block has
-a header comment pointing back at the source file.
+Both themes' colors (`app/assets/css/tailwind.css`'s `:root` and `.dark`
+blocks) come from the owner's gentle-pi themes. Dark uses "Gentleman-Cute"
+(`~/.local/src/gentle-pi-main/themes/Gentleman-Cute.json`) for its whole
+palette. Light (`:root`) keeps its original neutral greys and hue/chroma
+for success/warning/destructive (only `--destructive`'s and `--success`'s
+lightness were lowered — see the WCAG guard note below), but its brand
+accent (primary/ring/sidebar-primary/sidebar-ring/chart-1, the accent
+tint accent/sidebar-accent, and their foregrounds) comes from "Gentleman-Sexy"
+(`~/.local/src/gentle-pi-main/themes/Gentleman-Sexy.json`, `#F43888`
+accent / `#BF0F50` deepPink); chart-5 moved from a colliding pink to
+champagne (`#E0C27A`) so it stays distinct from the now-pink chart-1. The
+Astro marketing site is unaffected either way — this only touches the
+Nuxt dashboard's themes. Each changed line carries a trailing comment
+naming its source hex and (for the pink tokens) gentle-pi theme var, and
+each block has a header comment pointing back at its source file(s).
 
-Sync rule: `--chart-1..5` in the `.dark` block are duplicated in
-`app/lib/client-avatar.ts`'s `CHART_OKLCH_BY_THEME.dark` (used to derive
-`ClientAvatar`'s deterministic background colors and to verify
-`--avatar-foreground`'s contrast against them). The two must always carry
-the exact same five OKLCH triples; `tests/dark-palette.test.ts` parses
-both and fails if they diverge.
+Sync rule: `--chart-1..5` in both the `:root` and `.dark` blocks are
+duplicated in `app/lib/client-avatar.ts`'s `CHART_OKLCH_BY_THEME.light`/
+`.dark` (used to derive `ClientAvatar`'s deterministic background colors
+and to verify `--avatar-foreground`'s contrast against them). Each theme's
+CSS and TS copy must always carry the exact same five OKLCH triples;
+`tests/dark-palette.test.ts` parses both blocks and fails if either
+diverges from its TS counterpart.
 
-WCAG guard: `tests/dark-palette.test.ts` also parses the `.dark` block
+WCAG guard: `tests/dark-palette.test.ts` also parses `:root` and `.dark`
 directly and computes (via `client-avatar.ts`'s exported
 `oklchToLinearSrgb`/`relativeLuminance`/`contrastRatio` helpers) the
-contrast ratio for every foreground/background pair the dark theme
-renders — see `THEME-REQ-010`.
+contrast ratio for every foreground/background pair each theme renders —
+see `THEME-REQ-010`. This guard caught two pre-existing light-mode gaps
+(unrelated to the accent change above, found once the guard covered
+`:root` too): `destructive-foreground`/`destructive` measured ~4.50:1 and
+`success-foreground`/`success` measured ~3.50:1, both just under or well
+under the 4.5 AA threshold. Both are now fixed by lowering only the
+background's lightness (hue and chroma unchanged): `--destructive` to
+`oklch(0.567 0.245 27.325)` (white text now ~4.63:1) and `--success` to
+`oklch(0.53 0.14 150)` (white text now ~4.68:1) — white foreground text
+was kept in both cases since neither needed to go below ~0.45 lightness
+to pass.
 
 ## Out of scope
 

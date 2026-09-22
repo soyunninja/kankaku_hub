@@ -65,9 +65,19 @@
 
 /*
  * kankaku hub identity: a restrained neutral scale (zinc-ish) with a
- * single teal accent used consistently for primary actions, active nav
- * state and the "work time" series in charts. Numbers use tabular
- * figures everywhere (see .tabular-nums usage in formatters' callers).
+ * single accent used consistently for primary actions, active nav state
+ * and the "work time" series in charts. Numbers use tabular figures
+ * everywhere (see .tabular-nums usage in formatters' callers).
+ *
+ * Light palette: neutral greys with the Gentleman-Sexy pink (#F43888)
+ * as brand accent; chart-5 moved from pink to champagne so chart-1 (now
+ * pink) stays distinct. Each changed line's trailing comment names the
+ * source hex and, for the pink tokens, the gentle-pi theme var it came
+ * from — see odd/tasks/dark-theme-gentleman-cute.md ("Part 2 — light
+ * mode accent") for the full mapping. `--chart-1..5` are duplicated in
+ * app/lib/client-avatar.ts's `CHART_OKLCH_BY_THEME.light` (kept in sync
+ * manually, guarded by tests/dark-palette.test.ts) — update both
+ * together.
  */
 :root {
   --radius: 0.625rem;
@@ -78,29 +88,29 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.11 192);
-  --primary-foreground: oklch(0.98 0.01 192);
+  --primary: oklch(0.650 0.228 1); /* #F43888 accent */
+  --primary-foreground: oklch(0.145 0 0); /* near-black: white on #F43888 is ~3.64:1, fails AA */
   --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.96 0 0);
   --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.94 0.03 192);
-  --accent-foreground: oklch(0.2 0.05 192);
-  --destructive: oklch(0.577 0.245 27.325);
+  --accent: oklch(0.94 0.03 1); /* light pink tint at the accent hue */
+  --accent-foreground: oklch(0.519 0.201 9); /* #BF0F50 deepPink */
+  --destructive: oklch(0.567 0.245 27.325); /* lowered for AA, was oklch(0.577 0.245 27.325) */
   --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.6 0.14 150);
+  --success: oklch(0.53 0.14 150); /* lowered for AA, was oklch(0.6 0.14 150) */
   --success-foreground: oklch(0.98 0 0);
   --warning: oklch(0.75 0.15 80);
   --warning-foreground: oklch(0.2 0 0);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
-  --ring: oklch(0.55 0.11 192);
+  --ring: oklch(0.650 0.228 1); /* #F43888 accent */
 
-  --chart-1: oklch(0.55 0.11 192);
+  --chart-1: oklch(0.650 0.228 1); /* #F43888 accent */
   --chart-2: oklch(0.65 0.15 40);
   --chart-3: oklch(0.6 0.1 280);
   --chart-4: oklch(0.7 0.14 140);
-  --chart-5: oklch(0.65 0.18 350);
+  --chart-5: oklch(0.824 0.097 88); /* #E0C27A champagne */
 
   /*
    * ClientAvatar's initials text color. Deliberately declared ONLY here
@@ -117,12 +127,12 @@
 
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.55 0.11 192);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.03 192);
-  --sidebar-accent-foreground: oklch(0.2 0.05 192);
+  --sidebar-primary: oklch(0.650 0.228 1); /* #F43888 accent */
+  --sidebar-primary-foreground: oklch(0.145 0 0); /* near-black: white on #F43888 is ~3.64:1, fails AA */
+  --sidebar-accent: oklch(0.94 0.03 1); /* light pink tint at the accent hue */
+  --sidebar-accent-foreground: oklch(0.519 0.201 9); /* #BF0F50 deepPink */
   --sidebar-border: oklch(0.9 0 0);
-  --sidebar-ring: oklch(0.55 0.11 192);
+  --sidebar-ring: oklch(0.650 0.228 1); /* #F43888 accent */
 }
 
 /*
