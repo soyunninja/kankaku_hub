@@ -388,7 +388,13 @@
       "count": "{count} entradas",
       "mixedColumn": "Cliente · Proyecto",
       "clients": "{count} clientes",
-      "projects": "{count} proyectos"
+      "projects": "{count} proyectos",
+      "tasks": "{count} tareas",
+      "unsupportedFilterHint": "Disponible en la vista plana",
+      "entriesToggle": "Entradas de la sesión",
+      "loadingEntries": "Cargando entradas…",
+      "loadError": "No se pudieron cargar las entradas.",
+      "retry": "Reintentar"
     }
   },
   "totals": {

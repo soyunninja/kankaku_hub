@@ -388,7 +388,13 @@
       "count": "{count}件のエントリー",
       "mixedColumn": "クライアント · プロジェクト",
       "clients": "{count} クライアント",
-      "projects": "{count} プロジェクト"
+      "projects": "{count} プロジェクト",
+      "tasks": "{count} タスク",
+      "unsupportedFilterHint": "フラット表示で利用可能",
+      "entriesToggle": "セッションのエントリー",
+      "loadingEntries": "エントリーを読み込み中…",
+      "loadError": "エントリーを読み込めませんでした。",
+      "retry": "再試行"
     }
   },
   "totals": {

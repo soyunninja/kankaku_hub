@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl } from './helpers'
+import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, useFlatEntriesView } from './helpers'
 
 /**
  * End-to-end coverage for three related features added together:
@@ -135,10 +135,25 @@ test.describe('entries: session marker, filter chip, group by session', () => {
         sessionId: sessionTwoId, sessionName: sessionTwoName, model: uniqueModel, startedAtOffsetMs: 0,
       }))
 
+      // Start flat: the marker/chip assertions below need per-entry rows,
+      // and the Entries screen defaults to grouped-by-session since
+      // 2026-09-22 (see the page's own doc comment). Set the key directly
+      // (once, via `page.evaluate` after `login` has already navigated
+      // this page to a same-origin URL) rather than the shared
+      // `useFlatEntriesView` helper: that helper uses `page.addInitScript`,
+      // which re-runs on every later navigation — including this test's
+      // own `page.reload()` below — and would silently force the toggle
+      // back to flat right when the test is asserting it survived.
       await login(page)
+      await page.evaluate(() => window.localStorage.setItem('kankaku-entries-group-by-session', '0'))
       await page.goto('/entries')
       await page.waitForLoadState('networkidle')
-      await page.getByPlaceholder('Modelo').fill(uniqueModel)
+      // `machine` (unlike `model`) is one of the filters the server-backed
+      // grouped totals route also honors (see
+      // `entries-session-filters.ts#splitEntriesFiltersForTotals`), so this
+      // same filter keeps scoping to just this fixture's 3 entries once the
+      // test toggles grouping on below.
+      await page.getByPlaceholder('Máquina').fill(runBase)
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
 
@@ -160,7 +175,7 @@ test.describe('entries: session marker, filter chip, group by session', () => {
       const chip = page.getByText(`Sesión: ${sessionOneName}`)
       await expect(chip).toBeVisible()
 
-      // Remove the chip: back to all 3 (model filter still applied).
+      // Remove the chip: back to all 3 (machine filter still applied).
       await page.getByRole('button', { name: 'Quitar filtro de sesión' }).click()
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
@@ -168,8 +183,12 @@ test.describe('entries: session marker, filter chip, group by session', () => {
       await expect(chip).toHaveCount(0)
 
       // Group by session: two header rows (2 groups), one showing "2"
-      // entries and one showing "1".
+      // entries and one showing "1". Toggling now triggers a real
+      // server-backed totals fetch (see `refresh()` in
+      // app/pages/entries/index.vue), not a purely client-side
+      // re-render, so wait for it to settle before asserting.
       await page.getByRole('switch', { name: 'Agrupar por sesión' }).click()
+      await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
       const groupHeaders = page.locator('th[scope="colgroup"]')
       await expect(groupHeaders).toHaveCount(2)
@@ -177,11 +196,11 @@ test.describe('entries: session marker, filter chip, group by session', () => {
       await expect(page.getByText('1 entradas')).toBeVisible()
 
       // Survives reload: the toggle choice is persisted (localStorage),
-      // so re-applying the same model filter after a full reload shows
+      // so re-applying the same machine filter after a full reload shows
       // grouped header rows again without re-clicking the toggle.
       await page.reload()
       await page.waitForLoadState('networkidle')
-      await page.getByPlaceholder('Modelo').fill(uniqueModel)
+      await page.getByPlaceholder('Máquina').fill(runBase)
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
       await expect(page.getByRole('switch', { name: 'Agrupar por sesión' })).toHaveAttribute('data-state', 'checked')
@@ -264,6 +283,10 @@ test.describe('task detail sheet: expand a session to see all its entries', () =
 
 test.describe('entry detail: reasoning effort (thinking_level)', () => {
   async function openFixture(page: Page, runId: string) {
+    // Clicks the fixture's only row to open the detail sheet — the
+    // Entries screen defaults to grouped-by-session since 2026-09-22,
+    // which would collapse this single entry into a session header row.
+    await useFlatEntriesView(page)
     await page.goto('/entries')
     await page.waitForLoadState('networkidle')
     await page.getByPlaceholder('Máquina').fill(runId)

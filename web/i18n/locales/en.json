@@ -388,7 +388,13 @@
       "count": "{count} entries",
       "mixedColumn": "Client · Project",
       "clients": "{count} clients",
-      "projects": "{count} projects"
+      "projects": "{count} projects",
+      "tasks": "{count} tasks",
+      "unsupportedFilterHint": "Available in the flat view",
+      "entriesToggle": "Session entries",
+      "loadingEntries": "Loading entries…",
+      "loadError": "Could not load entries.",
+      "retry": "Retry"
     }
   },
   "totals": {

@@ -155,6 +155,24 @@ export function toastText(page: Page, text: string | RegExp) {
   return page.locator('[data-testid="toast-viewport"]').getByText(text)
 }
 
+/**
+ * Entries screen key (`app/pages/entries/index.vue`): `'0'` forces flat
+ * (per-entry rows), `'1'` forces grouped, and an absent key defaults to
+ * grouped since 2026-09-22 (owner decision — see the page's own doc
+ * comment). Tests that exercise per-entry rows — clicking a row to open
+ * `EntryDetailSheet`, asserting a flat row count — must opt into flat
+ * explicitly rather than relying on a default that can change again.
+ *
+ * Sets the key via `page.addInitScript`, so it lands before the page's
+ * own `onMounted` reads it on the FIRST navigation this page performs —
+ * call it before `page.goto(...)`, not after.
+ */
+export async function useFlatEntriesView(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('kankaku-entries-group-by-session', '0')
+  })
+}
+
 export async function login(page: Page) {
   await page.goto('/login')
   await page.fill('#email', OWNER_EMAIL)

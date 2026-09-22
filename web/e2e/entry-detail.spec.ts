@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, findClients, login, pbUrl, setTheme, shoot, toastText } from './helpers'
+import { apiLogin, findClients, login, pbUrl, setTheme, shoot, toastText, useFlatEntriesView } from './helpers'
 
 /**
  * End-to-end coverage for the redesigned entry detail sheet (see
@@ -99,6 +99,10 @@ async function deleteFixtureEntry(request: Parameters<typeof apiLogin>[0], token
  * machine filter (exact match on the fixture's `runId`), and opens its
  * detail sheet. */
 async function openFixture(page: Page, runId: string) {
+  // This suite exercises per-entry rows and clicks the first one to open
+  // EntryDetailSheet — the Entries screen defaults to grouped-by-session
+  // since 2026-09-22, which would render a session header row instead.
+  await useFlatEntriesView(page)
   await page.goto('/entries')
   await page.waitForLoadState('networkidle')
   await page.getByPlaceholder('Máquina').fill(runId)

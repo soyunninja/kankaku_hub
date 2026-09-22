@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, deleteClientsByCode, login, setTheme } from './helpers'
+import { apiLogin, deleteClientsByCode, login, setTheme, useFlatEntriesView } from './helpers'
 
 // Cleans up the disposable clients this spec creates, so a leftover long
 // generated name/code never inflates the clients table's columns across
@@ -248,6 +248,10 @@ test.describe('sheet body is padded (not glued to the edges)', () => {
       })
 
       test(`entries detail sheet at ${width}px, ${theme} theme`, async ({ page }) => {
+        // Clicks the first entry row to open the detail sheet — the
+        // Entries screen defaults to grouped-by-session since
+        // 2026-09-22, which would render a session header row instead.
+        await useFlatEntriesView(page)
         await login(page)
         await setTheme(page, theme)
         await page.setViewportSize({ width, height: width === 390 ? 844 : 720 })

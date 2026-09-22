@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, setTheme } from './helpers'
+import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, setTheme, useFlatEntriesView } from './helpers'
 import path from 'node:path'
 
 /**
@@ -101,6 +101,11 @@ async function deleteEntry(request: APIRequestContext, token: string, id: string
 }
 
 async function openEntryByMachineFilter(page: Page, runId: string) {
+  // Clicks the fixture's only row to open the detail sheet — the
+  // Entries screen defaults to grouped-by-session since 2026-09-22,
+  // which would collapse this single entry into a session header row
+  // (clicking it toggles the session instead of opening the sheet).
+  await useFlatEntriesView(page)
   await page.goto('/entries')
   await page.waitForLoadState('networkidle')
   await page.getByPlaceholder('Máquina').fill(runId)
