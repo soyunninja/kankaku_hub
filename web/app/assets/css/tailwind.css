@@ -88,8 +88,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.650 0.228 1); /* #F43888 accent */
-  --primary-foreground: oklch(0.145 0 0); /* near-black: white on #F43888 is ~3.64:1, fails AA */
+  --primary: oklch(0.580 0.228 1); /* #F43888 accent, lowered from L 0.650 so the theme white (L 0.98) reaches ~4.6:1 (#DA1272) */
+  --primary-foreground: oklch(0.98 0 0); /* theme white on the lowered pink: ~4.6:1; on #F43888 itself it is ~3.5:1 */
   --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.96 0 0);
@@ -104,7 +104,7 @@
   --warning-foreground: oklch(0.2 0 0);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
-  --ring: oklch(0.650 0.228 1); /* #F43888 accent */
+  --ring: oklch(0.580 0.228 1); /* same lowered pink as --primary */
 
   --chart-1: oklch(0.650 0.228 1); /* #F43888 accent */
   --chart-2: oklch(0.65 0.15 40);
@@ -127,12 +127,12 @@
 
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.650 0.228 1); /* #F43888 accent */
-  --sidebar-primary-foreground: oklch(0.145 0 0); /* near-black: white on #F43888 is ~3.64:1, fails AA */
+  --sidebar-primary: oklch(0.580 0.228 1); /* same lowered pink as --primary */
+  --sidebar-primary-foreground: oklch(0.98 0 0); /* theme white, ~4.6:1 */
   --sidebar-accent: oklch(0.94 0.03 1); /* light pink tint at the accent hue */
   --sidebar-accent-foreground: oklch(0.519 0.201 9); /* #BF0F50 deepPink */
   --sidebar-border: oklch(0.9 0 0);
-  --sidebar-ring: oklch(0.650 0.228 1); /* #F43888 accent */
+  --sidebar-ring: oklch(0.580 0.228 1); /* same lowered pink as --primary */
 }
 
 /*

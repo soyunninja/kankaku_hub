@@ -189,7 +189,11 @@ lightness were lowered — see the WCAG guard note below), but its brand
 accent (primary/ring/sidebar-primary/sidebar-ring/chart-1, the accent
 tint accent/sidebar-accent, and their foregrounds) comes from "Gentleman-Sexy"
 (`~/.local/src/gentle-pi-main/themes/Gentleman-Sexy.json`, `#F43888`
-accent / `#BF0F50` deepPink); chart-5 moved from a colliding pink to
+accent / `#BF0F50` deepPink). Primary, ring and their sidebar
+counterparts use the pink lowered to `oklch(0.580 0.228 1)` (`#DA1272`)
+so that white button and avatar text reaches ~4.6:1 (white on `#F43888`
+itself is ~3.64:1); chart-1 keeps the exact `#F43888`, since avatar text
+on chart colors is near-black. chart-5 moved from a colliding pink to
 champagne (`#E0C27A`) so it stays distinct from the now-pink chart-1. The
 Astro marketing site is unaffected either way — this only touches the
 Nuxt dashboard's themes. Each changed line carries a trailing comment
