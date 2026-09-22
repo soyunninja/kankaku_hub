@@ -119,11 +119,25 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
 
       await expect(page.getByRole('switch', { name: 'Agrupar por sesión' })).toHaveAttribute('data-state', 'checked')
 
-      const groupHeaders = page.locator('th[scope="colgroup"]')
+      // The primary grouped mode has its own header/columns (Inicio | Sesión
+      // | Cliente | Proyecto | Tarea | Agente | Entradas | Tiempo | Coste),
+      // each a real column — not a colspan-ed summary blob. Agente lives
+      // here (a session always has one agent), not on the nested table.
+      await expect(page.getByRole('columnheader', { name: 'Sesión', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Tarea', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Agente', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Entradas', exact: true })).toBeVisible()
+
+      const groupHeaders = page.locator('[data-testid="session-group-row"]')
       await expect(groupHeaders).toHaveCount(1)
       const sessionRow = groupHeaders.first()
       await expect(sessionRow.getByText(sessionName, { exact: false })).toBeVisible()
-      await expect(sessionRow.getByText('2 entradas')).toBeVisible()
+
+      // Entries count is its own right-aligned cell, no "N entradas" label.
+      const entriesCountCell = sessionRow.locator('[data-testid="session-entries-count"]')
+      await expect(entriesCountCell).toHaveText('2')
+      await expect(entriesCountCell).toHaveClass(/text-right/)
+
       // work_ms sum: 120_000 + 150_000 = 270_000ms = 4m 30s.
       await expect(sessionRow.getByText(/4[m]/)).toBeVisible()
       // cost sum: 0.01 + 0.02 = 0.03.
@@ -133,18 +147,28 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
       // contract) are disabled while grouped.
       await expect(page.getByPlaceholder('Modelo')).toBeDisabled()
 
-      // Expand: shows both entries.
+      // Expand: a nested table of this session's entries appears, with its
+      // own (narrower) header — no Sesión/Cliente/Proyecto columns, since
+      // the parent row already said those.
       const toggle = sessionRow.getByRole('button', { name: 'Entradas de la sesión' })
       await expect(toggle).toHaveAttribute('aria-expanded', 'false')
       await toggle.click()
       await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-      const entryRows = page.locator('table tbody tr').filter({ hasText: 'Completado' })
+
+      const nestedArea = page.locator('[data-testid="session-group-entries"]')
+      await expect(nestedArea.locator('table')).toHaveCount(1)
+      await expect(nestedArea.getByRole('columnheader', { name: 'Estado', exact: true })).toBeVisible()
+      await expect(nestedArea.getByRole('columnheader', { name: 'Sesión', exact: true })).toHaveCount(0)
+      await expect(nestedArea.getByRole('columnheader', { name: 'Cliente', exact: true })).toHaveCount(0)
+      await expect(nestedArea.getByRole('columnheader', { name: 'Agente', exact: true })).toHaveCount(0)
+
+      const entryRows = nestedArea.locator('tbody tr').filter({ hasText: 'Completado' })
       await expect(entryRows).toHaveCount(2, { timeout: 10_000 })
 
-      // Collapse again: entries disappear.
+      // Collapse again: the nested table disappears.
       await toggle.click()
       await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-      await expect(entryRows).toHaveCount(0)
+      await expect(page.locator('[data-testid="session-group-entries"]')).toHaveCount(0)
 
       // Switch to flat: per-entry rows, no group header, model filter
       // enabled again.

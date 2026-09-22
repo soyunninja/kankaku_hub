@@ -390,7 +390,11 @@
       "clients": "{count} クライアント",
       "projects": "{count} プロジェクト",
       "tasks": "{count} タスク",
+      "agents": "{count} エージェント",
       "unsupportedFilterHint": "フラット表示で利用可能",
+      "columns": {
+        "entries": "エントリー数"
+      },
       "entriesToggle": "セッションのエントリー",
       "loadingEntries": "エントリーを読み込み中…",
       "loadError": "エントリーを読み込めませんでした。",

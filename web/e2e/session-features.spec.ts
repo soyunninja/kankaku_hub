@@ -182,7 +182,7 @@ test.describe('entries: session marker, filter chip, group by session', () => {
       await expect(rows).toHaveCount(3)
       await expect(chip).toHaveCount(0)
 
-      // Group by session: two header rows (2 groups), one showing "2"
+      // Group by session: two session rows (2 groups), one showing "2"
       // entries and one showing "1". Toggling now triggers a real
       // server-backed totals fetch (see `refresh()` in
       // app/pages/entries/index.vue), not a purely client-side
@@ -190,21 +190,23 @@ test.describe('entries: session marker, filter chip, group by session', () => {
       await page.getByRole('switch', { name: 'Agrupar por sesión' }).click()
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
-      const groupHeaders = page.locator('th[scope="colgroup"]')
+      const groupHeaders = page.locator('[data-testid="session-group-row"]')
       await expect(groupHeaders).toHaveCount(2)
-      await expect(page.getByText('2 entradas')).toBeVisible()
-      await expect(page.getByText('1 entradas')).toBeVisible()
+      const sessionOneGroupRow = groupHeaders.filter({ hasText: sessionOneName })
+      const sessionTwoGroupRow = groupHeaders.filter({ hasText: sessionTwoName })
+      await expect(sessionOneGroupRow.locator('[data-testid="session-entries-count"]')).toHaveText('2')
+      await expect(sessionTwoGroupRow.locator('[data-testid="session-entries-count"]')).toHaveText('1')
 
       // Survives reload: the toggle choice is persisted (localStorage),
       // so re-applying the same machine filter after a full reload shows
-      // grouped header rows again without re-clicking the toggle.
+      // grouped session rows again without re-clicking the toggle.
       await page.reload()
       await page.waitForLoadState('networkidle')
       await page.getByPlaceholder('Máquina').fill(runBase)
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
       await expect(page.getByRole('switch', { name: 'Agrupar por sesión' })).toHaveAttribute('data-state', 'checked')
-      await expect(page.locator('th[scope="colgroup"]')).toHaveCount(2)
+      await expect(page.locator('[data-testid="session-group-row"]')).toHaveCount(2)
     }
     finally {
       await deleteEntries(request, token, ids)

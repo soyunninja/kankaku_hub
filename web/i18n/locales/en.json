@@ -390,7 +390,11 @@
       "clients": "{count} clients",
       "projects": "{count} projects",
       "tasks": "{count} tasks",
+      "agents": "{count} agents",
       "unsupportedFilterHint": "Available in the flat view",
+      "columns": {
+        "entries": "Entries"
+      },
       "entriesToggle": "Session entries",
       "loadingEntries": "Loading entries…",
       "loadError": "Could not load entries.",

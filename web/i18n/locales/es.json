@@ -390,7 +390,11 @@
       "clients": "{count} clientes",
       "projects": "{count} proyectos",
       "tasks": "{count} tareas",
+      "agents": "{count} agentes",
       "unsupportedFilterHint": "Disponible en la vista plana",
+      "columns": {
+        "entries": "Entradas"
+      },
       "entriesToggle": "Entradas de la sesión",
       "loadingEntries": "Cargando entradas…",
       "loadError": "No se pudieron cargar las entradas.",

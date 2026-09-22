@@ -259,17 +259,21 @@ function mixedGroupCell(entry: TaskEntryRecord): string {
   return parts.join(' · ')
 }
 
-/** Columns the table currently renders: session+client+project collapse
- * into one "only when they differ" column while grouping — flat mode and
- * the primary server-backed grouped mode both show the full flat column
- * set (9): the primary mode's session-summary row spans across it, and
- * its expanded entries are the same flat rows as flat mode's. Only the
- * fallback client-side grouping still collapses to the narrower
- * "mixed"-or-not layout, exactly as before. */
+/** Columns the table currently renders. Flat mode: the 9 flat columns
+ * (Inicio/Sesión/Cliente/Proyecto/Estado/Agente/Modelo/Tiempo/Coste). The
+ * primary server-backed grouped mode has its OWN 10 columns (Inicio/
+ * Sesión/Cliente/Proyecto/Tarea/Agente/Entradas/Tiempo/Coste/chevron — 9
+ * real columns + the chevron toggle: a session always has exactly one
+ * agent, so Agente lives on this row, not the nested entries table) —
+ * its expanded row is a single colspan-ed cell holding a *nested* table
+ * with its own (narrower, agent-less) header, so this count only ever
+ * governs the outer table's own rows. The fallback client-side grouping
+ * still collapses session+client+project into one "only when they
+ * differ" column, exactly as before. */
 const columnCount = computed(() => {
   if (!groupBySession.value) return 9
   if (groupingFallback.value) return anyMixedGroup.value ? 7 : 6
-  return 9
+  return 10
 })
 
 const displayRows = computed<DisplayRow[]>(() => {
@@ -467,16 +471,31 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
       <CardContent class="p-0">
         <Table>
           <TableHeader>
-            <TableRow>
+            <!-- Primary server-backed grouped mode gets its OWN header/columns:
+                 the session row below is a normal data row (one <td> per
+                 column, not a colspan-ed summary blob), so its header must
+                 describe exactly those columns — see the session-row and
+                 nested-entries-table doc comments below. -->
+            <TableRow v-if="primaryGrouped">
+              <TableHead>{{ t('common.started') }}</TableHead>
+              <TableHead>{{ t('entries.session') }}</TableHead>
+              <TableHead>{{ t('common.client') }}</TableHead>
+              <TableHead>{{ t('common.project') }}</TableHead>
+              <TableHead>{{ t('common.task') }}</TableHead>
+              <TableHead>{{ t('common.agent') }}</TableHead>
+              <TableHead class="text-right">{{ t('entries.sessionGroup.columns.entries') }}</TableHead>
+              <TableHead class="text-right"><span :title="t('common.timeHint')">{{ t('common.time') }}</span></TableHead>
+              <TableHead class="text-right">{{ t('common.cost') }}</TableHead>
+              <TableHead><span class="sr-only">{{ t('entries.sessionGroup.entriesToggle') }}</span></TableHead>
+            </TableRow>
+            <TableRow v-else>
               <TableHead class="cursor-pointer" @click="toggleSort('started_at')">
                 {{ t('common.started') }}
               </TableHead>
-              <!-- Flat mode, and the primary server-backed grouped mode (its
-                   expanded rows are these same flat cells, so they need
-                   these same headings): session, client and project each
-                   get their own column. Only the fallback client-side
-                   grouping still collapses them into one "only when they
-                   differ" column below — see `columnCount`'s doc comment. -->
+              <!-- Flat mode: session, client and project each get their own
+                   column. Only the fallback client-side grouping collapses
+                   them into one "only when they differ" column below — see
+                   `columnCount`'s doc comment. -->
               <template v-if="!groupingFallback">
                 <TableHead>{{ t('entries.session') }}</TableHead>
                 <TableHead>{{ t('common.client') }}</TableHead>
@@ -507,86 +526,120 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
               <!-- PRIMARY grouped mode: one row per SERVER-SUMMARIZED session
                    (`fetchSessionTotalsForEntries`, paginated by session — the
                    page's own pagination controls below now page sessions,
-                   not entries), lazily expandable to that session's entries. -->
+                   not entries), lazily expandable to that session's entries.
+                   Unlike the old design, this row has its OWN real column
+                   per cell (matching the header above) instead of one wide
+                   colspan-ed summary blob — numbers line up, and nothing
+                   needs a "Tiempo:"/"Coste:" label to say what it is. -->
               <template v-for="row in sessionRows" :key="row.sessionId">
-                <TableRow class="cursor-pointer bg-muted/40 hover:bg-muted/40" @click="toggleSession(row.sessionId)">
-                  <TableHead scope="colgroup" :colspan="columnCount" class="h-auto py-2 font-normal">
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <SessionMarker :session-id="row.sessionId" :session-name="row.sessionName" @click="filterToSession(row.sessionId)" />
-                      <template v-if="row.distinctClient === 1">
-                        <ClientName v-if="clientById(row.sampleClient)" :client="clientById(row.sampleClient)!" size="xs" class="max-w-48 text-foreground" />
-                        <span v-else class="text-foreground">{{ clientName(row.sampleClient) }}</span>
-                      </template>
-                      <span v-else class="text-foreground">{{ t('entries.sessionGroup.clients', { count: row.distinctClient }) }}</span>
-                      <span v-if="row.distinctProject === 1" class="text-foreground">{{ projectName(row.sampleProject) }}</span>
-                      <span v-else class="text-foreground">{{ t('entries.sessionGroup.projects', { count: row.distinctProject }) }}</span>
-                      <span v-if="row.distinctTask > 1" class="text-muted-foreground">{{ t('entries.sessionGroup.tasks', { count: row.distinctTask }) }}</span>
-                      <span v-else-if="row.sampleTask" class="text-muted-foreground">{{ taskName(row.sampleTask) }}</span>
-                      <span v-else class="text-muted-foreground" :title="t('entries.detail.noTask')">—</span>
-                      <span class="text-xs text-muted-foreground">{{ t('entries.sessionGroup.count', { count: row.entries }) }}</span>
-                      <span class="text-xs tabular-nums text-muted-foreground"><span :title="t('common.timeHint')">{{ t('common.time') }}</span>: {{ formatDuration(row.workMs) }}</span>
-                      <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.cost') }}: {{ formatCost(row.cost) }}</span>
-                      <button
-                        type="button"
-                        class="ml-auto rounded p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        :aria-label="t('entries.sessionGroup.entriesToggle')"
-                        :aria-expanded="expandedSessions.has(row.sessionId)"
-                        @click.stop="toggleSession(row.sessionId)"
-                      >
-                        <ChevronDown class="size-4 transition-transform" :class="{ 'rotate-180': expandedSessions.has(row.sessionId) }" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </TableHead>
+                <TableRow data-testid="session-group-row" class="cursor-pointer bg-muted/40 hover:bg-muted/40" @click="toggleSession(row.sessionId)">
+                  <TableCell class="tabular-nums">
+                    {{ formatDateTime(row.minStartedAt) }}
+                  </TableCell>
+                  <TableCell>
+                    <SessionMarker :session-id="row.sessionId" :session-name="row.sessionName" @click="filterToSession(row.sessionId)" />
+                  </TableCell>
+                  <TableCell>
+                    <template v-if="row.distinctClient === 1">
+                      <ClientName v-if="clientById(row.sampleClient)" :client="clientById(row.sampleClient)!" size="xs" class="max-w-48" />
+                      <span v-else>{{ clientName(row.sampleClient) }}</span>
+                    </template>
+                    <span v-else class="text-muted-foreground">{{ t('entries.sessionGroup.clients', { count: row.distinctClient }) }}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span v-if="row.distinctProject === 1">{{ projectName(row.sampleProject) }}</span>
+                    <span v-else class="text-muted-foreground">{{ t('entries.sessionGroup.projects', { count: row.distinctProject }) }}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span v-if="row.distinctTask > 1" class="text-muted-foreground">{{ t('entries.sessionGroup.tasks', { count: row.distinctTask }) }}</span>
+                    <span v-else-if="row.sampleTask">{{ taskName(row.sampleTask) }}</span>
+                    <span v-else class="text-muted-foreground" :title="t('entries.detail.noTask')">—</span>
+                  </TableCell>
+                  <TableCell>
+                    <AgentIcon v-if="row.distinctAgent === 1" :agent="row.sampleAgent" size="sm" />
+                    <span v-else class="text-muted-foreground">{{ t('entries.sessionGroup.agents', { count: row.distinctAgent }) }}</span>
+                  </TableCell>
+                  <TableCell data-testid="session-entries-count" class="text-right tabular-nums">
+                    {{ row.entries }}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {{ formatDuration(row.workMs) }}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {{ formatCost(row.cost) }}
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      class="rounded p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      :aria-label="t('entries.sessionGroup.entriesToggle')"
+                      :aria-expanded="expandedSessions.has(row.sessionId)"
+                      :aria-controls="`session-group-entries-${row.sessionId}`"
+                      @click.stop="toggleSession(row.sessionId)"
+                    >
+                      <ChevronDown class="size-4 transition-transform" :class="{ 'rotate-180': expandedSessions.has(row.sessionId) }" aria-hidden="true" />
+                    </button>
+                  </TableCell>
                 </TableRow>
-                <template v-if="expandedSessions.has(row.sessionId)">
-                  <TableRow v-if="sessionRowEntries.get(row.sessionId)?.loading">
-                    <TableCell :colspan="columnCount" class="text-sm text-muted-foreground">
-                      {{ t('entries.sessionGroup.loadingEntries') }}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow v-else-if="sessionRowEntries.get(row.sessionId)?.error">
-                    <TableCell :colspan="columnCount">
-                      <div class="flex items-center gap-2 text-sm text-destructive">
-                        <span>{{ t('entries.sessionGroup.loadError') }}</span>
-                        <Button size="sm" variant="outline" @click.stop="loadSessionEntries(row.sessionId)">
-                          {{ t('entries.sessionGroup.retry') }}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow v-else-if="(sessionRowEntries.get(row.sessionId)?.items.length ?? 0) === 0">
-                    <TableCell :colspan="columnCount" class="text-sm text-muted-foreground">
-                      {{ t('entries.empty') }}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry)">
-                    <TableCell class="tabular-nums">
-                      {{ formatDateTime(entry.started_at) }}
-                    </TableCell>
-                    <TableCell>
-                      <SessionMarker :session-id="entry.session_id" :session-name="entry.session_name" @click="filterToSession(entry.session_id)" />
-                    </TableCell>
-                    <TableCell>
-                      <ClientName v-if="clientById(entry.client)" :client="clientById(entry.client)!" size="xs" class="max-w-36" />
-                      <span v-else>{{ clientName(entry.client) }}</span>
-                    </TableCell>
-                    <TableCell>{{ projectName(entry.project) }}</TableCell>
-                    <TableCell>{{ t(`entries.status.${entry.status}`) }}</TableCell>
-                    <TableCell>
-                      <AgentIcon :agent="entry.agent" size="sm" />
-                    </TableCell>
-                    <TableCell class="text-muted-foreground">
-                      {{ entry.model }}
-                      <span v-if="effortLabel(entry)" class="text-[10px] text-muted-foreground/70">({{ effortLabel(entry) }})</span>
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {{ formatDuration(entry.work_ms) }}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {{ formatCost(entry.cost) }}
-                    </TableCell>
-                  </TableRow>
-                </template>
+                <!-- Expanded: ONE full-width row holding a nested table of
+                     this session's entries — the flat entry header MINUS
+                     session/client/project/agent (the parent row above
+                     already said those — a session always has one agent).
+                     Nested rows are the same flat cells flat
+                     mode uses, and open the same EntryDetailSheet on click. -->
+                <TableRow v-if="expandedSessions.has(row.sessionId)" :id="`session-group-entries-${row.sessionId}`" data-testid="session-group-entries">
+                  <TableCell :colspan="columnCount" class="bg-muted/30 p-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{{ t('common.started') }}</TableHead>
+                          <TableHead>{{ t('common.status') }}</TableHead>
+                          <TableHead>{{ t('common.model') }}</TableHead>
+                          <TableHead class="text-right"><span :title="t('common.timeHint')">{{ t('common.time') }}</span></TableHead>
+                          <TableHead class="text-right">{{ t('common.cost') }}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow v-if="sessionRowEntries.get(row.sessionId)?.loading">
+                          <TableCell colspan="5" class="text-sm text-muted-foreground">
+                            {{ t('entries.sessionGroup.loadingEntries') }}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow v-else-if="sessionRowEntries.get(row.sessionId)?.error">
+                          <TableCell colspan="5">
+                            <div class="flex items-center gap-2 text-sm text-destructive">
+                              <span>{{ t('entries.sessionGroup.loadError') }}</span>
+                              <Button size="sm" variant="outline" @click.stop="loadSessionEntries(row.sessionId)">
+                                {{ t('entries.sessionGroup.retry') }}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow v-else-if="(sessionRowEntries.get(row.sessionId)?.items.length ?? 0) === 0">
+                          <TableCell colspan="5" class="text-sm text-muted-foreground">
+                            {{ t('entries.empty') }}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry)">
+                          <TableCell class="tabular-nums">
+                            {{ formatDateTime(entry.started_at) }}
+                          </TableCell>
+                          <TableCell>{{ t(`entries.status.${entry.status}`) }}</TableCell>
+                          <TableCell class="text-muted-foreground">
+                            {{ entry.model }}
+                            <span v-if="effortLabel(entry)" class="text-[10px] text-muted-foreground/70">({{ effortLabel(entry) }})</span>
+                          </TableCell>
+                          <TableCell class="text-right tabular-nums">
+                            {{ formatDuration(entry.work_ms) }}
+                          </TableCell>
+                          <TableCell class="text-right tabular-nums">
+                            {{ formatCost(entry.cost) }}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableCell>
+                </TableRow>
               </template>
             </template>
             <template v-else>
