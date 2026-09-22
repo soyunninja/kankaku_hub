@@ -58,8 +58,8 @@ is an authenticated dashboard over one owner's real data (see ADR 0025).
     768, or 1440px viewport widths.
 12. `SITE-REQ-012` — The production origin SHALL be a single configurable
     value (`SITE_URL` environment variable, `astro.config.mjs`), defaulting
-    to a clearly fake placeholder (`https://kankaku.example`) until the
-    owner provides a real domain.
+    to the production origin `https://kankaku.io`; previews on another
+    origin override it through the environment variable.
 
 ## Scenarios
 
@@ -97,7 +97,7 @@ is an authenticated dashboard over one owner's real data (see ADR 0025).
 
 - `SITE_URL` (env var, read in `astro.config.mjs`): production origin used
   for canonical URLs, hreflang alternates, the sitemap, and OG/Twitter
-  image URLs. Defaults to `https://kankaku.example`.
+  image URLs. Defaults to `https://kankaku.io`.
 - No other environment configuration; the site has no secrets, no API
   calls, no server runtime.
 

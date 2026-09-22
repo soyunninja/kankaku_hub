@@ -6,7 +6,7 @@ rows from kankaku's sync client, holds the canonical catalog of
 clients/projects/tasks, and serves the Nuxt dashboard in `./web` as a static
 build from the same PocketBase process.
 
-Full design: [`docs/proposal.md`](docs/proposal.md).
+Public site: [kankaku.io](https://kankaku.io). Full design: [`docs/proposal.md`](docs/proposal.md).
 
 ## What this is (and isn't)
 
