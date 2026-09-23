@@ -11,8 +11,8 @@ Constraints: Default active view includes open and doing, not done. Completed hi
 Route and checks: Read-only mapping delegated (4+ files); multi-file writes delegated to one worker sequentially. TDD mode not established in this session; ordinary tests. Runners: `pnpm --dir web test`, `pnpm --dir web typecheck`, `pnpm --dir web lint`, focused Playwright if isolated target can be provisioned. Estimated authored diff ~300–400 lines. Delivery strategy ask-on-risk. Worktree `../kankaku-hub-tasks-history`, branch `feat/tasks-active-history` from main dcf01ef.
 
 ## Tasks
-- [ ] T1 — Add active-by-default board/list and completed history with bound search, project filter and server pagination. Implementation and focused E2E/unit/type/lint checks observed; work-unit commit pending, so keep open.
-- [ ] T2 — Fetch all paginated task totals groups, preserving D6 and fallback semantics; test >200 groups and no duplicates. Implementation and checks observed, including empty `total_pages: 0` regression; work-unit commit pending.
+- [x] T1 — Add active-by-default board/list and completed history with bound search, project filter and server pagination. Focused E2E/unit/type/lint checks observed; work-unit commit `3faf18b` (cohesive scalability slice with T2).
+- [x] T2 — Fetch all paginated task totals groups, preserving D6 and fallback semantics; test >200 groups and no duplicates. Empty `total_pages: 0` regression and checks observed; work-unit commit `3faf18b` (same cohesive slice).
 
 ## Progress
 - Exploration: `/tasks` has board/list, project-only filter, all statuses visible. Shared `useTasks` loads all tasks for other consumers; do not narrow it. Totals response has `totalPages` and `page`, so no hook change is expected.
@@ -25,4 +25,4 @@ Route and checks: Read-only mapping delegated (4+ files); multi-file writes dele
 
 - Independent post-fix verification: `pnpm --dir web test` 449 passed/38 skipped; typecheck passed; lint 0 errors/19 existing warnings; `git diff --check` passed. Parent spot check: task-totals-pages focused Vitest 10/10 and diff check passed. Native assess unassessable because untracked files require explicit declaration; RDD off, independent verifier used.
 
-Next: owner review. Commit/build remain pending explicit authorization; no source changes in the original worktree.
+Next: merge feat/tasks-active-history into feat/taskless-session-details, verify combined candidate, and generate static build. Owner authorized commits and merge; push remains a separate decision. No source changes in the original worktree before merge.
