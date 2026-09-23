@@ -93,3 +93,7 @@ If you're building kankaku's sync client or the web dashboard, read
 [`docs/contract.md`](docs/contract.md) — it documents the exact base URL,
 auth flow, collection/field names, upsert-by-`task_id` filter syntax and
 batch API usage, all captured from real requests against a local instance.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
