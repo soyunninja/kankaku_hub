@@ -179,6 +179,8 @@ export interface UserRecord {
   id: string
   email: string
   name: string
+  /** Optional PocketBase file field; absent on older user records. */
+  avatar?: string
   role: UserRole
   verified: boolean
 }
