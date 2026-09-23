@@ -187,6 +187,17 @@
     "edit": "タスクを編集",
     "board": "ボード",
     "list": "リスト",
+    "history": {
+      "title": "完了履歴",
+      "search": "完了したタスクの名前を検索…",
+      "empty": "条件に一致する完了タスクはありません。",
+      "error": "完了タスクを読み込めませんでした。",
+      "retry": "再試行",
+      "page": "{pages}ページ中{page}ページ",
+      "previous": "前のページ",
+      "next": "次のページ",
+      "dropToComplete": "ここにドロップしてタスクを完了"
+    },
     "status": {
       "open": "未着手",
       "doing": "進行中",
@@ -198,7 +209,7 @@
     "statusMovedAnnouncement": "「{title}」タスクを{status}に移動しました。",
     "keyboardHint": {
       "label": "キーボードショートカット",
-      "text": "キーボードショートカット: Enter/Spaceでタスクを開きます。←/→（または[ / ]）で前後のカラムに移動します。"
+      "text": "キーボードショートカット: Enter/Spaceでタスクを開きます。←/→（または[ / ]）で状態を変更します。完了時は完了履歴にフォーカスが移ります。"
     },
     "detail": {
       "sessions": {

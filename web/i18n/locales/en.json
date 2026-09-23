@@ -187,6 +187,17 @@
     "edit": "Edit task",
     "board": "Board",
     "list": "List",
+    "history": {
+      "title": "Completed history",
+      "search": "Search completed task titles…",
+      "empty": "No completed tasks match these filters.",
+      "error": "Could not load completed tasks.",
+      "retry": "Retry",
+      "page": "Page {page} of {pages}",
+      "previous": "Previous page",
+      "next": "Next page",
+      "dropToComplete": "Drop here to complete a task"
+    },
     "status": {
       "open": "Open",
       "doing": "Doing",
@@ -198,7 +209,7 @@
     "statusMovedAnnouncement": "Task \"{title}\" moved to {status}.",
     "keyboardHint": {
       "label": "Keyboard shortcuts",
-      "text": "Keyboard shortcuts: Enter/Space opens the task. ←/→ (or [ / ]) moves it to the previous/next column."
+      "text": "Keyboard shortcuts: Enter/Space opens the task. ←/→ (or [ / ]) changes status; completing a task moves focus to Completed history."
     },
     "detail": {
       "sessions": {
