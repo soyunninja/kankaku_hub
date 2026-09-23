@@ -124,6 +124,45 @@ test.describe('sessions-without-task queue', () => {
     projectId = projBody.items[0].id
   })
 
+  test('opens one entry directly and requires explicit selection for multiple entries', async ({ page, request }) => {
+    const single = await createUnassignedSession(request, token, clientId, projectId, `E2E Queue Detail Single ${Date.now()}`)
+    const multiple = await createUnassignedSession(request, token, clientId, projectId, `E2E Queue Detail Multiple ${Date.now()}`, 2)
+    try {
+      await login(page)
+      await page.goto('/sessions-without-task')
+      await page.waitForLoadState('networkidle')
+
+      const singleRow = page.locator('table tbody tr', { hasText: single.sessionName })
+      await singleRow.getByRole('button', { name: `Abrir detalles de la sesión ${single.sessionName}` }).focus()
+      await page.keyboard.press('Enter')
+      const singleSheet = page.getByRole('dialog', { name: single.sessionName })
+      await expect(singleSheet.getByText('e2e-model')).toBeVisible()
+      await expect(singleSheet.getByRole('button', { name: 'Volver' })).toHaveCount(0)
+      await page.keyboard.press('Escape')
+
+      const multiRow = page.locator('table tbody tr', { hasText: multiple.sessionName })
+      await multiRow.getByRole('button', { name: `Abrir detalles de la sesión ${multiple.sessionName}` }).focus()
+      await page.keyboard.press('Space')
+      const sheet = page.getByRole('dialog', { name: multiple.sessionName })
+      await expect(sheet.getByText('Seleccionar un registro')).toBeVisible()
+      await expect(sheet.getByRole('button', { name: /Registro 1/ })).toBeVisible()
+      await expect(sheet.getByRole('button', { name: /Registro 2/ })).toBeVisible()
+      await sheet.getByRole('button', { name: /Registro 2/ }).click()
+      await expect(sheet.getByText('e2e-model')).toBeVisible()
+      await sheet.getByRole('button', { name: 'Volver' }).click()
+      await expect(sheet.getByText('Seleccionar un registro')).toBeVisible()
+      await page.keyboard.press('Escape')
+
+      await multiRow.getByRole('checkbox').click()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await openRowMenu(page, multiple.sessionName)
+      await expect(page.getByRole('menuitem', { name: 'Ignorar' })).toBeVisible()
+    }
+    finally {
+      await deleteEntries(request, token, [...single.entryIds, ...multiple.entryIds])
+    }
+  })
+
   test('converting a session creates a task and reassigns every entry, then it leaves the queue', async ({ page, request }) => {
     test.setTimeout(60_000)
     const sessionName = `E2E Queue Convert ${Date.now()}`
