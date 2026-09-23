@@ -187,6 +187,17 @@
     "edit": "Editar tarea",
     "board": "Tablero",
     "list": "Lista",
+    "history": {
+      "title": "Historial de completadas",
+      "search": "Buscar títulos de tareas completadas…",
+      "empty": "No hay tareas completadas con estos filtros.",
+      "error": "No se pudieron cargar las tareas completadas.",
+      "retry": "Reintentar",
+      "page": "Página {page} de {pages}",
+      "previous": "Página anterior",
+      "next": "Página siguiente",
+      "dropToComplete": "Suelta aquí para completar una tarea"
+    },
     "status": {
       "open": "Abierta",
       "doing": "En curso",
@@ -198,7 +209,7 @@
     "statusMovedAnnouncement": "Tarea «{title}» movida a {status}.",
     "keyboardHint": {
       "label": "Atajos de teclado",
-      "text": "Atajos de teclado: Intro/Espacio abre la tarea. ←/→ (o [ / ]) la mueve a la columna anterior o siguiente."
+      "text": "Atajos de teclado: Intro/Espacio abre la tarea. ←/→ (o [ / ]) cambia su estado; al completarla, el foco pasa al historial."
     },
     "detail": {
       "sessions": {
