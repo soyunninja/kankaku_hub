@@ -13,7 +13,19 @@ const emit = defineEmits<{ (e: 'openMobileNav' | 'openPalette'): void }>()
 const { t } = useI18n()
 const route = useRoute()
 const { user, logout } = useAuth()
+const { $pb } = useNuxtApp()
 const router = useRouter()
+
+const avatarUrl = computed(() => {
+  const filename = user.value?.avatar?.trim()
+  if (!user.value || !filename) return ''
+  try {
+    return $pb.files.getURL(user.value, filename)
+  }
+  catch {
+    return ''
+  }
+})
 
 /** Small "Read only" badge next to the user avatar for the `viewer` role
  * (odd/tasks/viewer-role.md T2) — owners see today's header unchanged. */
@@ -65,7 +77,7 @@ async function onLogout() {
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
         <button :aria-label="t('common.userMenu')">
-          <Avatar :label="user?.email || 'kankaku'" />
+          <Avatar :label="user?.email || 'kankaku'" :src="avatarUrl" :reset-key="user?.id" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" class="w-48">
