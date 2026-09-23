@@ -13,7 +13,5 @@ pocketbase/dev.log
 # CodeGraph local index
 .codegraph/
 
-# site/ (public Astro site) — also covered by site/.gitignore
-site/dist
-site/.astro
-site/node_modules
+# Local Pi runtime state
+.atl/

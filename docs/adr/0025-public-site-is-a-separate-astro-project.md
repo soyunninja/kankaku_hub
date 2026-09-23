@@ -4,6 +4,7 @@
 |---|---|
 | Status | accepted |
 | Date | 2026-09-20 |
+| Update | 2026-09-23: the site moved out of this repository into its own private Git repository (with its history). Every `site/...` path below refers to the root of that repository. |
 
 ## Context
 
@@ -76,6 +77,6 @@ reasoning, one level down).
 
 - ADRs: `0009-separate-repos-instead-of-monorepo.md`,
   `0015-static-spa-served-by-pocketbase.md`
-- Specs: `docs/specs/public-site.md`
+- Specs: `docs/specs/public-site.md` in the site repository
 - Phases: `docs/phases/phase-site-public-website.md`
-- Code: `site/`
+- Code: the site repository (formerly `site/` here)

@@ -71,7 +71,8 @@ requests against a local instance.
 ## Related
 
 - Repos: `kankaku` (the pi extension), `kankaku-hub` (this repo — PocketBase
-  backend + `web/` + the public site, `site/`).
+  backend + `web/`). The public site ([kankaku.io](https://kankaku.io))
+  is a separate private Astro repository.
 - Root-level status notes: [`../ESTADO.md`](../ESTADO.md) (Spanish,
   informal, most recently updated), [`../README.md`](../README.md),
   [`../AGENTS.md`](../AGENTS.md).
