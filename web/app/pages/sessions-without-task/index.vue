@@ -13,6 +13,7 @@
  */
 import { Check, ChevronLeft, ChevronRight, FilePlus2, Info, Link2, Loader2, MoreHorizontal, Search } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
+import TasklessSessionDetail from '@/components/sessions/TasklessSessionDetail.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -150,6 +151,16 @@ const loading = ref(true)
 const sessions = ref<QueueRow[]>([])
 const truncated = ref(false)
 const selected = ref<Set<string>>(new Set())
+const detailOpen = ref(false)
+const detailSession = ref<QueueRow | null>(null)
+function openDetail(session: QueueRow) {
+  detailSession.value = session
+  detailOpen.value = true
+}
+function onRowClick(event: MouseEvent, session: QueueRow) {
+  if ((event.target as HTMLElement).closest('button, [role="checkbox"], [role="menuitem"], a, input')) return
+  openDetail(session)
+}
 
 // -- Pagination (totals path only — the deprecated fallback scan below
 // stays a single bounded, unpaginated read, same as before this
@@ -504,7 +515,11 @@ async function confirmIgnore() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="session in sessions" :key="session.sessionId">
+            <TableRow
+              v-for="session in sessions" :key="session.sessionId"
+              class="cursor-pointer"
+              @click="onRowClick($event, session)"
+            >
               <TableCell>
                 <Checkbox
                   v-if="canWrite"
@@ -515,7 +530,14 @@ async function confirmIgnore() {
               </TableCell>
               <TableCell class="font-medium">
                 <div class="flex flex-col gap-0.5">
-                  <span class="max-w-48 truncate">{{ sessionTitleFor(session) }}</span>
+                  <button
+                    type="button"
+                    class="max-w-48 truncate text-left hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+                    :aria-label="t('sessionsQueue.detail.open', { session: sessionTitleFor(session) })"
+                    @click.stop="openDetail(session)"
+                  >
+                    {{ sessionTitleFor(session) }}
+                  </button>
                   <span v-if="sessionNarratives.get(session.sessionId)?.title?.trim()" data-testid="session-original-label" class="max-w-48 truncate text-[11px] font-normal text-muted-foreground">
                     {{ sessionName(session) }}
                   </span>
@@ -603,6 +625,18 @@ async function confirmIgnore() {
         </div>
       </CardContent>
     </Card>
+
+    <TasklessSessionDetail
+      v-model:open="detailOpen"
+      :session="detailSession && {
+        sessionId: detailSession.sessionId,
+        title: sessionTitleFor(detailSession),
+        entryCount: detailSession.entryCount,
+        machine: detailSession.machine,
+        firstActivity: detailSession.firstActivity,
+        lastActivity: detailSession.lastActivity,
+      }"
+    />
 
     <!-- Convert to a new task -->
     <Dialog v-model:open="convertOpen">

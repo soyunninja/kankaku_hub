@@ -286,7 +286,15 @@
     "movedTo": "{count}件のセッションをタスクに紐づけました。",
     "failedCount": "{count}件のセッションを紐づけられませんでした。",
     "ignoredCount": "{count}件のセッションを無視しました。",
-    "ignoreFailedCount": "{count}件のセッションを無視できませんでした。"
+    "ignoreFailedCount": "{count}件のセッションを無視できませんでした。",
+    "detail": {
+      "open": "セッション {session} の詳細を開く",
+      "selectEntry": "エントリーを選択",
+      "entryNumber": "エントリー {number}",
+      "empty": "このセッションにエントリーはありません。",
+      "loadError": "セッションの詳細を読み込めませんでした。",
+      "retry": "再試行"
+    }
   },
   "entries": {
     "title": "エントリー",

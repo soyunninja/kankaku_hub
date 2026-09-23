@@ -286,7 +286,15 @@
     "movedTo": "{count} sessions linked to the task.",
     "failedCount": "{count} sessions could not be linked.",
     "ignoredCount": "{count} sessions ignored.",
-    "ignoreFailedCount": "{count} sessions could not be ignored."
+    "ignoreFailedCount": "{count} sessions could not be ignored.",
+    "detail": {
+      "open": "Open details for session {session}",
+      "selectEntry": "Select an entry",
+      "entryNumber": "Entry {number}",
+      "empty": "No entries for this session.",
+      "loadError": "Session details could not be loaded.",
+      "retry": "Retry"
+    }
   },
   "entries": {
     "title": "Entries",

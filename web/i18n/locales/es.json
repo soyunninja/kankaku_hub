@@ -286,7 +286,15 @@
     "movedTo": "{count} sesiones vinculadas a la tarea.",
     "failedCount": "{count} sesiones no se pudieron vincular.",
     "ignoredCount": "{count} sesiones ignoradas.",
-    "ignoreFailedCount": "{count} sesiones no se pudieron ignorar."
+    "ignoreFailedCount": "{count} sesiones no se pudieron ignorar.",
+    "detail": {
+      "open": "Abrir detalles de la sesión {session}",
+      "selectEntry": "Seleccionar un registro",
+      "entryNumber": "Registro {number}",
+      "empty": "Esta sesión no tiene registros.",
+      "loadError": "No se pudieron cargar los detalles de la sesión.",
+      "retry": "Reintentar"
+    }
   },
   "entries": {
     "title": "Registros",
