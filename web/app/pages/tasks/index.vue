@@ -15,6 +15,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { groupByKey } from '@/lib/aggregate'
+import { listCompletedTasks } from '@/lib/task-history'
+import { loadTaskTotalsPages } from '@/lib/task-totals-pages'
+import type { ListResult } from 'pocketbase'
 import { resolvePreset } from '@/lib/period'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
 import type { TaskSessionRow } from '@/lib/session-aggregate'
@@ -33,9 +36,52 @@ const { list: listEntries } = useEntriesExplorer()
 const { fetchTotals } = useTotals()
 const toast = useToast()
 const { canWrite } = useAuth()
+const { $pb } = useNuxtApp()
 
 const filterProject = ref('')
-const view = ref<'board' | 'list'>('board')
+const view = ref<'board' | 'list' | 'history'>('board')
+const historySearch = ref('')
+const historyPage = ref(1)
+const historyResult = ref<ListResult<TaskRecord> | null>(null)
+const historyLoading = ref(false)
+const historyError = ref(false)
+const historyControl = ref<InstanceType<typeof Button> | null>(null)
+let historyRequest = 0
+
+async function loadHistory() {
+  const request = ++historyRequest
+  historyLoading.value = true
+  historyError.value = false
+  historyResult.value = null
+  try {
+    const result = await listCompletedTasks($pb, historyPage.value, historySearch.value, filterProject.value)
+    if (request === historyRequest) historyResult.value = result
+  }
+  catch {
+    if (request === historyRequest) historyError.value = true
+  }
+  finally {
+    if (request === historyRequest) historyLoading.value = false
+  }
+}
+
+watch([historySearch, filterProject], () => { historyPage.value = 1 }, { flush: 'sync' })
+watch([view, historyPage, historySearch, filterProject], () => {
+  // Invalidate even when leaving history, so a late response cannot replace a newer page.
+  if (view.value === 'history') void loadHistory()
+  else ++historyRequest
+}, { flush: 'sync' })
+
+async function refreshHistory() {
+  if (view.value !== 'history') return
+  if (historyPage.value !== 1) historyPage.value = 1 // the last item on a page may have moved or been deleted
+  else await loadHistory()
+}
+
+async function changeStatus(id: string, status: TaskStatus) {
+  await moveStatus(id, status)
+  await refreshHistory()
+}
 const totalsByTask = ref<Record<string, { cost: number, workMs: number }>>({})
 /** Distinct session count per task, for the board card's session chip
  * (Task 2). */
@@ -76,20 +122,9 @@ const FALLBACK_ALL_TIME_START = '2000-01-01'
  */
 async function loadTaskTotals() {
   try {
-    const response = await fetchTotals({ groupBy: 'task', perPage: 200, sort: '-cost' })
-    // group_key === '' is the "no task" bucket (task = "") — the old
-    // client-side path filtered those rows out before grouping
-    // (`entries.filter(e => e.task)`), so it's dropped here too.
-    const byTask: Record<string, { cost: number, workMs: number }> = {}
-    const sessionsByTask: Record<string, number> = {}
-    for (const g of response.groups) {
-      if (!g.groupKey) continue
-      byTask[g.groupKey] = { cost: g.cost, workMs: g.workMs }
-      sessionsByTask[g.groupKey] = g.distinctSessions
-    }
-    // group_by=task pages at 200 per call — a board with more than 200
-    // distinct tasks would need real pagination here; not expected for a
-    // single-owner tool's task catalog today (tasks are hand-created).
+    // The helper fetches every group page before returning either map.
+    // A failed later page cannot publish partial task totals.
+    const { byTask, sessionsByTask } = await loadTaskTotalsPages(fetchTotals)
     totalsByTask.value = byTask
     sessionCountByTask.value = sessionsByTask
   }
@@ -122,9 +157,11 @@ function projectName(id: string) {
   return projects.value.find(p => p.id === id)?.name ?? id
 }
 
-const filtered = computed(() => filterProject.value ? tasks.value.filter(t2 => t2.project === filterProject.value) : tasks.value)
+const filtered = computed(() => tasks.value.filter(t2 => t2.status !== 'done' && (!filterProject.value || t2.project === filterProject.value)))
+const displayedTasks = computed(() => view.value === 'history' ? (historyResult.value?.items ?? []) : filtered.value)
 
 const statuses: TaskStatus[] = ['open', 'doing', 'done']
+const activeStatuses: TaskStatus[] = ['open', 'doing']
 function byStatus(status: TaskStatus) {
   return filtered.value.filter(t2 => t2.status === status)
 }
@@ -169,7 +206,7 @@ async function onColumnDrop(status: TaskStatus, event: DragEvent) {
   const task = tasks.value.find(t2 => t2.id === id)
   if (!task || task.status === status) return
   try {
-    await moveStatus(id, status)
+    await changeStatus(id, status)
   }
   catch {
     toast.error(t('common.error'))
@@ -189,7 +226,7 @@ async function onColumnDrop(status: TaskStatus, event: DragEvent) {
 // shared reactive `tasks` state, never two parallel sources of truth.
 const detailOpen = ref(false)
 const detailTaskId = ref<string | null>(null)
-const detailTask = computed(() => detailTaskId.value ? (tasks.value.find(t2 => t2.id === detailTaskId.value) ?? null) : null)
+const detailTask = computed(() => detailTaskId.value ? (tasks.value.find(t2 => t2.id === detailTaskId.value) ?? historyResult.value?.items.find(t2 => t2.id === detailTaskId.value) ?? null) : null)
 const detailSessions = ref<TaskSessionRow[]>([])
 const detailSessionsLoading = ref(false)
 
@@ -306,7 +343,7 @@ async function onDetailStatusChange(status: TaskStatus) {
   const task = detailTask.value
   if (!task) return
   try {
-    await moveStatus(task.id, status)
+    await changeStatus(task.id, status)
   }
   catch {
     toast.error(t('common.error'))
@@ -328,7 +365,7 @@ function onDetailOpenAutoFocus(event: Event) {
 // ArrowLeft/ArrowRight (aliased to `[`/`]`) move the card to the
 // previous/next status column through the same `moveStatus()`, clamped
 // at the open/done ends (no-op, never wraps). Focus is restored to the
-// moved card's element in its new column after the reactive re-render.
+// moved card's element in its new column, or the history control when completed.
 const cardEls = new Map<string, HTMLElement>()
 function setCardEl(taskId: string, el: unknown) {
   if (!el) {
@@ -343,7 +380,7 @@ const liveMessage = ref('')
 
 async function moveFocusedTask(task: TaskRecord, status: TaskStatus) {
   try {
-    await moveStatus(task.id, status)
+    await changeStatus(task.id, status)
     liveMessage.value = t('tasks.statusMovedAnnouncement', { title: task.title, status: t(`tasks.status.${status}`) })
   }
   catch {
@@ -351,7 +388,8 @@ async function moveFocusedTask(task: TaskRecord, status: TaskStatus) {
     return
   }
   await nextTick()
-  cardEls.get(task.id)?.focus()
+  if (status === 'done') historyControl.value?.$el?.focus()
+  else cardEls.get(task.id)?.focus()
 }
 
 function onCardKeydown(task: TaskRecord, status: TaskStatus, event: KeyboardEvent) {
@@ -400,9 +438,11 @@ async function onSubmit() {
   try {
     if (editing.value) {
       await update(editing.value.id, { ...form })
+      await refreshHistory()
     }
     else {
       await create({ ...form })
+      await refreshHistory()
     }
     toast.success(t('common.saved'))
     dialogOpen.value = false
@@ -415,6 +455,7 @@ async function onSubmit() {
 async function onDelete(task: TaskRecord) {
   try {
     await remove(task.id)
+    await refreshHistory()
     toast.success(t('common.saved'))
   }
   catch {
@@ -445,6 +486,9 @@ async function onDelete(task: TaskRecord) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          <Button ref="historyControl" variant="outline" :aria-pressed="view === 'history'" @click="view = view === 'history' ? 'board' : 'history'">
+            {{ t('tasks.history.title') }}
+          </Button>
           <Tooltip v-if="view === 'board'">
             <TooltipTrigger as-child>
               <Button size="icon" variant="outline" :aria-label="t('tasks.keyboardHint.label')">
@@ -470,9 +514,23 @@ async function onDelete(task: TaskRecord) {
         {{ t('totals.fallbackTruncated', { count: taskTotalsFallbackEntryCount }) }}
       </p>
 
-      <div v-if="view === 'board'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div v-if="view === 'history'" class="flex flex-col gap-3">
+        <div class="flex items-center gap-2">
+          <Label for="history-search">{{ t('tasks.history.search') }}</Label>
+          <Input id="history-search" v-model="historySearch" class="max-w-sm" type="search" :placeholder="t('tasks.history.search')" />
+        </div>
+        <p v-if="historyLoading" role="status">{{ t('common.loading') }}</p>
+        <div v-else-if="historyError" role="alert" class="flex items-center gap-2">
+          {{ t('tasks.history.error') }}
+          <Button variant="outline" @click="loadHistory">{{ t('tasks.history.retry') }}</Button>
+        </div>
+        <EmptyState v-else-if="historyResult && !historyResult.items.length" :title="t('tasks.history.empty')" />
+      </div>
+
+      <p v-if="view !== 'history' && loading" role="status">{{ t('common.loading') }}</p>
+      <div v-if="view === 'board' && !loading" class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div
-          v-for="status in statuses" :key="status" class="flex flex-col gap-2 rounded-lg p-1 transition-colors"
+          v-for="status in activeStatuses" :key="status" class="flex flex-col gap-2 rounded-lg p-1 transition-colors"
           :class="dragOverStatus === status ? 'bg-accent/40 ring-2 ring-primary/40' : ''"
           @dragover="onColumnDragOver(status, $event)"
           @dragleave="onColumnDragLeave(status)"
@@ -528,7 +586,11 @@ async function onDelete(task: TaskRecord) {
         </div>
       </div>
 
-      <Card v-else>
+      <div v-if="view === 'board'" class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground" :class="dragOverStatus === 'done' ? 'bg-accent/40 ring-2 ring-primary/40' : ''" @dragover="onColumnDragOver('done', $event)" @dragleave="onColumnDragLeave('done')" @drop="onColumnDrop('done', $event)">
+        {{ t('tasks.history.dropToComplete') }}
+      </div>
+
+      <Card v-if="view === 'list' || (view === 'history' && !!historyResult?.items.length)">
         <CardContent class="p-0">
           <table class="w-full text-sm">
             <thead class="border-b border-border text-left text-xs text-muted-foreground">
@@ -554,7 +616,7 @@ async function onDelete(task: TaskRecord) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="task in filtered" :key="task.id" class="border-b border-border">
+              <tr v-for="task in displayedTasks" :key="task.id" class="border-b border-border">
                 <td class="p-3 font-medium">
                   {{ task.title }}
                 </td>
@@ -585,9 +647,14 @@ async function onDelete(task: TaskRecord) {
               </tr>
             </tbody>
           </table>
-          <EmptyState v-if="!loading && filtered.length === 0" :title="t('tasks.empty')" class="m-4" />
+          <EmptyState v-if="view === 'list' && !loading && filtered.length === 0" :title="t('tasks.empty')" class="m-4" />
         </CardContent>
       </Card>
+      <div v-if="view === 'history' && historyResult && !historyLoading && !historyError && historyResult.totalItems > 0" class="flex items-center justify-end gap-3">
+        <span>{{ t('tasks.history.page', { page: historyResult.page, pages: historyResult.totalPages }) }}</span>
+        <Button variant="outline" :disabled="historyPage <= 1" @click="historyPage--">{{ t('tasks.history.previous') }}</Button>
+        <Button variant="outline" :disabled="historyPage >= historyResult.totalPages" @click="historyPage++">{{ t('tasks.history.next') }}</Button>
+      </div>
 
       <Sheet v-model:open="detailOpen">
         <SheetContent side="right" class="flex w-full flex-col sm:w-[36rem] sm:max-w-xl" @open-auto-focus="onDetailOpenAutoFocus">

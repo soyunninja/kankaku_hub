@@ -189,14 +189,13 @@ test.describe('tasks board', () => {
       await page.keyboard.press(']')
       await page.waitForTimeout(200)
       await page.keyboard.press(']')
-      const doneCard = page.locator('[role="button"][aria-label*="Hecha"]', { hasText: title })
-      await expect(doneCard).toBeVisible()
-      await expect(doneCard).toBeFocused()
+      const historyButton = page.getByRole('button', { name: 'Historial de completadas' })
+      await expect(openCard).toHaveCount(0)
+      await expect(historyButton).toBeFocused()
       await expect(page.locator('[data-testid="task-status-announcer"]')).toHaveText(`Tarea «${title}» movida a Hecha.`)
-
-      // No-op at the "done" boundary.
-      await page.keyboard.press('ArrowRight')
-      await expect(doneCard).toBeVisible()
+      await historyButton.click()
+      await page.getByRole('searchbox', { name: 'Buscar títulos de tareas completadas…' }).fill(title)
+      await expect(page.locator('table tbody tr', { hasText: title })).toBeVisible()
 
       const serverTask = await fetchTask(request, token, created.id)
       expect(serverTask.status).toBe('done')
@@ -231,6 +230,34 @@ test.describe('tasks board', () => {
     }
     finally {
       await deleteTask(request, token, created.id)
+    }
+  })
+
+  test('completed tasks stay out of board and active list; history searches, filters, and reopens them', async ({ page, request }) => {
+    const title = `E2E Completed History ${Date.now()}`
+    const task = await createTask(request, token, projectId, title, 'done')
+    try {
+      await login(page)
+      await page.goto('/tasks')
+      await expect(page.locator('[role="button"]', { hasText: title })).toHaveCount(0)
+      await page.getByRole('tab', { name: 'Lista' }).click()
+      await expect(page.locator('table tbody tr', { hasText: title })).toHaveCount(0)
+      await page.getByRole('button', { name: 'Historial de completadas' }).click()
+      const search = page.getByRole('searchbox', { name: 'Buscar títulos de tareas completadas…' })
+      await search.fill(title)
+      const row = page.locator('table tbody tr', { hasText: title })
+      await expect(row).toBeVisible()
+      await row.getByRole('button', { name: 'Editar' }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.locator('select').nth(1).selectOption('open')
+      await dialog.getByRole('button', { name: 'Guardar' }).click()
+      await expect(row).toHaveCount(0)
+      await page.getByRole('button', { name: 'Historial de completadas' }).click()
+      await page.getByRole('tab', { name: 'Lista' }).click()
+      await expect(page.locator('table tbody tr', { hasText: title })).toBeVisible()
+    }
+    finally {
+      await deleteTask(request, token, task.id)
     }
   })
 
@@ -305,7 +332,10 @@ test.describe('tasks board', () => {
 
       await page.goto('/tasks')
       await page.waitForLoadState('networkidle')
-      await expect(page.locator('[role="button"][aria-label*="Hecha"]', { hasText: taskTitle })).toBeVisible()
+      await expect(page.locator('[role="button"][aria-label*="Hecha"]', { hasText: taskTitle })).toHaveCount(0)
+      await page.getByRole('button', { name: 'Historial de completadas' }).click()
+      await page.getByRole('searchbox', { name: 'Buscar títulos de tareas completadas…' }).fill(taskTitle)
+      await expect(page.locator('table tbody tr', { hasText: taskTitle })).toBeVisible()
       await expect(page.locator('[role="button"][aria-label*="En curso"]', { hasText: taskTitle })).toHaveCount(0)
 
       const serverTask = await fetchTask(request, token, task.id)
