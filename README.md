@@ -87,6 +87,15 @@ GROUP BY ...`. `work_records` rows are raw detail, flagged `rollup: false`,
 and must never be summed. See `AGENTS.md` (rule D6) before writing any
 report or dashboard query.
 
+## Install as a package
+
+kankaku-hub is also published to npm so it can be installed as a hub
+without a git checkout — pinned PocketBase migrations, hooks and the
+prebuilt web app in one tarball. See
+[`docs/runbooks/publish-hub-package.md`](docs/runbooks/publish-hub-package.md)
+for what's shipped and the release procedure, and `kankaku hub install` in
+the `kankaku` CLI for the consumer side.
+
 ## Sync contract
 
 If you're building kankaku's sync client or the web dashboard, read

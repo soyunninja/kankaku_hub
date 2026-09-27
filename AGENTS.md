@@ -47,6 +47,48 @@ invoicing tool.
 - No AI attribution of any kind in commits (no `Co-Authored-By`, no
   "Generated with", nothing).
 
+## Publishing the hub package (npm: kankaku-hub)
+
+kankaku-hub is published to npm as `kankaku-hub` so a consumer (the
+standalone `kankaku` CLI, `kankaku hub install`) can install a local hub
+without a git checkout. The published tarball ships exactly:
+`pocketbase/pb_migrations/**` (the schema — the contract, see above),
+`pocketbase/pb_hooks/**` without its `*.test.js` files (excluded via the
+nested `pocketbase/pb_hooks/.npmignore`), the prebuilt static web app
+(`public/`, copied from `web/.output/public` at pack time), and a
+generated `hub-manifest.json`. Nothing else — no seed data, no scripts, no
+web sources, no docs beyond `README.md`/`LICENSE`. See `package.json`'s
+`files` field for the exact allowlist.
+
+- `npm publish` runs `prepack`, which runs `npm run pack:hub`:
+  `npm run web:build` (`pnpm --dir web generate`, needs `pnpm` — see
+  `docs/runbooks/local-development.md`), then `scripts/write-manifest.mjs`
+  (regenerates `hub-manifest.json`) and `scripts/copy-public.mjs` (copies
+  the web build to `public/`). Both `public/` and `hub-manifest.json` are
+  gitignored and generated fresh on every pack/publish — never hand-edit
+  or commit either.
+- `hub-manifest.json` records the schema version (the last applied
+  migration filename), the full migration list, and the pinned PocketBase
+  binary's download URL + SHA256 per OS/arch, read from the committed
+  `pocketbase/pocketbase-checksums.json`. `scripts/write-manifest.mjs`
+  fails loudly (before any file is written) if that checksums file has no
+  entry for the version currently pinned in `scripts/pb-download.sh`.
+- When the pinned PocketBase version in `scripts/pb-download.sh` changes,
+  run `node scripts/pb-checksums.mjs` (downloads the four release zips and
+  hashes them — needs network) and commit the resulting
+  `pocketbase/pocketbase-checksums.json` **before** the next publish.
+- Version bump: `npm version x.y.z --no-git-tag-version`, update a
+  changelog if this repo has one by then, tag `vX.Y.Z`, `npm publish`. See
+  [`docs/runbooks/publish-hub-package.md`](docs/runbooks/publish-hub-package.md)
+  for the full step-by-step procedure.
+- Never edit a shipped migration file after it has been published — this
+  is the same rule as "the migrations are the contract" above, and it
+  applies even harder once a migration has shipped to consumers who may
+  already be running it.
+- `npm run manifest:test` (`node --test scripts/*.test.mjs`) covers
+  `write-manifest.mjs` and `copy-public.mjs` with fixture/temp-dir tests
+  and must stay green alongside `hooks:test`/`seed:test`.
+
 ## PocketBase specifics worth knowing
 
 - `bool` and `number` fields in PocketBase 0.40 have no schema-level
