@@ -1,9 +1,30 @@
 {
   "name": "kankaku-hub",
-  "private": true,
+  "private": false,
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "PocketBase backend for kankaku: canonical clients/projects/tasks and synced task_entries/work_records.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/soyunninja/kankaku_hub.git"
+  },
+  "keywords": [
+    "kankaku",
+    "pocketbase",
+    "time-tracking",
+    "agents"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "pocketbase/pb_migrations/",
+    "pocketbase/pb_hooks/",
+    "public/",
+    "hub-manifest.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "pb:download": "scripts/pb-download.sh",
     "dev": "scripts/dev.sh",
@@ -12,6 +33,9 @@
     "pb:seed": "node pocketbase/seed/seed.js --i-know",
     "hooks:test": "node --test pocketbase/pb_hooks/lib/*.test.js",
     "seed:test": "node --test pocketbase/seed/lib/*.test.js",
+    "manifest:test": "node --test scripts/*.test.mjs",
+    "pack:hub": "npm run web:build && node scripts/write-manifest.mjs && node scripts/copy-public.mjs",
+    "prepack": "npm run pack:hub",
     "web:install": "pnpm --dir web install",
     "web:dev": "pnpm --dir web dev",
     "web:build": "pnpm --dir web generate",

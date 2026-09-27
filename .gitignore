@@ -1,6 +1,8 @@
 pocketbase/bin/
 pocketbase/pb_data/
 node_modules/
+/public/
+/hub-manifest.json
 .env
 .env.*
 !.env.example
