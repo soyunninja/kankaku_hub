@@ -57,7 +57,8 @@ const client = defineModel<string>('client', { required: true })
 const project = defineModel<string>('project', { required: true })
 const task = defineModel<string>('task', { required: true })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const guideUrl = computed(() => `https://kankaku.io${locale.value === 'en' ? '' : `/${locale.value}`}/docs/guide#settings`)
 const { formatCost, formatDateTime, formatDuration, formatPercent, formatTokens } = useFormatters()
 
 // -- focus management: the page's SheetContent @open-auto-focus hands
@@ -559,9 +560,9 @@ defineOptions({ inheritAttrs: false })
         <pre v-if="entry.prompt" data-testid="prompt-pre" class="max-h-48 overflow-y-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words text-foreground">{{ entry.prompt }}</pre>
         <p v-else class="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
           {{ t('entries.detail.promptEmpty') }}
-          <NuxtLink to="/commands#config" class="font-medium text-primary hover:underline">
+          <a :href="guideUrl" target="_blank" rel="noopener noreferrer" class="font-medium text-primary hover:underline">
             {{ t('entries.detail.promptEmptyLink') }}
-          </NuxtLink>
+          </a>
         </p>
       </section>
 

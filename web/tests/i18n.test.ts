@@ -75,15 +75,26 @@ describe('i18n locale parity', () => {
   })
 })
 
+describe('shared search copy', () => {
+  it('provides localized combobox empty text and search labels', () => {
+    expect(en.common.search).toBe('Search')
+    expect(es.common.search).toBe('Buscar')
+    expect(ja.common.search).toBe('検索')
+    expect(en.common.noResults).toBe('No results found.')
+    expect(es.common.noResults).toBe('No se encontraron resultados.')
+    expect(ja.common.noResults).toBe('結果が見つかりません。')
+  })
+})
+
 describe('ja.json translation sanity', () => {
   /**
    * Pragmatic, not brittle: only flags a handful of whole Spanish/English
    * UI words that would be a clear sign a string was left untranslated
    * (copy-pasted from es/en instead of translated), checked on a sample
    * of core, high-traffic keys rather than every string in the file —
-   * command descriptions legitimately keep literal env var names,
-   * command syntax and code tokens (e.g. "KANKAKU_SYNC_PROMPT",
-   * "task_entries") in every locale, which this check must not flag.
+   * technical labels legitimately keep literal env var names and code
+   * tokens (e.g. "KANKAKU_SYNC_PROMPT", "task_entries") in every locale,
+   * which this check must not flag.
    */
   const CORE_SAMPLE_KEYS = [
     'nav.dashboard',
@@ -92,7 +103,6 @@ describe('ja.json translation sanity', () => {
     'nav.tasks',
     'nav.unassigned',
     'nav.entries',
-    'nav.commands',
     'nav.settings',
     'nav.logout',
     'theme.label',
@@ -107,6 +117,7 @@ describe('ja.json translation sanity', () => {
     'common.active',
     'common.inactive',
     'common.search',
+    'common.noResults',
     'dashboard.title',
     'dashboard.kpi.workTime',
     'dashboard.kpi.waitingTime',
@@ -120,8 +131,11 @@ describe('ja.json translation sanity', () => {
     'settings.title',
     'settings.appearance',
     'settings.language',
-    'commands.title',
+    'settings.website',
+    'entries.detail.promptEmptyLink',
     'commands.copy',
+    'commands.copied',
+    'commands.copyAria',
   ] as const
 
   // Whole-word matches only (case-insensitive), so this never flags a

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, findClients, login, pbUrl, setTheme, shoot, toastText, useFlatEntriesView } from './helpers'
+import { apiLogin, assertIsolatedFixtureStack, comboboxList, comboboxTrigger, findClients, login, pbUrl, selectCombobox, setTheme, shoot, toastText, useFlatEntriesView } from './helpers'
 
 /**
  * End-to-end coverage for the redesigned entry detail sheet (see
@@ -22,7 +22,9 @@ import { apiLogin, findClients, login, pbUrl, setTheme, shoot, toastText, useFla
 interface Fixture {
   entryId: string
   runId: string
+  clientId: string
   clientName: string
+  projectId: string
   projectName: string
   wallMs: number
   workMs: number
@@ -32,6 +34,7 @@ async function createFixtureEntry(
   request: Parameters<typeof apiLogin>[0],
   overrides: { prompt?: string } = {},
 ): Promise<{ token: string, fixture: Fixture }> {
+  assertIsolatedFixtureStack()
   const token = await apiLogin(request)
   const { target } = await findClients(request, token)
 
@@ -87,7 +90,7 @@ async function createFixtureEntry(
 
   return {
     token,
-    fixture: { entryId: created.id, runId, clientName: target.name, projectName: project.name, wallMs, workMs },
+    fixture: { entryId: created.id, runId, clientId: target.id, clientName: target.name, projectId: project.id, projectName: project.name, wallMs, workMs },
   }
 }
 
@@ -220,7 +223,7 @@ test.describe('entry detail sheet', () => {
     }
   })
 
-  test('empty prompt shows the KANKAKU_SYNC_PROMPT note with a link to /commands', async ({ page, request }) => {
+  test('empty prompt links to the kankaku setup guide', async ({ page, request }) => {
     test.setTimeout(60_000)
     const { token, fixture } = await createFixtureEntry(request, { prompt: '' })
 
@@ -231,9 +234,11 @@ test.describe('entry detail sheet', () => {
       const sheet = page.locator('[data-slot="sheet-content"]')
       await expect(sheet.locator('[data-testid="prompt-pre"]')).toHaveCount(0)
       await expect(sheet.getByText('KANKAKU_SYNC_PROMPT')).toBeVisible()
-      const link = sheet.getByRole('link', { name: /Comandos|Commands/ })
+      const link = sheet.getByRole('link', { name: /guía de configuración de kankaku/ })
       await expect(link).toBeVisible()
-      await expect(link).toHaveAttribute('href', '/commands#config')
+      await expect(link).toHaveAttribute('href', 'https://kankaku.io/es/docs/guide#settings')
+      await expect(link).toHaveAttribute('target', '_blank')
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     }
     finally {
       await deleteFixtureEntry(request, token, fixture.entryId)
@@ -251,18 +256,37 @@ test.describe('entry detail sheet', () => {
       await openFixture(page, fixture.runId)
 
       const sheet = page.locator('[data-slot="sheet-content"]')
-      const selects = sheet.locator('select')
+      const clientTrigger = comboboxTrigger(page, 'Cliente').and(sheet.locator('[data-slot="combobox-trigger"]'))
+      const projectTrigger = comboboxTrigger(page, 'Proyecto').and(sheet.locator('[data-slot="combobox-trigger"]'))
+      await expect(clientTrigger).toHaveText(fixture.clientName)
+      await expect(projectTrigger).toHaveText(fixture.projectName)
+
+      await clientTrigger.click()
+      const clientList = comboboxList(page, 'Cliente')
+      const clientInput = clientList.locator('[data-slot="command-input"]')
+      await expect(clientInput).toHaveValue(fixture.clientName)
+      await expect(clientInput).not.toHaveValue(fixture.clientId)
+      await page.keyboard.press('Escape')
+      await expect(clientList).toBeHidden()
+
+      await projectTrigger.focus()
+      await projectTrigger.click()
+      const projectList = comboboxList(page, 'Proyecto')
+      const projectInput = projectList.locator('[data-slot="command-input"]')
+      await expect(projectInput).toHaveValue(fixture.projectName)
+      await expect(projectInput).not.toHaveValue(fixture.projectId)
+      await page.keyboard.press('Escape')
+      await expect(projectList).toBeHidden()
+      await clientTrigger.focus()
       // Move it to "Sin determinar" — proves the save round-trips through
       // the real updateAssignment call. The fixture is a disposable row
       // deleted in `finally` regardless of outcome, never the seeded demo
       // data, so there is nothing to revert (contrast with
       // e2e/polish.spec.ts's bulk-assign test, which reverts seeded rows).
-      // Only the client select is touched here — the project select's
-      // options collapse to a placeholder plus a single "None" entry once
-      // the client has no projects, both sharing the empty value, which
-      // makes selecting by label ambiguous; verifying the client save is
-      // what this test is actually about.
-      await selects.first().selectOption({ label: unassigned.name })
+      // Only the client combobox is touched here — the project catalog
+      // collapses to "None" when the client has no projects; verifying the
+      // client save is what this test is actually about.
+      await selectCombobox(clientTrigger, unassigned.name)
       await sheet.getByRole('button', { name: 'Guardar' }).click()
       await expect(toastText(page, 'Guardado')).toBeVisible({ timeout: 10_000 })
 
@@ -320,9 +344,9 @@ test.describe('entry detail sheet', () => {
     try {
       await login(page)
       await openFixture(page, fixture.runId)
-      const select = page.getByTestId('entry-task-select').locator('select')
-      await expect(select).toBeVisible()
-      await select.selectOption(task.id)
+      const taskTrigger = comboboxTrigger(page, 'Tarea').and(page.getByTestId('entry-task-select'))
+      await expect(taskTrigger).toBeVisible()
+      await selectCombobox(taskTrigger, `${task.title} · Abierta`)
       await page.getByRole('button', { name: 'Guardar' }).click()
 
       await expect(async () => {
@@ -332,7 +356,14 @@ test.describe('entry detail sheet', () => {
         expect(linked.status).toBe('doing')
       }).toPass({ timeout: 5000 })
 
-      await expect(select).toHaveValue(task.id)
+      await expect(taskTrigger).toContainText(task.title)
+      await taskTrigger.click()
+      const taskList = comboboxList(page, 'Tarea')
+      const taskInput = taskList.locator('[data-slot="command-input"]')
+      await expect.poll(() => taskInput.inputValue()).toContain(task.title)
+      await expect(taskInput).not.toHaveValue(task.id)
+      await page.keyboard.press('Escape')
+      await expect(taskList).toBeHidden()
     }
     finally {
       await deleteFixtureEntry(request, token, fixture.entryId)

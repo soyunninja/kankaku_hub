@@ -83,6 +83,10 @@ onMounted(async () => {
           <span class="tabular-nums">{{ hubUrl }}</span>
         </div>
         <div class="flex justify-between">
+          <span class="text-muted-foreground">{{ t('settings.website') }}</span>
+          <a href="https://kankaku.io" target="_blank" rel="noopener noreferrer" class="font-medium text-primary hover:underline">kankaku.io</a>
+        </div>
+        <div class="flex justify-between">
           <span class="text-muted-foreground">{{ t('settings.signedInAs') }}</span>
           <span>{{ user?.email }} ({{ user?.role }})</span>
         </div>
