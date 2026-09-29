@@ -56,6 +56,7 @@
     "status": "ステータス",
     "all": "すべて",
     "none": "なし",
+    "noResults": "結果が見つかりません。",
     "search": "検索",
     "close": "閉じる",
     "openMenu": "メニューを開く",

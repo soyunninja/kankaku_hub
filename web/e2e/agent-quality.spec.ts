@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
-import { login, setTheme } from './helpers'
+import { comboboxTrigger, login, selectCombobox, setTheme } from './helpers'
 
 /**
  * End-to-end coverage for the agent/measurement-quality UI (agent icons,
@@ -26,8 +26,7 @@ function agentIconTitles(page: Page) {
 }
 
 async function selectAgentFilter(page: Page, label: string) {
-  const select = page.locator('select').filter({ has: page.locator('option', { hasText: 'Agente' }) })
-  await select.selectOption({ label })
+  await selectCombobox(comboboxTrigger(page, 'Agente'), label)
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(300)
 }
@@ -102,8 +101,7 @@ test.describe('dashboard upper-bound honesty notice', () => {
     await expect(notice).toBeVisible({ timeout: 10_000 })
     await expect(notice).toContainText('7 registros')
 
-    const agentSelect = page.locator('select').filter({ has: page.locator('option', { hasText: 'Agente' }) })
-    await agentSelect.selectOption({ label: 'pi' })
+    await selectCombobox(comboboxTrigger(page, 'Agente'), 'pi')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(300)
 
@@ -169,10 +167,10 @@ test.describe('390px overflow', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(200)
 
-    const agentSelect = page.locator('select').filter({ has: page.locator('option', { hasText: 'Agente' }) })
-    const qualitySelect = page.locator('select').filter({ has: page.locator('option', { hasText: 'Calidad de medición' }) })
-    await expect(agentSelect).toBeVisible()
-    await expect(qualitySelect).toBeVisible()
+    const agentTrigger = comboboxTrigger(page, 'Agente')
+    const qualityTrigger = comboboxTrigger(page, 'Calidad de medición')
+    await expect(agentTrigger).toBeVisible()
+    await expect(qualityTrigger).toBeVisible()
 
     const { scrollWidth, innerWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,

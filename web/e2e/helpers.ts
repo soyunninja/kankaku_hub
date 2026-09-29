@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
 export const screenshotsDir = path.join(fileURLToPath(new URL('.', import.meta.url)), '..', 'docs', 'screenshots')
@@ -91,6 +91,18 @@ export function assertPbWritesAllowed(): void {
   )
 }
 
+/** These fixture specs may mutate only a matching isolated web/PB pair (:3002/:8092 or :3003/:8093). */
+export function assertIsolatedFixtureStack(): void {
+  const web = process.env.PW_BASE_URL
+  const pocketbase = pbOrigin()
+  const isolatedPair = (web === 'http://127.0.0.1:3002' && pocketbase === 'http://127.0.0.1:8092')
+    || (web === 'http://127.0.0.1:3003' && pocketbase === 'http://127.0.0.1:8093')
+  if (!isolatedPair) {
+    throw new Error(`Refusing fixture writes: expected isolated :3002/:8092 or :3003/:8093, got ${web ?? '(unset)'} / ${pocketbase}`)
+  }
+  assertPbWritesAllowed()
+}
+
 /** Creates a disposable client record for a spec's own fixtures. Guarded
  * by `assertPbWritesAllowed()` — see its docs. */
 export async function createClientRecord(
@@ -164,6 +176,31 @@ export async function findClients(request: APIRequestContext, token: string): Pr
  */
 export function toastText(page: Page, text: string | RegExp) {
   return page.locator('[data-testid="toast-viewport"]').getByText(text)
+}
+
+/** Exclude the search input, which also has role combobox while the list is open. */
+export function comboboxTrigger(page: Page, name: string): Locator {
+  return page.getByRole('combobox', { name, exact: true }).and(page.locator('[data-slot="combobox-trigger"]'))
+}
+
+/** Scope options to the portaled list containing this control's named search input. */
+export function comboboxList(page: Page, name: string): Locator {
+  const input = page.getByRole('combobox', { name, exact: true }).and(page.locator('[data-slot="command-input"]'))
+  return page.locator('[data-slot="combobox-list"]').filter({ has: input })
+}
+
+/** Pick a visible catalog label from this control's list, not its private item value. */
+export async function selectCombobox(trigger: Locator, label: string): Promise<void> {
+  const triggerButton = trigger.and(trigger.page().locator('[data-slot="combobox-trigger"]'))
+  const name = await triggerButton.getAttribute('aria-label')
+  if (!name) throw new Error('Combobox trigger must have an aria-label to identify its list')
+  const list = comboboxList(trigger.page(), name)
+  await triggerButton.click()
+  const option = list.getByRole('option', { name: label, exact: true })
+  await expect(option).toBeVisible()
+  await option.click()
+  await expect(triggerButton).toContainText(label)
+  await expect(list).toBeHidden()
 }
 
 /**
