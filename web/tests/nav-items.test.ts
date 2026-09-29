@@ -34,7 +34,6 @@ describe('NAV_ITEMS', () => {
       '/unassigned',
       '/sessions-without-task',
       '/entries',
-      '/commands',
       '/settings',
     ])
   })

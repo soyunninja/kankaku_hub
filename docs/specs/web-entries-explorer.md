@@ -49,7 +49,8 @@ task, never for computing a total.
 10. `ENTRIES-REQ-010` — The drawer SHALL show the raw `prompt` in a
     scrollable block with line breaks preserved (never via `v-html`) when
     present, and an explanatory note referencing `KANKAKU_SYNC_PROMPT`
-    (linking to the `/commands` configuration section) when absent.
+    (linking to the locale-specific external kankaku guide's `#settings`
+    section) when absent.
 11. `ENTRIES-REQ-011` — The drawer SHALL NEVER render PocketBase-internal
     fields (`collectionId`, `collectionName`, `expand`); every entry field
     not already covered by a dedicated section SHALL be grouped into a
@@ -202,7 +203,7 @@ None beyond the shared PocketBase connection.
 | `ENTRIES-REQ-007` | `web/tests/entry-detail.test.ts` (`safeDisplayValue`, `normalizeSegments`), `web/e2e/entry-detail.spec.ts` | covered |
 | `ENTRIES-REQ-008` | `web/tests/entry-detail.test.ts` (`resolveRelation`), `web/e2e/entry-detail.spec.ts` | covered |
 | `ENTRIES-REQ-009` | `web/tests/entry-detail.test.ts` (`normalizeSegments`), `web/e2e/entry-detail.spec.ts` | covered |
-| `ENTRIES-REQ-010` | `web/e2e/entry-detail.spec.ts` (prompt line-break preservation; empty-prompt note not separately exercised in this pass) | partial |
+| `ENTRIES-REQ-010` | `web/e2e/entry-detail.spec.ts` (prompt line-break preservation; "empty prompt links to the kankaku setup guide" asserts the external URL, `target`, and `rel`). The former `/commands` configuration destination was retired; see [historical commands spec](web-commands-reference.md). | covered |
 | `ENTRIES-REQ-011` | `web/e2e/entry-detail.spec.ts` | covered |
 | `ENTRIES-REQ-012` | `web/e2e/agent-quality.spec.ts` ("entries explorer agent filter") | covered |
 | `ENTRIES-REQ-013` | code review (`useEntriesExplorer.ts#buildFilter`); the quality select's presence is exercised by `web/e2e/agent-quality.spec.ts`'s 390px overflow test, but its actual filtering behavior is not | not covered by an automated test found in this pass |

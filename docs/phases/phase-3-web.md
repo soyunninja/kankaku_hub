@@ -92,6 +92,12 @@ put data there, and on phase 2b for the assignment queue to be useful.
   block (env vars, credentials file shape, a same-origin connect snippet,
   and the `pi -e` load command). Commits: `2ff7a39` (screen, data,
   components, i18n, nav), `af4d500` (tests + e2e + screenshots).
+  **Retirement note:** The hub `/commands` screen and its navigation were
+  later removed to avoid duplicating kankaku.io. Current command and setup
+  documentation lives on [kankaku.io](https://kankaku.io); Settings links to
+  the site and empty-prompt entry detail links to the localized guide's
+  `#settings` section. The bullet above records the original phase evidence,
+  not current behavior.
 - Engram session narrative (also added after the initial phase
   closeout, on branch `feat/engram-narrative`, see
   [engram-narrative.md](../specs/engram-narrative.md) for the full

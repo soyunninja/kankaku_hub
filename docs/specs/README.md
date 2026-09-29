@@ -1,6 +1,7 @@
 # Specifications
 
-Normative, per-capability specs. Each follows
+Active specs are normative per-capability contracts; a retired spec is
+historical evidence, not an active requirement. Each follows
 [`../templates/spec-template.md`](../templates/spec-template.md): a status
 header, numbered requirements with stable ids, Given/When/Then scenarios,
 configuration, edge cases, out-of-scope, and a traceability table to tests.
@@ -25,7 +26,7 @@ configuration, edge cases, out-of-scope, and a traceability table to tests.
 | Web entries explorer | kankaku-hub | phase-3 | implemented | [web-entries-explorer.md](web-entries-explorer.md) |
 | Web sessions | kankaku-hub | phase-3 | implemented | [web-sessions.md](web-sessions.md) |
 | Web theming and i18n | kankaku-hub | phase-3 | implemented | [web-theming-and-i18n.md](web-theming-and-i18n.md) |
-| Web commands reference | kankaku-hub | phase-3 | implemented | [web-commands-reference.md](web-commands-reference.md) |
+| Web commands reference | kankaku-hub | phase-3 | retired / superseded (historical) | [web-commands-reference.md](web-commands-reference.md) |
 | Security and privacy | kankaku, kankaku-hub | phase-2 | implemented | [security-and-privacy.md](security-and-privacy.md) |
 | Public site | kankaku site repo (private) | phase-site-public-website | implemented | `docs/specs/public-site.md` in the site repository |
 | Engram session narrative | kankaku-hub | phase-3 | implemented | [engram-narrative.md](engram-narrative.md) |

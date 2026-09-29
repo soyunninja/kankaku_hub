@@ -7,7 +7,6 @@ import {
   ListTodo,
   Search,
   Settings,
-  Terminal,
   Users,
 } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
@@ -45,7 +44,6 @@ const ICONS: Record<string, typeof Users> = {
   '/unassigned': Inbox,
   '/sessions-without-task': Link2Off,
   '/entries': Search,
-  '/commands': Terminal,
   '/settings': Settings,
 }
 function badgeFor(to: string): number | undefined {

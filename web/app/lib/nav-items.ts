@@ -21,7 +21,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/unassigned', labelKey: 'nav.unassigned' },
   { to: '/sessions-without-task', labelKey: 'nav.sessionsQueue' },
   { to: '/entries', labelKey: 'nav.entries' },
-  { to: '/commands', labelKey: 'nav.commands' },
   { to: '/settings', labelKey: 'nav.settings' },
 ]
 

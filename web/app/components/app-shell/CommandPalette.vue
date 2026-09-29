@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Boxes, Gauge, Inbox, Link2Off, ListTodo, Search, Settings, Terminal, Users } from '@lucide/vue'
+import { Boxes, Gauge, Inbox, Link2Off, ListTodo, Search, Settings, Users } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -43,7 +43,6 @@ const ICONS: Record<string, typeof Users> = {
   '/unassigned': Inbox,
   '/sessions-without-task': Link2Off,
   '/entries': Search,
-  '/commands': Terminal,
   '/settings': Settings,
 }
 function badgeFor(to: string): number | undefined {

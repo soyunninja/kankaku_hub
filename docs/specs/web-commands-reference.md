@@ -2,14 +2,30 @@
 
 | | |
 |---|---|
-| Status | implemented |
+| Status | retired / superseded — historical specification, not active requirements |
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | — |
-| Code | `web/app/pages/commands/index.vue`, `web/app/lib/kankaku-commands.ts`, `web/app/components/commands/CommandRow.vue`, `web/app/components/commands/CopyButton.vue`, `web/app/components/app-shell/SidebarNav.vue`, `web/app/components/app-shell/CommandPalette.vue`, `web/app/components/app-shell/Header.vue` |
-| Tests | `web/tests/kankaku-commands.test.ts`, `web/tests/i18n.test.ts`, `web/e2e/commands.spec.ts` |
+| Historical code | `web/app/pages/commands/index.vue`, `web/app/lib/kankaku-commands.ts`, `web/app/components/commands/CommandRow.vue`, `web/app/components/commands/CopyButton.vue`, `web/app/components/app-shell/SidebarNav.vue`, `web/app/components/app-shell/CommandPalette.vue`, `web/app/components/app-shell/Header.vue` |
+| Historical tests | `web/tests/kankaku-commands.test.ts`, `web/tests/i18n.test.ts`, `web/e2e/commands.spec.ts` |
 
-## Purpose
+## Current documentation and hub behavior
+
+The hub's `/commands` page was retired to avoid duplicating kankaku's own
+website. The canonical web documentation is the [kankaku guide](https://kankaku.io/docs/guide)
+(including hub setup and `#settings`) and the [commands reference](https://kankaku.io/docs/commands).
+The hub no longer links to `/commands` from the sidebar or command palette.
+Settings links to https://kankaku.io; when an entry has no synced prompt,
+its detail links to the locale-specific guide's `#settings` section (English
+`/docs/guide`, Spanish `/es/docs/guide`, Japanese `/ja/docs/guide`).
+
+Local site routes `/es/docs/guide` and `/es/docs/commands` were checked with
+HTTP 200 and rendered hub setup/commands content. Production availability
+was not verified. The sections below retain the original implementation
+contract and evidence for history; their `SHALL` statements are **not active
+hub requirements**, and historical code/tests may no longer exist.
+
+## Historical purpose
 
 A reference screen (`/commands`) documenting every `/kankaku` subcommand the
 pi extension implements — exact syntax, what it does and when to use it — plus
@@ -17,7 +33,7 @@ a "Configuration" block for connecting kankaku to this hub. It documents
 kankaku (a separate repo/process); this screen never runs a kankaku
 command itself.
 
-## Requirements
+## Historical requirements (inactive)
 
 1. `CMDREF-REQ-001` — The screen SHALL list every `/kankaku` subcommand
    implemented by kankaku's command handler
@@ -57,7 +73,7 @@ command itself.
     overflow at a 390px viewport width, with long command syntax wrapping
     or scrolling inside its own box rather than the page.
 
-## Scenarios
+## Historical scenarios (inactive)
 
 ### Scenario: hub-gated commands are flagged (`CMDREF-REQ-002`)
 
@@ -96,7 +112,7 @@ command itself.
 - **When** the commands reference is rendered, including the longest command (`/kankaku export [csv|json] [all]`) and the environment-variable table
 - **Then** `document.documentElement.scrollWidth` does not exceed `clientWidth`
 
-## Configuration
+## Historical configuration
 
 This screen displays kankaku's own configuration; it does not add any
 configuration of its own. The full list of `KANKAKU_*` variables it
@@ -105,7 +121,7 @@ documents (name, default, meaning) lives as typed data in
 kankaku's `src/config.ts` and `README.md` "Environment variables" — see
 that module's own comment for the verification note.
 
-## Edge cases & failure modes
+## Historical edge cases & failure modes
 
 - The browser's Clipboard API is unavailable (very old browser, insecure
   context): the copy button disables itself (`useClipboard`'s
@@ -114,15 +130,18 @@ that module's own comment for the verification note.
   locale still works after a locale switch (it re-filters against the new
   locale's strings, since the match happens against `t(...)` output).
 
-## Out of scope
+## Historical out of scope
 
 - Actually running a `/kankaku` command from the web app — this is a
   read-only reference; kankaku commands only ever run inside pi.
 - Editing kankaku's own configuration from this web app.
 
-## Traceability
+## Historical traceability
 
-| Requirement | Proof | Status |
+The coverage below describes the former screen at the time of implementation;
+`covered` is not a claim of current coverage or a requirement to restore it.
+
+| Requirement | Historical proof | Status at the time |
 |---|---|---|
 | `CMDREF-REQ-001` | `web/tests/kankaku-commands.test.ts` (ids/descriptions), `web/e2e/commands.spec.ts` | covered |
 | `CMDREF-REQ-002` | `web/e2e/commands.spec.ts` ("a requires hub badge is present") | covered |

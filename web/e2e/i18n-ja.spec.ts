@@ -35,7 +35,6 @@ test.describe('Japanese locale', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
     await expect(page.getByRole('link', { name: 'ダッシュボード' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'クライアント' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'コマンド' })).toBeVisible()
 
     // KPI durations render with Japanese units (時間/分), not h/m.
     const kpiValues = page.locator('[data-testid="kpi-value"]')
@@ -88,7 +87,6 @@ test.describe('Japanese locale (390px): no horizontal page overflow', () => {
     { path: '/', label: 'dashboard' },
     { path: '/clients', label: 'clients' },
     { path: '/entries', label: 'entries' },
-    { path: '/commands', label: 'commands' },
   ]
 
   for (const { path, label } of screens) {

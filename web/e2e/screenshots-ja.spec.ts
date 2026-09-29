@@ -8,7 +8,7 @@ import { apiLogin, findClients, login, pbUrl, setTheme, shoot } from './helpers'
  * of the regular regression suite's assertions — this spec's job is to
  * produce PNGs for a human (or a future agent) to look at for tofu,
  * mismatched fonts and awkward wraps, mirroring the existing
- * dashboard-{dark,light}.png / commands-*.png / entry-detail-*.png
+ * dashboard-{dark,light}.png / entry-detail-*.png
  * captured by e2e/smoke.spec.ts and e2e/entry-detail.spec.ts, but with
  * the UI switched to 日本語 first.
  */
@@ -77,10 +77,6 @@ test('captures Japanese-locale documentation screenshots', async ({ page, reques
     await shoot(page, 'dashboard-ja-light')
 
     await setTheme(page, 'dark')
-    await page.goto('/commands')
-    await page.waitForLoadState('networkidle')
-    await shoot(page, 'commands-ja-dark')
-
     await page.goto('/entries')
     await page.waitForLoadState('networkidle')
     await page.getByPlaceholder('マシン').fill(runId)

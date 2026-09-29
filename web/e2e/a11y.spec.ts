@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, toastText } from './helpers'
+import { apiLogin, assertIsolatedFixtureStack, findClients, login, pbUrl, toastText } from './helpers'
 
 /**
  * MINOR/MAJOR a11y findings from the 2026-09-21 independent review:
@@ -19,7 +19,7 @@ import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, toastText }
 
 const ROUTES = [
   '/', '/clients', '/projects', '/tasks', '/unassigned',
-  '/sessions-without-task', '/entries', '/commands', '/settings',
+  '/sessions-without-task', '/entries', '/settings',
 ]
 
 /**
@@ -51,7 +51,7 @@ test.describe('every interactive element has an accessible name', () => {
 })
 
 async function createIgnorableSession(request: APIRequestContext, token: string, clientId: string, projectId: string) {
-  assertPbWritesAllowed()
+  assertIsolatedFixtureStack()
   const runId = `e2e-a11y-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
   const startedAt = new Date().toISOString().replace('T', ' ').slice(0, 19) + '.000Z'
   const res = await request.post(pbUrl('/api/collections/task_entries/records'), {
@@ -85,6 +85,7 @@ async function createIgnorableSession(request: APIRequestContext, token: string,
 test.describe('toast live region', () => {
   test('a bulk action toast is present in the accessibility tree via the polite live region', async ({ page, request }) => {
     test.setTimeout(30_000)
+    assertIsolatedFixtureStack()
     const token = await apiLogin(request)
     const { target } = await findClients(request, token)
     const projectsRes = await request.get(pbUrl(`/api/collections/projects/records?perPage=1&filter=${encodeURIComponent(`client = "${target.id}"`)}`), {
