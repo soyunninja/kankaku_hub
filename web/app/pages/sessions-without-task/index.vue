@@ -652,7 +652,7 @@ async function confirmIgnore() {
           </div>
           <div class="flex flex-col gap-1.5">
             <Label>{{ t('common.project') }}</Label>
-            <Select v-model="convertForm.project" :placeholder="t('common.select')" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
+            <Select v-model="convertForm.project" :aria-label="t('common.project')" :placeholder="t('common.select')" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
           </div>
           <DialogFooter>
             <Button :disabled="!convertForm.title.trim() || !convertForm.project || converting" @click="confirmConvert">

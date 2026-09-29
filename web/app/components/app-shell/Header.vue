@@ -3,6 +3,7 @@ import { LogOut, Menu, Search } from '@lucide/vue'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import Kbd from '@/components/ui/kbd/Kbd.vue'
 import { isReadOnlyRole } from '@/lib/roles'
 import { resolveBreadcrumbLabels } from '@/lib/nav-items'
 import LocaleSwitcher from './LocaleSwitcher.vue'
@@ -64,7 +65,7 @@ async function onLogout() {
     >
       <Search class="size-3.5" />
       {{ t('palette.trigger') }}
-      <kbd class="rounded border border-border bg-muted px-1 font-mono text-[10px]">⌘K</kbd>
+      <Kbd>⌘K</Kbd>
     </button>
 
     <ThemeToggle />
