@@ -170,6 +170,8 @@
     "new": "Nuevo proyecto",
     "edit": "Editar proyecto",
     "filterByClient": "Filtrar por cliente",
+    "sortAscending": "Ordenar {column} de forma ascendente",
+    "sortDescending": "Ordenar {column} de forma descendente",
     "repoPaths": "Rutas de repositorio",
     "repoPathsHint": "Rutas absolutas del repo en tus máquinas. kankaku las usa para seleccionar el proyecto automáticamente al iniciar sesión en ese directorio.",
     "addPath": "Añadir ruta",

@@ -16,11 +16,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { groupByProject } from '@/lib/aggregate'
 import { resolvePreset } from '@/lib/period'
+import { initialSortDirection, sortProjects } from '@/lib/project-sort'
+import type { SortDirection, SortKey } from '@/lib/project-sort'
 import type { ProjectRecord } from '@/lib/pocketbase-types'
 import { totalsByGroupKey } from '@/lib/totals-map'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { formatCost, formatDuration } = useFormatters()
 useHead({ title: computed(() => t('projects.title')) })
 
@@ -65,7 +67,24 @@ function clientById(id: string) {
   return clients.value.find(c => c.id === id)
 }
 
-const filtered = computed(() => filterClient.value ? projects.value.filter(p => p.client === filterClient.value) : projects.value)
+const sortKey = ref<SortKey>('name')
+const sortDirection = ref<SortDirection>('asc')
+function activateSort(key: SortKey) {
+  sortDirection.value = sortKey.value === key
+    ? sortDirection.value === 'asc' ? 'desc' : 'asc'
+    : initialSortDirection(key)
+  sortKey.value = key
+}
+function nextSortLabel(key: SortKey, column: string) {
+  const direction = sortKey.value === key
+    ? sortDirection.value === 'asc' ? 'desc' : 'asc'
+    : initialSortDirection(key)
+  return t(direction === 'asc' ? 'projects.sortAscending' : 'projects.sortDescending', { column })
+}
+const filtered = computed(() => {
+  const visible = filterClient.value ? projects.value.filter(p => p.client === filterClient.value) : projects.value
+  return sortProjects(visible, sortKey.value, sortDirection.value, locale.value, clientName, totalsByProject.value)
+})
 
 const dialogOpen = ref(false)
 const editing = ref<ProjectRecord | null>(null)
@@ -153,14 +172,20 @@ async function toggleArchive(project: ProjectRecord) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{{ t('common.name') }}</TableHead>
-                <TableHead>{{ t('common.client') }}</TableHead>
-                <TableHead>{{ t('common.status') }}</TableHead>
-                <TableHead class="text-right">
-                  <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
-                </TableHead>
-                <TableHead class="text-right">
-                  {{ t('common.cost') }}
+                <TableHead
+                  v-for="key in (['name', 'client', 'status', 'time', 'cost'] as const)" :key="key"
+                  :class="key === 'time' || key === 'cost' ? 'text-right' : undefined"
+                  :aria-sort="sortKey === key ? sortDirection === 'asc' ? 'ascending' : 'descending' : undefined"
+                >
+                  <button
+                    type="button" class="inline-flex items-center gap-1 rounded-sm text-inherit hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    :aria-label="nextSortLabel(key, t(`common.${key}`))"
+                    @click="activateSort(key)"
+                  >
+                    <span v-if="key === 'time'" :title="t('common.timeHint')">{{ t('common.time') }}</span>
+                    <span v-else>{{ t(`common.${key}`) }}</span>
+                    <span v-if="sortKey === key" aria-hidden="true">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </button>
                 </TableHead>
                 <TableHead class="text-right">
                   {{ canWrite ? t('common.actions') : '' }}
@@ -217,7 +242,7 @@ async function toggleArchive(project: ProjectRecord) {
             </div>
             <div class="flex flex-col gap-1.5">
               <Label>{{ t('common.client') }}</Label>
-              <Select v-model="form.client" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
+              <Select v-model="form.client" :aria-label="t('common.client')" :options="clients.map(c => ({ value: c.id, label: c.name }))" />
             </div>
             <div class="flex flex-col gap-1.5">
               <Label for="p-code">{{ t('common.code') }}</Label>

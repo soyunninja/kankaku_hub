@@ -170,6 +170,8 @@
     "new": "新規プロジェクト",
     "edit": "プロジェクトを編集",
     "filterByClient": "クライアントで絞り込み",
+    "sortAscending": "{column}を昇順に並べ替え",
+    "sortDescending": "{column}を降順に並べ替え",
     "repoPaths": "リポジトリのパス",
     "repoPathsHint": "各マシン上のリポジトリの絶対パスです。kankakuはこのパスを使って、そのディレクトリでセッションを開始した際にプロジェクトを自動選択します。",
     "addPath": "パスを追加",

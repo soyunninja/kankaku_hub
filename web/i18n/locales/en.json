@@ -170,6 +170,8 @@
     "new": "New project",
     "edit": "Edit project",
     "filterByClient": "Filter by client",
+    "sortAscending": "Sort {column} ascending",
+    "sortDescending": "Sort {column} descending",
     "repoPaths": "Repository paths",
     "repoPathsHint": "Absolute repo paths on your machines. kankaku uses these to auto-select the project when you start a session in that directory.",
     "addPath": "Add path",
