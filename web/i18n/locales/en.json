@@ -256,6 +256,8 @@
     "assignGroup": "Assign group",
     "assignTo": "Assign to",
     "empty": "No entries waiting to be assigned.",
+    "loadError": "Could not load unassigned entries.",
+    "retry": "Retry",
     "progress": "Assigning {done} of {total}…",
     "done": "Done: {succeeded} assigned, {failed} failed.",
     "selected": "{count} selected",

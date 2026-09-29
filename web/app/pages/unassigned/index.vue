@@ -37,6 +37,9 @@ const GROUP_ENTRIES_PAGE_SIZE = 25
 const GROUP_ENTRIES_COLLECT_PAGE_SIZE = 200
 
 const loading = ref(true)
+const loadError = ref(false)
+let loadRequest = 0
+const retryPage = ref(1)
 const fallbackMode = ref(false)
 const selected = ref<Set<string>>(new Set())
 const expanded = ref<Set<string>>(new Set())
@@ -97,40 +100,52 @@ function groupKey(g: { legacyLabel: string, repoProject: string }) {
   return unassignedGroupKey(g.legacyLabel, g.repoProject)
 }
 
-async function loadGroupsPage(p: number) {
-  if (!unassignedClientId.value) return
-  const result = await fetchUnassignedGroups(unassignedClientId.value, { page: p, perPage: GROUPS_PAGE_SIZE })
-  totalsGroups.value = result.groups
-  page.value = result.page
-  totalGroups.value = result.totalGroups
-  totalPages.value = result.totalPages
-}
-
-async function load() {
+// Only the latest request may commit a page or its error. Pagination keeps
+// the displayed page number until its response succeeds.
+async function load(p: number, ensureCatalog = false) {
+  const request = ++loadRequest
+  retryPage.value = p
   loading.value = true
-  await Promise.all([ensureClients(), ensureProjects()])
-  if (!unassignedClientId.value) {
-    loading.value = false
-    return
-  }
+  loadError.value = false
   try {
-    await loadGroupsPage(1)
-    fallbackMode.value = false
-    fallbackTruncated.value = false
+    if (ensureCatalog) await Promise.all([ensureClients(), ensureProjects()])
+    if (!unassignedClientId.value) {
+      if (request !== loadRequest) return
+      totalsGroups.value = []
+      fallbackMode.value = false
+      return
+    }
+    const clientId = unassignedClientId.value
+    try {
+      const result = await fetchUnassignedGroups(clientId, { page: p, perPage: GROUPS_PAGE_SIZE })
+      if (request !== loadRequest) return
+      totalsGroups.value = result.groups
+      page.value = result.page
+      totalGroups.value = result.totalGroups
+      totalPages.value = result.totalPages
+      fallbackMode.value = false
+      fallbackTruncated.value = false
+    }
+    catch (err) {
+      if (!(err instanceof TotalsRouteUnavailableError)) throw err
+      // One hard-capped page (see `fetchUnassigned`); `truncated` is the
+      // server's own count, so the notice below is never a guess.
+      const fallback = await fetchUnassigned(clientId)
+      if (request !== loadRequest) return
+      fallbackEntries.value = fallback.entries
+      fallbackTruncated.value = fallback.truncated
+      fallbackMode.value = true
+    }
   }
-  catch (err) {
-    if (!(err instanceof TotalsRouteUnavailableError)) throw err
-    fallbackMode.value = true
-    // One hard-capped page (see `fetchUnassigned`); `truncated` is the
-    // server's own count, so the notice below is never a guess.
-    const fallback = await fetchUnassigned(unassignedClientId.value)
-    fallbackEntries.value = fallback.entries
-    fallbackTruncated.value = fallback.truncated
+  catch {
+    if (request === loadRequest) loadError.value = true
   }
-  loading.value = false
+  finally {
+    if (request === loadRequest) loading.value = false
+  }
 }
-onMounted(load)
-watch(page, (p) => { if (!fallbackMode.value) loadGroupsPage(p) })
+onMounted(() => { void load(1, true) })
+function retryLoad() { void load(retryPage.value, true) }
 
 /** Per-group suggested client (id), a conservative pre-fill hint for the
  * assign dialog — never an auto-assignment. See app/lib/suggest-client.ts. */
@@ -327,7 +342,6 @@ async function confirmAssign() {
     resolvedGroupIds.clear()
     groupExpansions.clear()
     expanded.value = new Set()
-    await loadGroupsPage(page.value)
   }
 
   const destination = assignableClients.value.find(c => c.id === assignClient.value)?.name ?? assignClient.value
@@ -343,6 +357,7 @@ async function confirmAssign() {
     // (never implying per-item partial success within a chunk).
     toast.error(t('unassigned.failedCount', { count: failed.length }))
   }
+  if (!fallbackMode.value && succeeded.length > 0) await load(page.value)
 }
 </script>
 
@@ -357,7 +372,7 @@ async function confirmAssign() {
       </p>
     </div>
 
-    <p v-if="fallbackMode && fallbackTruncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
+    <p v-if="!loadError && fallbackMode && fallbackTruncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
       {{ t('totals.fallbackTruncated', { count: fallbackEntries.length }) }}
     </p>
 
@@ -374,6 +389,10 @@ async function confirmAssign() {
           <Skeleton class="h-10 w-full" />
           <Skeleton class="h-10 w-full" />
           <Skeleton class="h-10 w-full" />
+        </div>
+        <div v-else-if="loadError" class="flex items-center gap-3 p-4">
+          <p role="alert" class="text-sm text-destructive">{{ t('unassigned.loadError') }}</p>
+          <Button variant="outline" @click="retryLoad">{{ t('unassigned.retry') }}</Button>
         </div>
         <Table v-else-if="groups.length > 0">
           <TableHeader>
@@ -539,13 +558,13 @@ async function confirmAssign() {
         </Table>
         <EmptyState v-else :title="t('unassigned.empty')" class="m-4" />
 
-        <div v-if="!loading && !fallbackMode && groups.length > 0" class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
+        <div v-if="!loading && !loadError && !fallbackMode && groups.length > 0" class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
           <span>{{ totalGroups }} · {{ page }}/{{ totalPages }}</span>
           <div class="flex gap-2">
-            <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
+            <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="load(page - 1)">
               <ChevronLeft class="size-4" />
             </Button>
-            <Button size="icon" variant="outline" :disabled="page >= totalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
+            <Button size="icon" variant="outline" :disabled="page >= totalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="load(page + 1)">
               <ChevronRight class="size-4" />
             </Button>
           </div>

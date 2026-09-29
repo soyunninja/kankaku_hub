@@ -256,6 +256,8 @@
     "assignGroup": "Asignar grupo",
     "assignTo": "Asignar a",
     "empty": "No hay registros pendientes de asignar.",
+    "loadError": "No se pudieron cargar los registros sin asignar.",
+    "retry": "Reintentar",
     "progress": "Asignando {done} de {total}…",
     "done": "Hecho: {succeeded} asignados, {failed} fallidos.",
     "selected": "{count} seleccionados",
