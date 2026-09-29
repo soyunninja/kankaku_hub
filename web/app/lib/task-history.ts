@@ -3,7 +3,7 @@ import type { TaskRecord } from './pocketbase-types'
 
 export const HISTORY_PAGE_SIZE = 25
 
-export function listCompletedTasks(pb: PocketBase, page: number, search: string, project: string) {
+export function listCompletedTasks(pb: PocketBase, page: number, search: string, project: string, client: string) {
   const clauses = ['status = {:status}']
   const params: Record<string, string> = { status: 'done' }
   if (search.trim()) {
@@ -13,6 +13,10 @@ export function listCompletedTasks(pb: PocketBase, page: number, search: string,
   if (project) {
     clauses.push('project = {:project}')
     params.project = project
+  }
+  if (client) {
+    clauses.push('project.client = {:client}')
+    params.client = client
   }
   return pb.collection('tasks').getList<TaskRecord>(page, HISTORY_PAGE_SIZE, {
     filter: pb.filter(clauses.join(' && '), params),

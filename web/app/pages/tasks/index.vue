@@ -28,6 +28,7 @@ const { t } = useI18n()
 useHead({ title: computed(() => t('tasks.title')) })
 const { formatCost, formatDuration } = useFormatters()
 
+const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, loading, ensureLoaded, create, update, remove, moveStatus } = useTasks()
 const { fetchRange } = useTaskEntries()
@@ -38,7 +39,18 @@ const toast = useToast()
 const { canWrite } = useAuth()
 const { $pb } = useNuxtApp()
 
+const filterClient = ref('')
 const filterProject = ref('')
+const availableProjects = computed(() => filterClient.value
+  ? projects.value.filter(p => p.client === filterClient.value)
+  : projects.value)
+
+function selectClient(clientId: string) {
+  if (clientId && filterProject.value && !projects.value.some(p => p.id === filterProject.value && p.client === clientId)) {
+    filterProject.value = ''
+  }
+  filterClient.value = clientId
+}
 const view = ref<'board' | 'list' | 'history'>('board')
 const historySearch = ref('')
 const historyPage = ref(1)
@@ -54,7 +66,7 @@ async function loadHistory() {
   historyError.value = false
   historyResult.value = null
   try {
-    const result = await listCompletedTasks($pb, historyPage.value, historySearch.value, filterProject.value)
+    const result = await listCompletedTasks($pb, historyPage.value, historySearch.value, filterProject.value, filterClient.value)
     if (request === historyRequest) historyResult.value = result
   }
   catch {
@@ -65,8 +77,8 @@ async function loadHistory() {
   }
 }
 
-watch([historySearch, filterProject], () => { historyPage.value = 1 }, { flush: 'sync' })
-watch([view, historyPage, historySearch, filterProject], () => {
+watch([historySearch, filterProject, filterClient], () => { historyPage.value = 1 }, { flush: 'sync' })
+watch([view, historyPage, historySearch, filterProject, filterClient], () => {
   // Invalidate even when leaving history, so a late response cannot replace a newer page.
   if (view.value === 'history') void loadHistory()
   else ++historyRequest
@@ -149,7 +161,7 @@ async function loadTaskTotals() {
 }
 
 onMounted(async () => {
-  await Promise.all([ensureProjects(), ensureLoaded()])
+  await Promise.all([ensureClients(), ensureProjects(), ensureLoaded()])
   await loadTaskTotals()
 })
 
@@ -157,7 +169,9 @@ function projectName(id: string) {
   return projects.value.find(p => p.id === id)?.name ?? id
 }
 
-const filtered = computed(() => tasks.value.filter(t2 => t2.status !== 'done' && (!filterProject.value || t2.project === filterProject.value)))
+const filtered = computed(() => tasks.value.filter(t2 => t2.status !== 'done'
+  && (!filterProject.value || t2.project === filterProject.value)
+  && (!filterClient.value || projects.value.some(p => p.id === t2.project && p.client === filterClient.value))))
 const displayedTasks = computed(() => view.value === 'history' ? (historyResult.value?.items ?? []) : filtered.value)
 
 const statuses: TaskStatus[] = ['open', 'doing', 'done']
@@ -418,7 +432,7 @@ const form = reactive({ title: '', project: '', status: 'open' as TaskStatus, ex
 function openCreate() {
   editing.value = null
   form.title = ''
-  form.project = filterProject.value || projects.value[0]?.id || ''
+  form.project = filterProject.value || availableProjects.value[0]?.id || ''
   form.status = 'open'
   form.external_ref = ''
   form.description = ''
@@ -473,8 +487,13 @@ async function onDelete(task: TaskRecord) {
         </h1>
         <div class="flex items-center gap-2">
           <Select
-            v-model="filterProject" class="w-48" :placeholder="t('projects.filterByClient')"
-            :options="[{ value: '', label: t('common.all') }, ...projects.map(p => ({ value: p.id, label: p.name }))]"
+            :model-value="filterClient" class="w-48" :aria-label="t('common.client')" :placeholder="t('common.client')"
+            :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
+            @update:model-value="selectClient"
+          />
+          <Select
+            v-model="filterProject" class="w-48" :aria-label="t('common.project')" :placeholder="t('common.project')"
+            :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]"
           />
           <Tabs v-model="view">
             <TabsList>
@@ -686,11 +705,11 @@ async function onDelete(task: TaskRecord) {
             </div>
             <div class="flex flex-col gap-1.5">
               <Label>{{ t('common.project') }}</Label>
-              <Select v-model="form.project" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
+              <Select v-model="form.project" :aria-label="t('common.project')" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
             </div>
             <div class="flex flex-col gap-1.5">
               <Label>{{ t('common.status') }}</Label>
-              <Select v-model="form.status" :options="statuses.map(s => ({ value: s, label: t(`tasks.status.${s}`) }))" />
+              <Select v-model="form.status" :aria-label="t('common.status')" :options="statuses.map(s => ({ value: s, label: t(`tasks.status.${s}`) }))" />
             </div>
             <div class="flex flex-col gap-1.5">
               <Label for="t-ref">{{ t('common.externalRef') }}</Label>

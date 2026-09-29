@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertPbWritesAllowed, findClients, login, pbUrl, toastText } from './helpers'
+import { apiLogin, assertIsolatedFixtureStack, assertPbWritesAllowed, comboboxTrigger, findClients, login, pbUrl, selectCombobox, toastText } from './helpers'
 
 /**
  * Coverage for the tasks board's non-drag status-change paths
@@ -109,6 +109,7 @@ test.describe('tasks board', () => {
   let projectId: string
 
   test.beforeAll(async ({ request }) => {
+    assertIsolatedFixtureStack()
     token = await apiLogin(request)
     const { target } = await findClients(request, token)
     clientId = target.id
@@ -249,7 +250,7 @@ test.describe('tasks board', () => {
       await expect(row).toBeVisible()
       await row.getByRole('button', { name: 'Editar' }).click()
       const dialog = page.getByRole('dialog')
-      await dialog.locator('select').nth(1).selectOption('open')
+      await selectCombobox(comboboxTrigger(page, 'Estado').and(dialog.locator('[data-slot="combobox-trigger"]')), 'Abierta')
       await dialog.getByRole('button', { name: 'Guardar' }).click()
       await expect(row).toHaveCount(0)
       await page.getByRole('button', { name: 'Historial de completadas' }).click()
