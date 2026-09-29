@@ -55,8 +55,8 @@
     "status": "Estado",
     "all": "Todos",
     "none": "Ninguno",
-    "noResults": "No se encontraron resultados.",
     "search": "Buscar",
+    "noResults": "No se encontraron resultados.",
     "close": "Cerrar",
     "openMenu": "Abrir menú",
     "confirm": "Confirmar",
@@ -465,168 +465,8 @@
     "fromFirstPrompt": "A partir del primer prompt"
   },
   "commands": {
-    "title": "Comandos",
-    "subtitle": "Referencia de todos los subcomandos de /kankaku dentro de pi.",
-    "filterPlaceholder": "Filtrar comandos…",
-    "filterEmpty": "Ningún comando coincide con tu búsqueda.",
     "copy": "Copiar",
     "copied": "¡Copiado!",
-    "copyAria": "Copiar «{syntax}» al portapapeles",
-    "requiresHub": "Requiere hub",
-    "groups": {
-      "reports": "Informes",
-      "clientTarget": "Cliente y destino",
-      "hub": "Hub",
-      "export": "Exportar"
-    },
-    "workflow": {
-      "title": "Flujo de trabajo típico",
-      "firstRun": {
-        "title": "Primer uso",
-        "body": "Al iniciar pi en un proyecto nuevo, si hay un hub configurado, kankaku pregunta por el cliente y el proyecto (con opción de saltar). Si respondes «sí» a «¿recordar para este repositorio?», la elección se guarda en «KANKAKU_DIR/config.json» y no se vuelve a preguntar."
-      },
-      "dailyUse": {
-        "title": "Uso diario",
-        "body": "kankaku sincroniza solo, sin bloquear ningún prompt: al iniciar sesión y después de cada respuesta del agente, con un límite de una vez cada 5 minutos («KANKAKU_SYNC_MIN_INTERVAL_MINUTES»). Las entradas nuevas aparecen en el panel de este hub sin que tengas que hacer nada."
-      },
-      "reassigning": {
-        "title": "Reasignar histórico",
-        "body": "Ejecuta «/kankaku backfill» para forzar una sincronización completa y ver cuántas tareas antiguas cayeron en «Sin determinar». Reasígnalas desde la cola de Sin determinar de esta web."
-      },
-      "keyRule": "Regla clave: una vez que reasignas una tarea en esta web, una sincronización posterior de kankaku nunca deshace esa asignación — solo actualiza campos de medición (tiempo, coste, estado), nunca cliente ni proyecto."
-    },
-    "config": {
-      "title": "Configuración",
-      "envTitle": "Variables de entorno",
-      "envColumns": {
-        "name": "Variable",
-        "default": "Por defecto",
-        "meaning": "Significado"
-      },
-      "env": {
-        "dir": "Directorio para el log de trabajo (`worklog.jsonl`) y los checkpoints de recuperación ante fallos, relativo al cwd del proyecto salvo que sea una ruta absoluta.",
-        "interactiveTools": "Lista de nombres de herramientas, separados por comas, cuya ejecución cuenta como tiempo de espera.",
-        "segments": "Reglas «tag=tool:regex» separadas por «;» para segmentos etiquetados (por defecto, la única regla «review»).",
-        "client": "Cliente de facturación por defecto para este proyecto; menor precedencia que «/kankaku client», mayor que el «config.json» del proyecto.",
-        "pbUrl": "URL del hub PocketBase. Debe ser HTTPS salvo que apunte a localhost/127.0.0.1/::1.",
-        "pbEmail": "Email de la cuenta de servicio del hub.",
-        "pbPassword": "Contraseña de la cuenta de servicio del hub.",
-        "machine": "Nombre de esta máquina, adjunto a cada registro como «machine» una vez configurado el hub.",
-        "syncPrompt": "Privacidad del prompt al sincronizar: «none» (omitido), «truncated» (primeros 120 caracteres) o «full».",
-        "syncWindowHours": "Horas hacia atrás desde la marca de agua que se reevalúan en cada sincronización, para capturar subagentes que terminan tarde.",
-        "syncRecords": "«0» desactiva la subida de «work_records» (detalle bruto); «task_entries» siempre se sube.",
-        "syncAuto": "«0» desactiva la sincronización automática en «session_start»/«agent_settled»; «/kankaku sync» sigue funcionando.",
-        "syncMinInterval": "Minutos mínimos entre sincronizaciones automáticas; «0» desactiva el límite. Nunca afecta a una sincronización manual."
-      },
-      "engram": {
-        "title": "Engram (opcional)",
-        "body": "Si el servidor del hub tiene Engram configurado, cada sesión muestra su objetivo y un resumen de lo hecho junto al tiempo y el coste. La lectura la hace el servidor, solo con GET. Sin Engram no cambia nada.",
-        "note": "Estas variables van en el proceso de PocketBase, no en pi. Reinícialo después. El estado se ve en Ajustes → Engram.",
-        "serverVarsTitle": "En el servidor del hub",
-        "vars": {
-          "url": "URL del daemon de Engram (engram serve)",
-          "token": "Token Bearer, solo si el daemon usa ENGRAM_HTTP_TOKEN",
-          "timeout": "Segundos de espera por llamada al daemon"
-        }
-      },
-      "credentialsTitle": "Fichero de credenciales",
-      "credentialsBody": "En vez de variables de entorno, kankaku también lee «~/.kankaku/credentials.json» (recomendado «chmod 600»). Las variables de entorno tienen prioridad, campo a campo, sobre este fichero.",
-      "connectTitle": "Conectar kankaku a este hub",
-      "connectBody": "Copia y ejecuta esto en la terminal donde uses pi, sustituyendo la contraseña por la de la cuenta de servicio real — nunca la cuenta del propietario — pídesela a quien administre este hub.",
-      "loadInPiTitle": "Cargar el build de esta rama en pi",
-      "loadInPiBody": "Para probar este build sin publicarlo ni instalarlo:",
-      "loadInPiNote": "Si ya tienes instalada la versión publicada (pi install npm:kankaku), desinstálala antes: si no, kankaku se carga dos veces y cada prompt se registra por duplicado. Con -e la extensión no llega a los subagentes; para eso instala la copia local con pi install y la ruta absoluta.",
-      "serviceAccountNote": "Usa siempre la cuenta de servicio («role: \"service\"»), nunca la cuenta del propietario — es la única con permiso para escribir «task_entries»/«work_records»."
-    },
-    "items": {
-      "summary-today": {
-        "description": "Muestra los totales de hoy (trabajo, espera, nº de registros) por rol, más el segmento de tareas basado en la unión de intervalos, cada uno con su coste estimado.",
-        "whenToUse": "Para ver de un vistazo cuánto has trabajado hoy y su coste, sin salir de pi."
-      },
-      "summary-all": {
-        "description": "Igual que «/kankaku», pero sumando todos los registros históricos en vez de solo los de hoy.",
-        "whenToUse": "Para ver el acumulado completo, por ejemplo antes de revisar el uso total."
-      },
-      "tasks": {
-        "description": "Una línea por tarea (tiempo, unión de trabajo/espera, coste, nº de subagentes, prompt truncado) de la sesión actual de pi.",
-        "whenToUse": "Para revisar qué tareas se han ejecutado en la sesión en curso y su coste."
-      },
-      "tasks-all": {
-        "description": "Igual que «tasks», pero de todas las sesiones en vez de solo la actual.",
-        "whenToUse": "Para revisar el histórico completo de tareas, no solo el de esta sesión."
-      },
-      "sessions": {
-        "description": "Una línea por sesión de hoy (id, rango horario, unión de trabajo/espera, coste, nº de tareas).",
-        "whenToUse": "Para ver cuántas sesiones de pi has tenido hoy y su coste agregado."
-      },
-      "sessions-all": {
-        "description": "Igual que «sessions», pero de todos los días en vez de solo hoy.",
-        "whenToUse": "Para un repaso histórico de todas las sesiones registradas."
-      },
-      "clients": {
-        "description": "Totales de hoy (trabajo, espera, tiempo total, coste, nº de tareas) agrupados por cliente de facturación. Las tareas sin cliente resuelto se agrupan bajo «(none)».",
-        "whenToUse": "Para ver en qué cliente se ha invertido el tiempo hoy, con o sin hub configurado."
-      },
-      "clients-all": {
-        "description": "Igual que «clients», pero sumando todos los días.",
-        "whenToUse": "Para el reparto histórico completo entre clientes."
-      },
-      "projects": {
-        "description": "Totales de hoy por proyecto, igual que «clients» pero agrupado por proyecto. Solo disponible con un hub configurado.",
-        "whenToUse": "Para ver en qué proyecto se ha invertido el tiempo hoy."
-      },
-      "projects-all": {
-        "description": "Igual que «projects», pero sumando todos los días.",
-        "whenToUse": "Para el reparto histórico completo entre proyectos."
-      },
-      "client-show": {
-        "description": "Muestra el cliente de facturación efectivo para la sesión actual y de qué fuente proviene (sesión, «KANKAKU_CLIENT» o el «config.json» del proyecto).",
-        "whenToUse": "Para comprobar qué cliente se está aplicando antes de que kankaku registre trabajo."
-      },
-      "client-set": {
-        "description": "Fija el cliente de facturación para la sesión actual. Con un hub configurado, el nombre debe coincidir con el código o nombre de un cliente del catálogo (sin distinguir mayúsculas) y además fija el destino (target) sin proyecto.",
-        "whenToUse": "Para corregir o forzar el cliente de una sesión antes de que se registre trabajo con el cliente equivocado."
-      },
-      "client-clear": {
-        "description": "Elimina el cliente fijado a nivel de sesión, dejando que la resolución vuelva a la siguiente fuente en precedencia.",
-        "whenToUse": "Para deshacer un cliente fijado antes en esta sesión con «/kankaku client»."
-      },
-      "target-show": {
-        "description": "Muestra el destino (cliente + proyecto) efectivo del hub y de qué fuente proviene: sesión, «config.json» del proyecto, «repo_paths» o el selector. Solo con hub configurado.",
-        "whenToUse": "Para comprobar a qué cliente y proyecto se está asociando el trabajo antes de sincronizar."
-      },
-      "target-pick": {
-        "description": "Vuelve a mostrar el selector de cliente/proyecto, aunque ya haya uno resuelto. El nuevo destino se aplica a los registros que se cierren después de este comando.",
-        "whenToUse": "Para cambiar de cliente o proyecto a mitad de sesión sin reiniciar pi."
-      },
-      "target-clear": {
-        "description": "Limpia el destino fijado a nivel de sesión, dejando que la resolución vuelva a «config.json», «repo_paths» o el selector.",
-        "whenToUse": "Para deshacer un «/kankaku target pick» de esta sesión."
-      },
-      "catalog-refresh": {
-        "description": "Fuerza una recarga del catálogo de clientes y proyectos desde el hub, sin esperar a que caduque la caché de 6 horas, y confirma cuántos clientes/proyectos se han recibido.",
-        "whenToUse": "Después de crear o editar un cliente o proyecto en esta web app, para que kankaku lo vea de inmediato."
-      },
-      "sync": {
-        "description": "Sube al hub las tareas pendientes: las nuevas y las que hayan cambiado dentro de la ventana de revisión («KANKAKU_SYNC_WINDOW_HOURS», 24h por defecto).",
-        "whenToUse": "Para forzar una sincronización manual en vez de esperar a la automática tras cada prompt."
-      },
-      "sync-all": {
-        "description": "Una reevaluación completa: revisa todas las tareas, no solo la ventana reciente. El hash de contenido hace que sea barato ejecutarlo aunque no haya cambios.",
-        "whenToUse": "Cuando sospechas que algo no llegó al hub o tras cambiar la configuración de sincronización."
-      },
-      "sync-status": {
-        "description": "Muestra la marca de agua («syncedThrough»), el nº de tareas pendientes calculado localmente (sin red) y el último error de sincronización, si lo hay.",
-        "whenToUse": "Para diagnosticar si la sincronización automática está al día sin lanzar ninguna sincronización."
-      },
-      "backfill": {
-        "description": "Ejecuta una sincronización completa y agrupa el resultado por la etiqueta antigua («legacy_client_label»): cuántas tareas fueron a «Sin determinar» y bajo qué nombre.",
-        "whenToUse": "La primera vez que conectas un proyecto histórico al hub, para saber qué reasignar después en la cola de Sin determinar."
-      },
-      "export": {
-        "description": "Escribe un fichero con una fila por tarea (las de hoy por defecto, o todas con «all») en formato CSV o JSON, dentro de «KANKAKU_DIR/export/».",
-        "whenToUse": "Para llevarte los datos fuera de pi, por ejemplo a una hoja de cálculo."
-      }
-    }
+    "copyAria": "Copiar «{syntax}» al portapapeles"
   }
 }
