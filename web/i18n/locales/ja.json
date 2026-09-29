@@ -313,7 +313,12 @@
     "filters": "フィルター",
     "filtersFields": {
       "machine": "マシン",
-      "quality": "測定品質"
+      "quality": "測定品質",
+      "dateStart": "開始日 (YY/MM/DD)",
+      "dateEnd": "終了日 (YY/MM/DD)",
+      "invalidDate": "YY/MM/DD形式の有効な日付を入力してください。",
+      "openCalendar": "{label}のカレンダーを開く",
+      "clearDate": "{label}をクリア"
     },
     "qualityFilter": {
       "waitingUnavailable": "待機時間未測定",

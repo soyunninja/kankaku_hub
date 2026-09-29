@@ -313,7 +313,12 @@
     "filters": "Filters",
     "filtersFields": {
       "machine": "Machine",
-      "quality": "Measurement quality"
+      "quality": "Measurement quality",
+      "dateStart": "Start date (YY/MM/DD)",
+      "dateEnd": "End date (YY/MM/DD)",
+      "invalidDate": "Enter a valid date as YY/MM/DD.",
+      "openCalendar": "Open calendar for {label}",
+      "clearDate": "Clear {label}"
     },
     "qualityFilter": {
       "waitingUnavailable": "Waiting time not measured",

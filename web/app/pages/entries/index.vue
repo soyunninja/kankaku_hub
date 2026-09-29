@@ -5,6 +5,7 @@ import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
+import EntriesDateFilter from '@/components/entries/EntriesDateFilter.vue'
 import SessionMarker from '@/components/entries/SessionMarker.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,17 +21,18 @@ import type { Narrative } from '@/composables/useEngramNarrative'
 import type { SessionTotal } from '@/composables/useSessions'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { resolveAgent } from '@/lib/agents'
+import { formatCompactEntryDateTime } from '@/lib/entries-compact-date'
+import { statusPresentation } from '@/lib/entry-detail'
 import { entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/lib/entries-session-filters'
 import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import { narrativeBody, narrativeBodyLineCount } from '@/lib/narrative-format'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 import { sessionTitle } from '@/lib/session-title'
-import { resolveThinkingLevel } from '@/lib/thinking-level'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('entries.title')) })
-const { formatCost, formatDateTime, formatDuration } = useFormatters()
+const { formatCost, formatDuration } = useFormatters()
 const route = useRoute()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
@@ -59,6 +61,9 @@ const filters = reactive<EntriesExplorerFilters>({
   dateEnd: queryString('dateEnd'),
   session_id: queryString('session_id'),
 })
+// Keep applied ISO local days in the shared filter model; each picker owns its draft.
+watch(() => route.query.dateStart, value => { filters.dateStart = typeof value === 'string' && value ? value : undefined })
+watch(() => route.query.dateEnd, value => { filters.dateEnd = typeof value === 'string' && value ? value : undefined })
 const page = ref(1)
 const perPage = 25
 const sort = ref('-started_at')
@@ -283,14 +288,6 @@ const sessionFilterLabel = computed(() => {
   return sessionTitle(filters.session_id, sessionMatch?.sessionName, narrativeTitle)
 })
 
-/** `''` when `thinking_level` is empty/unknown — never renders an
- * "Effort" placeholder, see `resolveThinkingLevel`'s doc comment. */
-function effortLabel(entry: Pick<TaskEntryRecord, 'thinking_level'>): string {
-  const resolved = resolveThinkingLevel(entry.thinking_level)
-  if (!resolved) return ''
-  return resolved.kind === 'known' ? t(`entries.detail.thinkingLevel.${resolved.value}`) : resolved.value
-}
-
 /**
  * Flattened row list the table body actually iterates: either every
  * fetched entry (grouping off, the pre-existing behaviour, unchanged) or
@@ -329,8 +326,8 @@ function mixedGroupCell(entry: TaskEntryRecord): string {
   return parts.join(' · ')
 }
 
-/** Columns the table currently renders. Flat mode: the 9 flat columns
- * (Inicio/Sesión/Cliente/Proyecto/Estado/Agente/Modelo/Tiempo/Coste). The
+/** Columns the table currently renders. Flat mode: the 8 flat columns
+ * (Inicio/Sesión/Cliente/Proyecto/Estado/Agente/Tiempo/Coste). The
  * primary server-backed grouped mode has its OWN 10 columns (Inicio/
  * Sesión/Cliente/Proyecto/Tarea/Agente/Entradas/Tiempo/Coste/chevron — 9
  * real columns + the chevron toggle: a session always has exactly one
@@ -341,8 +338,8 @@ function mixedGroupCell(entry: TaskEntryRecord): string {
  * still collapses session+client+project into one "only when they
  * differ" column, exactly as before. */
 const columnCount = computed(() => {
-  if (!groupBySession.value) return 9
-  if (groupingFallback.value) return anyMixedGroup.value ? 7 : 6
+  if (!groupBySession.value) return 8
+  if (groupingFallback.value) return anyMixedGroup.value ? 6 : 5
   return 10
 })
 
@@ -522,8 +519,8 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
         />
         <Input v-model="filters.model" :placeholder="t('common.model')" class="w-32" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
         <Input v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
-        <Input v-model="filters.dateStart" type="date" class="w-36" />
-        <Input v-model="filters.dateEnd" type="date" class="w-36" />
+        <EntriesDateFilter id="entries-date-start" v-model="filters.dateStart" :label="t('entries.filtersFields.dateStart')" />
+        <EntriesDateFilter id="entries-date-end" v-model="filters.dateEnd" :label="t('entries.filtersFields.dateEnd')" />
         <Input v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
       </CardContent>
     </Card>
@@ -578,8 +575,6 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
               <TableHead v-else-if="anyMixedGroup">{{ t('entries.sessionGroup.mixedColumn') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
               <TableHead>{{ t('common.agent') }}</TableHead>
-              <TableHead>{{ t('common.model') }}</TableHead>
-
               <TableHead class="cursor-pointer text-right" @click="toggleSort('work_ms')">
                 <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
               </TableHead>
@@ -608,7 +603,7 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
               <template v-for="row in sessionRows" :key="row.sessionId">
                 <TableRow data-testid="session-group-row" class="cursor-pointer bg-muted/40 hover:bg-muted/40" @click="toggleSession(row.sessionId)">
                   <TableCell class="tabular-nums">
-                    {{ formatDateTime(row.minStartedAt) }}
+                    {{ formatCompactEntryDateTime(row.minStartedAt) }}
                   </TableCell>
                   <TableCell>
                     <div class="flex flex-col gap-0.5">
@@ -666,10 +661,9 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                 </TableRow>
                 <!-- Expanded: ONE full-width row holding a nested table of
                      this session's entries — the flat entry header MINUS
-                     session/client/project/agent (the parent row above
-                     already said those — a session always has one agent).
-                     Nested rows are the same flat cells flat
-                     mode uses, and open the same EntryDetailSheet on click. -->
+                     session/client/project/agent/model (the parent row above
+                     already shows the agent; model remains in the detail).
+                     Nested rows open the same EntryDetailSheet as flat mode. -->
                 <TableRow v-if="expandedSessions.has(row.sessionId)" :id="`session-group-entries-${row.sessionId}`" data-testid="session-group-entries">
                   <TableCell :colspan="columnCount" class="bg-muted/30 p-2">
                     <!-- Engram narrative block, ABOVE the nested entries
@@ -700,19 +694,18 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                         <TableRow>
                           <TableHead>{{ t('common.started') }}</TableHead>
                           <TableHead>{{ t('common.status') }}</TableHead>
-                          <TableHead>{{ t('common.model') }}</TableHead>
                           <TableHead class="text-right"><span :title="t('common.timeHint')">{{ t('common.time') }}</span></TableHead>
                           <TableHead class="text-right">{{ t('common.cost') }}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <TableRow v-if="sessionRowEntries.get(row.sessionId)?.loading">
-                          <TableCell colspan="5" class="text-sm text-muted-foreground">
+                          <TableCell colspan="4" class="text-sm text-muted-foreground">
                             {{ t('entries.sessionGroup.loadingEntries') }}
                           </TableCell>
                         </TableRow>
                         <TableRow v-else-if="sessionRowEntries.get(row.sessionId)?.error">
-                          <TableCell colspan="5">
+                          <TableCell colspan="4">
                             <div class="flex items-center gap-2 text-sm text-destructive">
                               <span>{{ t('entries.sessionGroup.loadError') }}</span>
                               <Button size="sm" variant="outline" @click.stop="loadSessionEntries(row.sessionId)">
@@ -722,19 +715,15 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                           </TableCell>
                         </TableRow>
                         <TableRow v-else-if="(sessionRowEntries.get(row.sessionId)?.items.length ?? 0) === 0">
-                          <TableCell colspan="5" class="text-sm text-muted-foreground">
+                          <TableCell colspan="4" class="text-sm text-muted-foreground">
                             {{ t('entries.empty') }}
                           </TableCell>
                         </TableRow>
                         <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry)">
                           <TableCell class="tabular-nums">
-                            {{ formatDateTime(entry.started_at) }}
+                            {{ formatCompactEntryDateTime(entry.started_at) }}
                           </TableCell>
-                          <TableCell>{{ t(`entries.status.${entry.status}`) }}</TableCell>
-                          <TableCell class="text-muted-foreground">
-                            {{ entry.model }}
-                            <span v-if="effortLabel(entry)" class="text-[10px] text-muted-foreground/70">({{ effortLabel(entry) }})</span>
-                          </TableCell>
+                          <TableCell><Badge :variant="statusPresentation(entry.status).tone">{{ t(`entries.status.${entry.status}`) }}</Badge></TableCell>
                           <TableCell class="text-right tabular-nums">
                             {{ formatDuration(entry.work_ms) }}
                           </TableCell>
@@ -775,7 +764,7 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                 </TableRow>
                 <TableRow v-else class="cursor-pointer" @click="openDetail(dr.entry)">
                   <TableCell class="tabular-nums">
-                    {{ formatDateTime(dr.entry.started_at) }}
+                    {{ formatCompactEntryDateTime(dr.entry.started_at) }}
                   </TableCell>
                   <template v-if="!groupBySession">
                     <TableCell>
@@ -793,13 +782,9 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                   <TableCell v-else-if="anyMixedGroup" class="text-muted-foreground">
                     {{ mixedGroupCell(dr.entry) }}
                   </TableCell>
-                  <TableCell>{{ t(`entries.status.${dr.entry.status}`) }}</TableCell>
+                  <TableCell><Badge :variant="statusPresentation(dr.entry.status).tone">{{ t(`entries.status.${dr.entry.status}`) }}</Badge></TableCell>
                   <TableCell>
                     <AgentIcon :agent="dr.entry.agent" size="sm" />
-                  </TableCell>
-                  <TableCell class="text-muted-foreground">
-                    {{ dr.entry.model }}
-                    <span v-if="effortLabel(dr.entry)" class="text-[10px] text-muted-foreground/70">({{ effortLabel(dr.entry) }})</span>
                   </TableCell>
                   <TableCell class="text-right tabular-nums">
                     {{ formatDuration(dr.entry.work_ms) }}
