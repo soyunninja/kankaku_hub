@@ -8,6 +8,7 @@ only to identify the agent that produced an entry.
 |---|---|---|---|---|
 | `pi.svg` | `pi` | https://pi.dev/favicon.svg | 2026-09-20 | none — draw on a white disc |
 | `opencode.png` | `opencode` | https://opencode.ai/apple-touch-icon-v3.png | 2026-09-20 | own (dark) — fills the disc |
+| `claude-code.svg` | `claude-code` | local asset; upstream provenance unrecorded | unrecorded | none — transparent orange mark on a white disc |
 
 These are third-party trademarks, used nominatively. Do not recolour or
 redraw them beyond what is noted above. An agent without an icon falls back to

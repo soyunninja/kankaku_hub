@@ -9,16 +9,20 @@ describe('resolveAgent', () => {
     expect(resolveAgent('opencode')).toEqual({
       slug: 'opencode', label: 'OpenCode', icon: '/agents/opencode.png', background: 'own',
     })
+    expect(resolveAgent('claude-code')).toEqual({
+      slug: 'claude-code', label: 'Claude Code', icon: '/agents/claude-code.svg', background: 'white',
+    })
   })
 
   it('is case-insensitive, defensively, against non-lowercase legacy/seeded data', () => {
     expect(resolveAgent('PI')).toEqual(AGENTS.pi)
     expect(resolveAgent('OpenCode')).toEqual(AGENTS.opencode)
+    expect(resolveAgent('Claude-Code')).toEqual(AGENTS['claude-code'])
     expect(resolveAgent('  pi  ')).toEqual(AGENTS.pi)
   })
 
   it('returns undefined for an unknown slug', () => {
-    expect(resolveAgent('claude-code')).toBeUndefined()
+    expect(resolveAgent('unknown-agent')).toBeUndefined()
   })
 
   it('returns undefined for empty, whitespace-only, undefined and null', () => {
