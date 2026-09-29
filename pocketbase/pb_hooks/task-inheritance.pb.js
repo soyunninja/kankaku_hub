@@ -25,7 +25,20 @@ onRecordCreate((e) => {
         .bind({ sid: sessionId })
         .all(rows);
       const taskId = rule.inheritedTaskId({ ownTask: ownTask, sessionId: sessionId, sessionTaskIds: rows.map((row) => row.task) });
-      if (taskId) e.record.set("task", taskId);
+      if (taskId) {
+        e.record.set("task", taskId);
+        const client = e.app.findRecordById("clients", e.record.get("client"));
+        if (client.get("unassigned")) {
+          const task = e.app.findRecordById("tasks", taskId);
+          const projectId = task.get("project");
+          const project = e.app.findRecordById("projects", projectId);
+          const clientId = project.get("client");
+          if (projectId && clientId) {
+            e.record.set("project", projectId);
+            e.record.set("client", clientId);
+          }
+        }
+      }
     }
   } catch (err) {
     e.app.logger().warn("task-inheritance: could not inherit the session's task", "error", String(err));
