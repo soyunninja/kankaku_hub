@@ -67,6 +67,18 @@ const items = ref<TaskEntryRecord[]>([])
 const totalItems = ref(0)
 const totalPages = ref(1)
 const agentOptions = ref<string[]>([])
+const availableProjects = computed(() => filters.client
+  ? projects.value.filter(p => p.client === filters.client)
+  : projects.value)
+
+function selectClient(clientId: string) {
+  // Clear the incompatible project before changing client: the filters watcher
+  // must never fetch a result set with a client/project from different owners.
+  if (clientId && filters.project && !projects.value.some(p => p.id === filters.project && p.client === clientId)) {
+    filters.project = undefined
+  }
+  filters.client = clientId || undefined
+}
 
 // -- session marker / filter / grouping ----------------------------------
 
@@ -485,8 +497,8 @@ function onDetailOpenAutoFocus(event: Event) {
 
     <Card>
       <CardContent class="flex flex-wrap gap-2 p-3">
-        <Select v-model="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" />
-        <Select v-model="filters.project" class="w-40" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...projects.map(p => ({ value: p.id, label: p.name }))]" />
+        <Select :model-value="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient" />
+        <Select v-model="filters.project" class="w-40" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]" />
         <Select
 v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options="[
           { value: '', label: t('common.all') },
