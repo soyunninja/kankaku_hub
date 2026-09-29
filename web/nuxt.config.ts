@@ -76,7 +76,7 @@ export default defineNuxtConfig({
       // override with NUXT_PUBLIC_PB_URL for `nuxt dev` against a
       // PocketBase instance running on a different port.
       pbUrl: '',
-      appVersion: '0.1.1',
+      appVersion: '0.2.0',
     },
   },
 
