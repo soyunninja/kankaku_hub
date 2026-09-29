@@ -15,6 +15,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@internationalized/date": "3.12.4",
     "@lucide/vue": "^1.47.0",
     "@nuxtjs/color-mode": "^4.0.1",
     "@nuxtjs/i18n": "^10.6.0",
