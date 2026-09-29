@@ -30,9 +30,10 @@ surface captured from real requests.
    sync idempotency keys.
 4. `SCHEMA-REQ-004` — `clients`/`projects`/`tasks` SHALL be readable by any
    authenticated user and writable only by `role = 'owner'`.
-5. `SCHEMA-REQ-005` — `task_entries`/`work_records` SHALL be
-   readable/creatable/updatable by any authenticated user (owner or
-   service), and deletable only by `role = 'owner'`.
+5. `SCHEMA-REQ-005` — `task_entries`/`work_records` SHALL be readable
+   by any authenticated role; only `role = 'owner'` or `role = 'service'`
+   may create/update, and only `role = 'owner'` may delete. `viewer` is
+   read-only.
 6. `SCHEMA-REQ-006` — `work_records.task_entry` SHALL cascade-delete:
    removing a `task_entries` row removes its child `work_records` rows.
 7. `SCHEMA-REQ-007` — The `users` collection SHALL disallow public
@@ -285,7 +286,7 @@ full field tables per collection.
 | `SCHEMA-REQ-002` | migration `1758300002_clients_collection.js` (`idx_clients_code`) | covered |
 | `SCHEMA-REQ-003` | migrations `1758300005`, `1758300006` (`idx_task_entries_task_id`, `idx_work_records_kankaku_id`); duplicate-create verified manually per `ESTADO.md` | covered |
 | `SCHEMA-REQ-004` | migrations `1758300002`–`1758300004`; auth rules verified manually per `ESTADO.md` | covered |
-| `SCHEMA-REQ-005` | migrations `1758300005`, `1758300006`; auth rules verified manually per `ESTADO.md` | covered |
+| `SCHEMA-REQ-005` | migrations `1758300005`, `1758300006`, `1758300021_viewer_role_and_write_rules.js` (owner/service create/update, authenticated read, owner delete); earlier auth rules verified manually per `ESTADO.md` | covered |
 | `SCHEMA-REQ-006` | migration `1758300006_work_records_collection.js` (`cascadeDelete: true`) | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-007` | migration `1758300007_users_rules.js` | covered |
 | `SCHEMA-REQ-008` | migration `1758300009_task_entries_daily_totals_view.js`; type/CAST behavior verified manually per `ESTADO.md` | covered |

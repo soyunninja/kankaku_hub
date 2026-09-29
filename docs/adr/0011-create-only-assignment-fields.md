@@ -43,6 +43,15 @@ included in a later update payload. In code:
   convention — a future change that tries to add them back to the update
   payload fails to compile against `TaskEntryUpdatePayload`.
 
+## Update — explicit reassignment from kankaku 1.2.0
+
+The consequence above stating that there was no supported kankaku path to
+change an existing row's assignment was true when this decision was made,
+but is superseded by the kankaku 1.2.0 Tasks CLI. Its explicit reassignment
+sends a `PATCH` with `{ client, project, task }`, authenticated as the
+service account. This is separate from sync: re-sync update payloads still
+omit assignment fields, so they cannot undo an explicit reassignment.
+
 ## Alternatives considered
 
 - **Always overwrite assignment fields on re-sync** — rejected: undoes

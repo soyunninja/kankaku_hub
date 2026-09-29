@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Package plumbing built and verified locally.** `npm publish` itself has not been run — see step 4, which requires the repo owner. |
+| Status | **Published:** `kankaku-hub@0.2.0` on npm, 2026-09-28. The steps below apply to future releases. |
 
 kankaku-hub is published to npm as `kankaku-hub` so a consumer can install
 a local hub without a git checkout — see `kankaku hub install` in the

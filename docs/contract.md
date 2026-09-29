@@ -283,8 +283,19 @@ Captured against PocketBase 0.40.4 on an isolated copy, authenticated as the
 | create with `waiting_quality: "maybe"` | `400` |
 | create sending none of the seven fields | `200` |
 
-Write access: any authenticated user (owner or service) may create/update;
-only owner may delete.
+Write access: `owner` and `service` may create/update; only `owner` may
+delete. Any authenticated role may read, but `viewer` is read-only.
+
+Sync sends `client`, `project`, `task`, and `legacy_client_label` only on
+create; its later update payload omits them so re-sync preserves manual
+assignments ([ADR 0011](adr/0011-create-only-assignment-fields.md)).
+Separately, kankaku 1.2.0's Tasks CLI supports explicit reassignment via
+an authenticated service-account `PATCH` with `{ client, project, task }`.
+Relation validation only checks that each supplied relation exists; the hub
+does not check project–client or task–project hierarchy consistency. The
+client must validate those relationships. There is no reassignment-specific
+actor/timestamp audit log; the generic record `updated` timestamp is not
+such a log.
 
 Relation fields that have no value must be sent as `""` (empty string),
 **not omitted and not `null`** — PocketBase accepts either, but `""` is
@@ -292,6 +303,8 @@ what this backend's own seed script and manual tests use.
 
 #### Side effects of writing `task_entries`
 
+An explicit assignment `PATCH` can trigger the same task-status side effect
+as a create; ordinary sync updates omit `task` and do not reassign it.
 Assigning `task` on a `task_entries` create or update can silently move the
 linked task's `status` from `open` to `doing`. This is not a new field, not
 a new endpoint, and not a change to the request/response shapes documented
