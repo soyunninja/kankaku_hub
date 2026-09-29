@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
 import { resolveAgent } from '@/lib/agents'
+import { cacheHitRatio } from '@/lib/cache-hit'
 import { buildLocalDayBoundaries, localDateRangeToUtcFilters, utcInstantToLocalDay } from '@/lib/local-day'
 import { computeAverageCost, LEGACY_AGENT, listDistinctAgents, summarizeWorkTimeQuality } from '@/lib/measurement-quality'
 import type { DateRange, PresetKey } from '@/lib/period'
@@ -29,7 +30,7 @@ import { TotalsRouteUnavailableError, type TotalsFilters } from '@/composables/u
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('dashboard.title')) })
-const { formatCost, formatDuration, formatTokensCompact } = useFormatters()
+const { formatCost, formatDuration, formatPercent, formatTokensCompact } = useFormatters()
 
 const { $pb } = useNuxtApp()
 const { clients, ensureLoaded: ensureClients } = useClients()
@@ -74,6 +75,7 @@ function agentLabel(slug: string) {
 // yet (owner hasn't restarted PocketBase since this feature shipped). ---
 const totals = ref<TotalsRow>(ZERO_TOTALS_ROW)
 const previousTotals = ref<TotalsRow>(ZERO_TOTALS_ROW)
+const cacheHit = computed(() => cacheHitRatio(totals.value.input, totals.value.cacheRead, totals.value.cacheWrite))
 const workTimeQuality = ref(summarizeWorkTimeQualityFromTotal(ZERO_TOTALS_ROW))
 const averageCost = ref(computeAverageCostFromTotal(ZERO_TOTALS_ROW))
 const byClient = ref<(GroupTotalsLike & { label: string })[]>([])
@@ -135,42 +137,68 @@ const chartPoints = computed(() => {
 /** Server-side equivalent of the old client-side `includeUnassigned`/
  * `agentFilter` row filtering — every totals call below passes this so
  * the server never sums rows the dashboard wouldn't show. */
-function buildServerFilters(): TotalsFilters {
+function snapshotLoad() {
+  return {
+    range: { ...range.value },
+    includeUnassigned: includeUnassigned.value,
+    unassignedClientId: unassignedClientId.value,
+    agent: agentFilter.value,
+  }
+}
+type LoadSnapshot = ReturnType<typeof snapshotLoad>
+
+function buildServerFilters(snapshot: LoadSnapshot): TotalsFilters {
   const filters: TotalsFilters = {}
-  if (!includeUnassigned.value && unassignedClientId.value) filters.exclude_unassigned_client = unassignedClientId.value
-  if (agentFilter.value) filters.agent = agentFilter.value === LEGACY_AGENT ? '' : agentFilter.value
+  if (!snapshot.includeUnassigned && snapshot.unassignedClientId) filters.exclude_unassigned_client = snapshot.unassignedClientId
+  if (snapshot.agent) filters.agent = snapshot.agent === LEGACY_AGENT ? '' : snapshot.agent
   return filters
 }
+
+let loadGeneration = 0
+let chartGeneration = 0
+let chartDataGeneration = 0
+let chartSnapshot: LoadSnapshot | null = null
+let mounted = true
+const isCurrent = (generation: number) => mounted && generation === loadGeneration
 
 /** Fetches the local-day chart, bounded to at most 5 extra calls when
  * stacked by client/project (one per top-5 series, reusing the single
  * `filters.client`/`filters.project` scalar filter the totals endpoint
  * supports) — never an unbounded row fetch. */
-async function loadChart() {
-  const { boundaries, labels } = buildLocalDayBoundaries(range.value)
-  dayLabels.value = labels
-  const baseFilters = buildServerFilters()
-
-  if (stackBy.value === 'none') {
-    const resp = await fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters: baseFilters, perPage: boundaries.length })
-    dayGroupsBySeries.value = { total: resp.groups }
-    return
+async function loadChart(snapshot: LoadSnapshot, generation: number) {
+  const chartRequest = ++chartGeneration
+  const stacking = stackBy.value
+  const { boundaries, labels } = buildLocalDayBoundaries(snapshot.range)
+  const baseFilters = buildServerFilters(snapshot)
+  try {
+    let groups: Record<string, TotalsGroup[]>
+    if (stacking === 'none') {
+      const resp = await fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters: baseFilters, perPage: boundaries.length })
+      groups = { total: resp.groups }
+    }
+    else {
+      const keys = stacking === 'client' ? byClient.value.slice(0, 5).map(g => g.key) : byProject.value.slice(0, 5).map(g => g.key)
+      const results = await Promise.all(keys.map(async (key) => {
+        const filters: TotalsFilters = { ...baseFilters, ...(stacking === 'client' ? { client: key } : { project: key }) }
+        const resp = await fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters, perPage: boundaries.length })
+        return [key, resp.groups] as const
+      }))
+      groups = Object.fromEntries(results)
+    }
+    if (!isCurrent(generation) || chartRequest !== chartGeneration || stacking !== stackBy.value) return
+    dayLabels.value = labels
+    dayGroupsBySeries.value = groups
   }
-
-  const keys = stackBy.value === 'client' ? byClient.value.slice(0, 5).map(g => g.key) : byProject.value.slice(0, 5).map(g => g.key)
-  const results = await Promise.all(keys.map(async (key) => {
-    const filters: TotalsFilters = { ...baseFilters, ...(stackBy.value === 'client' ? { client: key } : { project: key }) }
-    const resp = await fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters, perPage: boundaries.length })
-    return [key, resp.groups] as const
-  }))
-  dayGroupsBySeries.value = Object.fromEntries(results)
+  catch (err) {
+    if (isCurrent(generation) && chartRequest === chartGeneration) throw err
+  }
 }
 
-async function fetchTopExpensive() {
-  const utc = localDateRangeToUtcFilters(range.value)
+async function fetchTopExpensive(snapshot: LoadSnapshot) {
+  const utc = localDateRangeToUtcFilters(snapshot.range)
   const parts = [`started_at >= "${utc.start}"`, `started_at <= "${utc.end}"`]
-  if (!includeUnassigned.value && unassignedClientId.value) parts.push(`client != "${unassignedClientId.value}"`)
-  if (agentFilter.value) parts.push(agentFilter.value === LEGACY_AGENT ? 'agent = ""' : `agent = "${agentFilter.value}"`)
+  if (!snapshot.includeUnassigned && snapshot.unassignedClientId) parts.push(`client != "${snapshot.unassignedClientId}"`)
+  if (snapshot.agent) parts.push(snapshot.agent === LEGACY_AGENT ? 'agent = ""' : `agent = "${snapshot.agent}"`)
   const result = await $pb.collection('task_entries').getList<TaskEntryRecord>(1, 10, {
     filter: parts.join(' && '),
     sort: '-cost',
@@ -180,31 +208,38 @@ async function fetchTopExpensive() {
 }
 
 async function load() {
+  if (!mounted) return
+  const generation = ++loadGeneration
+  ++chartGeneration
+  chartDataGeneration = 0
+  chartSnapshot = null
+  const snapshot = snapshotLoad()
   loading.value = true
   try {
     if (totalsRouteUnavailable.value) {
-      await loadFallback()
+      await loadFallback(snapshot, generation)
       return
     }
     try {
-      await loadServer()
+      await loadServer(snapshot, generation)
     }
     catch (err) {
+      if (!isCurrent(generation)) return
       if (!(err instanceof TotalsRouteUnavailableError)) throw err
       totalsRouteUnavailable.value = true
-      await loadFallback()
+      await loadFallback(snapshot, generation)
     }
   }
   finally {
-    loading.value = false
+    if (isCurrent(generation)) loading.value = false
   }
 }
 
-async function loadServer() {
-  const utcCurrent = localDateRangeToUtcFilters(range.value)
-  const prevRange = previousEquivalentPeriod(range.value)
+async function loadServer(snapshot: LoadSnapshot, generation: number) {
+  const utcCurrent = localDateRangeToUtcFilters(snapshot.range)
+  const prevRange = previousEquivalentPeriod(snapshot.range)
   const utcPrev = localDateRangeToUtcFilters(prevRange)
-  const filters = buildServerFilters()
+  const filters = buildServerFilters(snapshot)
 
   const [currentResp, previousResp, clientResp, projectResp, agentResp, topExpensiveRows] = await Promise.all([
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'none', filters }),
@@ -217,9 +252,10 @@ async function loadServer() {
     // unfiltered fetch) — so picking a filter never shrinks the option
     // list out from under itself.
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'agent', sort: 'group_key', perPage: 200 }),
-    fetchTopExpensive(),
+    fetchTopExpensive(snapshot),
   ])
 
+  if (!isCurrent(generation)) return
   totals.value = currentResp.total
   previousTotals.value = previousResp.total
   workTimeQuality.value = summarizeWorkTimeQualityFromTotal(totals.value)
@@ -236,7 +272,9 @@ async function loadServer() {
     return a.localeCompare(b)
   })
 
-  await loadChart()
+  chartDataGeneration = generation
+  chartSnapshot = snapshot
+  await loadChart(snapshot, generation)
 }
 
 /** Adapts the pre-totals `Totals`/`GroupTotals` shapes
@@ -277,22 +315,24 @@ function toTotalsRow(entries: TaskEntryRecord[]): TotalsRow {
  * when POST /api/kankaku/totals 404s (the owner hasn't restarted
  * PocketBase yet) — no error toast, this is a silent, documented
  * degrade-gracefully path. */
-async function loadFallback() {
-  const prevRange = previousEquivalentPeriod(range.value)
+async function loadFallback(snapshot: LoadSnapshot, generation: number) {
+  const prevRange = previousEquivalentPeriod(snapshot.range)
   const [current, previous] = await Promise.all([
-    fetchRange(range.value),
+    fetchRange(snapshot.range),
     fetchRange(prevRange),
   ])
+  if (!isCurrent(generation)) return
   const currentEntries = current.entries
   const previousEntries = previous.entries
+  const stacking = stackBy.value
 
   function matchesAgentFilter(entry: TaskEntryRecord) {
-    if (!agentFilter.value) return true
-    if (agentFilter.value === LEGACY_AGENT) return !entry.agent?.trim()
-    return entry.agent?.trim() === agentFilter.value
+    if (!snapshot.agent) return true
+    if (snapshot.agent === LEGACY_AGENT) return !entry.agent?.trim()
+    return entry.agent?.trim() === snapshot.agent
   }
   function visible(entries: TaskEntryRecord[]) {
-    return (includeUnassigned.value ? entries : entries.filter(e => e.client !== unassignedClientId.value)).filter(matchesAgentFilter)
+    return (snapshot.includeUnassigned ? entries : entries.filter(e => e.client !== snapshot.unassignedClientId)).filter(matchesAgentFilter)
   }
 
   const visibleCurrent = visible(currentEntries)
@@ -317,7 +357,7 @@ async function loadFallback() {
   for (const e of visibleCurrent) {
     const day = utcInstantToLocalDay(e.started_at)
     const bucket = byDay.get(day) ?? {}
-    const key = stackBy.value === 'client' ? e.client : stackBy.value === 'project' ? (e.project || '—') : 'total'
+    const key = stacking === 'client' ? e.client : stacking === 'project' ? (e.project || '—') : 'total'
     if (chartSeriesKeys.value.includes(key)) {
       const cell = bucket[key] ?? { workMs: 0, cost: 0 }
       cell.workMs += e.work_ms ?? 0
@@ -354,19 +394,34 @@ async function loadFallback() {
     }
   })
   dayGroupsBySeries.value = seriesMap
+  chartDataGeneration = generation
 }
 
 let unsubscribe: (() => void) | null = null
 onMounted(async () => {
   await Promise.all([ensureClients(), ensureProjects()])
+  if (!mounted) return
   await load()
-  unsubscribe = subscribe(() => load())
+  if (mounted) unsubscribe = subscribe(() => load())
 })
-onBeforeUnmount(() => unsubscribe?.())
+onBeforeUnmount(() => {
+  mounted = false
+  ++loadGeneration
+  ++chartGeneration
+  unsubscribe?.()
+})
 
 watch(range, load, { deep: true })
 watch([includeUnassigned, agentFilter], load)
-watch(stackBy, () => { if (!loading.value) loadChart() })
+watch(stackBy, () => {
+  ++chartGeneration
+  if (totalsRouteUnavailable.value) {
+    void load()
+  }
+  else if (chartDataGeneration === loadGeneration && chartSnapshot) {
+    void loadChart(chartSnapshot, loadGeneration)
+  }
+})
 </script>
 
 <template>
@@ -401,7 +456,11 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
       <KpiCard :title="t('dashboard.kpi.wallTime')" :value="formatDuration(totals.wallMs)" :current-value="totals.wallMs" :previous-value="previousTotals.wallMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.waitingTime')" :value="formatDuration(totals.waitingMs)" :current-value="totals.waitingMs" :previous-value="previousTotals.waitingMs" polarity="lowerIsBetter" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="`${t('dashboard.kpi.cost')} (USD)`" :value="formatCost(totals.cost)" :current-value="totals.cost" :previous-value="previousTotals.cost" polarity="lowerIsBetter" :vs-label="t('dashboard.vsPrevious')" />
-      <KpiCard :title="t('dashboard.kpi.tokensIn')" :value="formatTokensCompact(totals.input)" :current-value="totals.input" :previous-value="previousTotals.input" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
+      <KpiCard :title="t('dashboard.kpi.tokensIn')" :value="formatTokensCompact(totals.input)" :current-value="totals.input" :previous-value="previousTotals.input" polarity="neutral" :vs-label="t('dashboard.vsPrevious')">
+        <p data-testid="dashboard-cache-hit" class="mt-1 text-xs text-muted-foreground">
+          {{ t('dashboard.kpi.cacheHit') }}: <span class="tabular-nums">{{ cacheHit === null ? '—' : formatPercent(cacheHit) }}</span>
+        </p>
+      </KpiCard>
       <KpiCard :title="t('dashboard.kpi.tokensOut')" :value="formatTokensCompact(totals.output)" :current-value="totals.output" :previous-value="previousTotals.output" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.tasks')" :value="String(totals.entries)" :current-value="totals.entries" :previous-value="previousTotals.entries" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(averageCost.average ?? 0)" polarity="lowerIsBetter">
@@ -418,13 +477,13 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
         </CardTitle>
         <div class="flex min-w-0 flex-wrap items-center gap-2">
           <Select
-v-model="metric" class="min-w-0 sm:min-w-[12.5rem]" :options="[
+v-model="metric" class="min-w-0 sm:min-w-[12.5rem]" :aria-label="t('dashboard.chart.metric')" :options="[
             { value: 'work', label: t('dashboard.chart.work') },
             { value: 'cost', label: t('dashboard.chart.cost') },
           ]"
           />
           <Select
-v-model="stackBy" class="w-40" :options="[
+v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :options="[
             { value: 'none', label: t('dashboard.chart.none') },
             { value: 'client', label: t('dashboard.chart.client') },
             { value: 'project', label: t('dashboard.chart.project') },
@@ -453,7 +512,7 @@ v-model="stackBy" class="w-40" :options="[
         <CardHeader><CardTitle class="text-sm font-medium text-foreground">
           {{ t('dashboard.byClient') }}
         </CardTitle></CardHeader>
-        <CardContent class="p-0">
+        <CardContent>
           <BreakdownTable :rows="byClient" :name-header="t('common.client')" :resolve-client="clientById" />
         </CardContent>
       </Card>
@@ -461,7 +520,7 @@ v-model="stackBy" class="w-40" :options="[
         <CardHeader><CardTitle class="text-sm font-medium text-foreground">
           {{ t('dashboard.byProject') }}
         </CardTitle></CardHeader>
-        <CardContent class="p-0">
+        <CardContent>
           <BreakdownTable :rows="byProject" :name-header="t('common.project')" />
         </CardContent>
       </Card>
@@ -471,7 +530,7 @@ v-model="stackBy" class="w-40" :options="[
       <CardHeader><CardTitle class="text-sm font-medium text-foreground">
         {{ t('dashboard.topExpensive') }}
       </CardTitle></CardHeader>
-      <CardContent class="p-0">
+      <CardContent>
         <Table>
           <TableHeader>
             <TableRow>

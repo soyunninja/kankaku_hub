@@ -17,6 +17,7 @@ import AgentBadge from '@/components/agents/AgentBadge.vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import { Badge } from '@/components/ui/badge'
+import { cacheHitRatio } from '@/lib/cache-hit'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -57,7 +58,7 @@ const project = defineModel<string>('project', { required: true })
 const task = defineModel<string>('task', { required: true })
 
 const { t } = useI18n()
-const { formatCost, formatDateTime, formatDuration, formatTokens } = useFormatters()
+const { formatCost, formatDateTime, formatDuration, formatPercent, formatTokens } = useFormatters()
 
 // -- focus management: the page's SheetContent @open-auto-focus hands
 // focus here instead of the reka-ui default (first focusable = a link).
@@ -157,6 +158,8 @@ const projectSelectOptions = computed(() => [
 const repoProjectTruncated = computed(() => props.entry.repo_project ? truncateMiddle(props.entry.repo_project, 36) : '')
 
 // -- tokens -----------------------------------------------------------------
+
+const cacheHit = computed(() => cacheHitRatio(props.entry.input, props.entry.cache_read, props.entry.cache_write))
 
 const tokenFields = computed(() => [
   { key: 'input', label: t('entries.detail.tokensIn'), value: props.entry.input },
@@ -498,6 +501,20 @@ defineOptions({ inheritAttrs: false })
               {{ formatTokens(f.value) }}
             </p>
           </div>
+        </div>
+        <div class="flex items-center gap-1.5 text-sm">
+          <span class="text-xs text-muted-foreground">{{ t('entries.detail.cacheHit') }}:</span>
+          <span data-testid="entry-cache-hit" class="font-medium tabular-nums">{{ cacheHit === null ? '—' : formatPercent(cacheHit) }}</span>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <button type="button" class="text-muted-foreground" :aria-label="t('entries.detail.cacheHitHint')">
+                <Info class="size-3.5" aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent class="max-w-xs">
+              {{ t('entries.detail.cacheHitHint') }}
+            </TooltipContent>
+          </Tooltip>
         </div>
         <p class="text-sm">
           <span class="text-xs text-muted-foreground">{{ t('common.model') }}: </span>

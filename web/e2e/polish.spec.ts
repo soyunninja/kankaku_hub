@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiLogin, findClients, login, pbUrl, setTheme, toastText } from './helpers'
+import { apiLogin, assertIsolatedFixtureStack, comboboxTrigger, findClients, login, pbUrl, selectCombobox, setTheme, toastText } from './helpers'
 
 /**
  * Targeted regression checks for the visual/UX polish pass (see
@@ -24,6 +24,34 @@ test.describe('KPI cards never clip their value', () => {
         const el = values.nth(i)
         const overflow = await el.evaluate(node => node.scrollWidth - node.clientWidth)
         expect(overflow, `KPI value #${i} at ${size.width}px must not overflow its card`).toBeLessThanOrEqual(1)
+      }
+    }
+  })
+})
+
+test.describe('dashboard table cards retain horizontal padding', () => {
+  test('at desktop and mobile widths', async ({ page }) => {
+    await login(page)
+
+    for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(size)
+      await page.goto('/')
+      await page.waitForLoadState('networkidle')
+
+      // Breakdown by client/project and Most expensive entries are the only
+      // dashboard cards with tables; check their content, not the table wrapper.
+      const cards = page.locator('main [data-slot="card"]').filter({ has: page.locator('table') })
+      await expect(cards).toHaveCount(3)
+      for (let i = 0; i < 3; i++) {
+        const content = cards.nth(i).locator('[data-slot="card-content"]')
+        await expect(content).toHaveCount(1)
+        const { left, right } = await content.evaluate(node => {
+          const style = getComputedStyle(node)
+          return { left: Number.parseFloat(style.paddingLeft), right: Number.parseFloat(style.paddingRight) }
+        })
+        expect(left, `table card #${i} at ${size.width}px must have horizontal padding`).toBeGreaterThan(0)
+        expect(left, `table card #${i} at ${size.width}px must retain CardContent px-6`).toBe(24)
+        expect(right, `table card #${i} at ${size.width}px must have equal horizontal padding`).toBe(left)
       }
     }
   })
@@ -73,6 +101,7 @@ test.describe('unassigned queue is translated in Spanish', () => {
 test.describe('bulk assignment end-to-end', () => {
   test('assigns a disposable unassigned group, updates the queue and dashboard without a full reload', async ({ page, request }) => {
     test.setTimeout(60_000)
+    assertIsolatedFixtureStack()
     const token = await apiLogin(request)
     const { unassigned, target } = await findClients(request, token)
 
@@ -159,9 +188,11 @@ test.describe('bulk assignment end-to-end', () => {
 
       const dialog = page.locator('[role="dialog"]')
       await expect(dialog).toBeVisible()
-      // The assign dialog has two native <select>s (client, then project) —
-      // the client one is first.
-      await dialog.locator('select').first().selectOption({ label: target.name })
+      // The project stays unassigned, as in the original bulk assignment.
+      const clientTrigger = comboboxTrigger(page, 'Cliente').and(dialog.locator('[data-slot="combobox-trigger"]'))
+      const projectTrigger = comboboxTrigger(page, 'Proyecto (Ninguno)').and(dialog.locator('[data-slot="combobox-trigger"]'))
+      await selectCombobox(clientTrigger, target.name)
+      await expect(projectTrigger).toContainText('Proyecto (Ninguno)')
       await dialog.getByRole('button', { name: 'Asignar a' }).click()
 
       // Toast confirms how many rows moved and where — no full page reload.
