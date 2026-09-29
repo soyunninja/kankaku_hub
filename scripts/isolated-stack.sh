@@ -221,18 +221,18 @@ cmd_up() {
     rsync -a --exclude node_modules --exclude .nuxt --exclude .output "$REPO_ROOT/web/" "$abs_dir/web/"
     ln -sfn "$REPO_ROOT/web/node_modules" "$abs_dir/web/node_modules"
 
-    echo "==> Starting Nuxt dev on http://localhost:$web_port"
+    echo "==> Starting Nuxt dev on http://127.0.0.1:$web_port"
     local nuxt_log="$abs_dir/nuxt.log"
-    NUXT_PUBLIC_PB_URL="$pb_url" pnpm --dir "$abs_dir/web" dev --port "$web_port" >"$nuxt_log" 2>&1 &
+    NUXT_PUBLIC_PB_URL="$pb_url" pnpm --dir "$abs_dir/web" dev --port "$web_port" --host 127.0.0.1 >"$nuxt_log" 2>&1 &
     web_pid=$!
 
-    if ! wait_for_http "http://localhost:$web_port" 90 "$web_pid"; then
+    if ! wait_for_http "http://127.0.0.1:$web_port" 90 "$web_pid"; then
       echo "Nuxt dev server failed to become ready; see $nuxt_log" >&2
       kill "$web_pid" 2>/dev/null || true
       kill "$pb_pid" 2>/dev/null || true
       exit 1
     fi
-    echo "==> Web ready (http://localhost:$web_port), log: $nuxt_log"
+    echo "==> Web ready (http://127.0.0.1:$web_port), log: $nuxt_log"
   fi
 
   {
@@ -249,7 +249,7 @@ cmd_up() {
   echo "export E2E_ALLOW_PB_WRITES=1"
   echo "export NUXT_PUBLIC_PB_URL=$pb_url"
   if [ "$no_web" != "1" ]; then
-    echo "export PW_BASE_URL=http://localhost:$web_port"
+    echo "export PW_BASE_URL=http://127.0.0.1:$web_port"
   fi
   echo "export PW_OUTPUT_DIR=$abs_dir/pw-out"
   echo ""
