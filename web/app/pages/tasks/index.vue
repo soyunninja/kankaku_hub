@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { History, Keyboard, Pencil, Plus, Trash2 } from '@lucide/vue'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import RowActions from '@/components/common/RowActions.vue'
 import TaskDetailSheet, { type SessionEntriesState } from '@/components/tasks/TaskDetailSheet.vue'
@@ -44,6 +45,10 @@ const filterProject = ref('')
 const availableProjects = computed(() => filterClient.value
   ? projects.value.filter(p => p.client === filterClient.value)
   : projects.value)
+
+function clientById(id: string) {
+  return clients.value.find(c => c.id === id)
+}
 
 function selectClient(clientId: string) {
   if (clientId && filterProject.value && !projects.value.some(p => p.id === filterProject.value && p.client === clientId)) {
@@ -485,16 +490,35 @@ async function onDelete(task: TaskRecord) {
         <h1 class="text-xl font-semibold tracking-tight">
           {{ t('tasks.title') }}
         </h1>
-        <div class="flex items-center gap-2">
-          <Select
-            :model-value="filterClient" class="w-48" :aria-label="t('common.client')" :placeholder="t('common.client')"
-            :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
-            @update:model-value="selectClient"
-          />
-          <Select
-            v-model="filterProject" class="w-48" :aria-label="t('common.project')" :placeholder="t('common.project')"
-            :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]"
-          />
+        <div class="flex items-end gap-2">
+          <div class="flex flex-col gap-1">
+            <Label for="tasks-filter-client" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('common.client') }}</Label>
+            <Select
+              id="tasks-filter-client" :model-value="filterClient" class="w-48" :aria-label="t('common.client')" :placeholder="t('common.client')"
+              :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
+              @update:model-value="selectClient"
+            >
+              <template #option="{ option }">
+                <span class="flex min-w-0 items-center gap-2">
+                  <ClientAvatar v-if="option.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
+                  <span class="truncate">{{ option.label }}</span>
+                </span>
+              </template>
+              <template #selected="{ option, label }">
+                <span class="flex min-w-0 items-center gap-2">
+                  <ClientAvatar v-if="option?.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
+                  <span class="truncate">{{ label }}</span>
+                </span>
+              </template>
+            </Select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <Label for="tasks-filter-project" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('common.project') }}</Label>
+            <Select
+              id="tasks-filter-project" v-model="filterProject" class="w-48" :aria-label="t('common.project')" :placeholder="t('common.project')"
+              :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]"
+            />
+          </div>
           <Tabs v-model="view">
             <TabsList>
               <TabsTrigger value="board">

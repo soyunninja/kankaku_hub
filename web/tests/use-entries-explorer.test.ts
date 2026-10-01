@@ -58,6 +58,31 @@ function totalsResponse(groups: TotalsGroup[], totalPages = 1): TotalsResponse {
 }
 
 describe('useEntriesExplorer', () => {
+  it('collects every filtered session id and rejects an unscoped scan', async () => {
+    const getFullList = vi.fn(async () => [{ id: 'a' }, { id: 'b' }])
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: () => ({ getFullList }) } }))
+    vi.stubGlobal('useTotals', () => ({}))
+    const { useEntriesExplorer } = await import('../app/composables/useEntriesExplorer')
+    const explorer = useEntriesExplorer()
+    expect(await explorer.collectEntryIds({ session_id: 'session', status: 'completed' })).toEqual(['a', 'b'])
+    expect(getFullList).toHaveBeenCalledWith(expect.objectContaining({ fields: 'id', filter: 'status = "completed" && session_id = "session"' }))
+    await expect(explorer.collectEntryIds({})).rejects.toThrow()
+  })
+
+  it('assigns only task in chunks of 50 and retains failed chunk ids', async () => {
+    const update = vi.fn()
+    const send = vi.fn().mockResolvedValueOnce(Array.from({ length: 50 }, () => ({ status: 200 }))).mockRejectedValueOnce(new Error('rollback'))
+    const createBatch = vi.fn(() => ({ collection: () => ({ update }), send }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { createBatch } }))
+    vi.stubGlobal('useTotals', () => ({}))
+    const { useEntriesExplorer } = await import('../app/composables/useEntriesExplorer')
+    const ids = Array.from({ length: 51 }, (_, i) => String(i))
+    const result = await useEntriesExplorer().bulkAssignTask(ids, 'task')
+    expect(createBatch).toHaveBeenCalledTimes(2)
+    expect(update).toHaveBeenCalledWith('0', { task: 'task' })
+    expect(result).toEqual({ succeeded: ids.slice(0, 50), failed: ['50'] })
+  })
+
   beforeEach(() => {
     vi.resetModules()
   })

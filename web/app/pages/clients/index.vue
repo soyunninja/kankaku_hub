@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Archive, ArchiveRestore, Globe, Lock, Mail, Pencil, Phone, Plus, RefreshCw, StickyNote } from '@lucide/vue'
+import { Archive, ArchiveRestore, ArrowRight, Globe, LayoutGrid, List, Lock, Mail, Pencil, Phone, Plus, RefreshCw, Search, StickyNote } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -41,6 +41,15 @@ const { fetchRange } = useTaskEntries()
 const { fetchRangeTotals } = useTotals()
 const toast = useToast()
 const { isOwner, canWrite } = useAuth()
+
+const search = ref('')
+const view = ref<'grid' | 'list'>('grid')
+const filteredClients = computed(() => {
+  const query = search.value.trim().toLocaleLowerCase()
+  return clients.value.filter(client =>
+    [client.name, client.code, client.website ?? ''].some(value => value.toLocaleLowerCase().includes(query)),
+  )
+})
 
 const totalsByClient = ref<Record<string, { cost: number, workMs: number }>>({})
 /** True when the fallback path's `fetchRange` scan was capped before
@@ -248,11 +257,16 @@ async function onRefreshFavicon() {
 
 <template>
   <TooltipProvider>
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center justify-between">
-        <h1 class="text-xl font-semibold tracking-tight">
-          {{ t('clients.title') }}
-        </h1>
+    <div class="flex flex-col gap-6">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight">
+            {{ t('clients.title') }}
+          </h1>
+          <p class="mt-1 text-sm text-muted-foreground">
+            {{ t(clients.length === 1 ? 'clients.countOne' : 'clients.count', { count: clients.length }) }}
+          </p>
+        </div>
         <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
           <Plus class="size-4" />
           {{ t('clients.new') }}
@@ -263,7 +277,89 @@ async function onRefreshFavicon() {
         {{ t('totals.fallbackTruncated', { count: truncatedEntryCount }) }}
       </p>
 
-      <Card>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="relative min-w-0 flex-1">
+          <Search aria-hidden="true" class="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="client-search"
+            v-model="search"
+            type="search"
+            :aria-label="t('clients.search')"
+            :placeholder="t('clients.search')"
+            class="h-12 rounded-2xl bg-card pl-11"
+          />
+        </div>
+        <div role="group" :aria-label="t('clients.viewLabel')" class="flex shrink-0 gap-1 self-start rounded-2xl bg-muted p-1 sm:self-auto">
+          <Button :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" class="rounded-xl" @click="view = 'list'">
+            <List aria-hidden="true" class="size-4" />
+            {{ t('clients.listView') }}
+          </Button>
+          <Button :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" class="rounded-xl" @click="view = 'grid'">
+            <LayoutGrid aria-hidden="true" class="size-4" />
+            {{ t('clients.gridView') }}
+          </Button>
+        </div>
+      </div>
+
+      <template v-if="view === 'grid'">
+        <div v-if="loading && clients.length === 0" role="status" :aria-label="t('common.loading')" class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+          <div v-for="n in 4" :key="n" class="h-48 animate-pulse rounded-3xl bg-muted" />
+        </div>
+        <div v-else class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+          <article v-for="c in filteredClients" :key="c.id" data-testid="client-card" class="flex min-w-0 flex-col gap-3 rounded-3xl border border-border/50 bg-card p-2 transition-colors hover:border-border sm:gap-5 sm:p-5">
+            <div class="grid min-w-0 grid-cols-[auto_1fr] items-start gap-2 sm:gap-3">
+              <ClientAvatar :client="c" size="md" class="size-7 shrink-0" />
+              <div class="col-span-2 row-start-2 min-w-0">
+                <h2 class="flex items-start gap-1 text-sm font-semibold sm:text-base">
+                  <span class="min-w-0 [overflow-wrap:anywhere]" :title="c.name">{{ c.name }}</span>
+                  <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.protected')" />
+                  <Tooltip v-if="c.notes">
+                    <TooltipTrigger as-child>
+                      <button type="button" :aria-label="t('clients.hasNotes')" class="shrink-0 rounded focus-visible:ring-2 focus-visible:ring-ring">
+                        <StickyNote class="size-3.5 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-xs whitespace-pre-wrap">{{ c.notes }}</TooltipContent>
+                  </Tooltip>
+                </h2>
+                <p class="mt-1 truncate text-sm text-muted-foreground" :title="c.website || c.code">
+                  {{ c.website ? displayUrlWithoutScheme(c.website) : c.code }}
+                </p>
+              </div>
+              <RowActions
+                v-if="canWrite"
+                data-testid="write-action"
+                class="col-start-2 row-start-1 flex-wrap"
+                :actions="[
+                  { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(c), disabled: c.unassigned },
+                  { icon: c.active ? Archive : ArchiveRestore, label: c.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(c), disabled: c.unassigned },
+                ]"
+              />
+            </div>
+            <dl class="grid min-w-0 grid-cols-1 gap-3 text-sm [overflow-wrap:anywhere] sm:grid-cols-2">
+              <div class="min-w-0">
+                <dt class="text-xs text-muted-foreground">{{ t('clients.totalTime') }}</dt>
+                <dd class="mt-1 font-medium tabular-nums">{{ formatDuration(totalsByClient[c.id]?.workMs ?? 0) }}</dd>
+              </div>
+              <div class="min-w-0">
+                <dt class="text-xs text-muted-foreground">{{ t('clients.totalCost') }}</dt>
+                <dd class="mt-1 font-medium tabular-nums">{{ formatCost(totalsByClient[c.id]?.cost ?? 0) }}</dd>
+              </div>
+            </dl>
+            <div class="mt-auto flex flex-wrap items-center justify-between gap-1">
+              <Badge :variant="c.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
+                {{ c.active ? t('common.active') : t('common.inactive') }}
+              </Badge>
+              <Button variant="ghost" size="icon" class="rounded-full text-muted-foreground" :aria-label="t('clients.openDetail', { name: c.name })" @click="openDetail(c)">
+                <ArrowRight aria-hidden="true" class="size-5" />
+              </Button>
+            </div>
+          </article>
+        </div>
+        <EmptyState v-if="!loading && filteredClients.length === 0" :title="t(clients.length === 0 ? 'clients.empty' : 'clients.noResults')" />
+      </template>
+
+      <Card v-else>
         <CardContent class="p-0">
           <Table>
             <TableHeader>
@@ -285,7 +381,7 @@ async function onRefreshFavicon() {
             <TableBody>
               <SkeletonRows v-if="loading && clients.length === 0" :rows="4" :cols="6" />
               <TableRow
-                v-for="c in clients"
+                v-for="c in filteredClients"
                 :key="c.id"
                 class="cursor-pointer"
                 @click="openDetail(c)"
@@ -333,7 +429,7 @@ async function onRefreshFavicon() {
               </TableRow>
             </TableBody>
           </Table>
-          <EmptyState v-if="!loading && clients.length === 0" :title="t('clients.empty')" class="m-4" />
+          <EmptyState v-if="!loading && filteredClients.length === 0" :title="t(clients.length === 0 ? 'clients.empty' : 'clients.noResults')" class="m-4" />
         </CardContent>
       </Card>
 

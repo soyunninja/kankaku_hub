@@ -103,6 +103,13 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
         sessionId, sessionName, machine: runBase, startedAtOffsetMs: 0, workMs: 150_000, cost: 0.02,
       }))
 
+      ids.push(await createEntry(request, token, target.id, project.id, runBase, {
+        sessionId: `${runBase}-other-session`,
+        sessionName: `E2E Other Session ${runBase}`,
+        machine: runBase,
+        startedAtOffsetMs: -30_000,
+      }))
+
       // Fresh browser: no `kankaku-entries-group-by-session` key yet — the
       // new default is grouped (no cookie/localStorage carries over, and
       // this context has never visited the app before `login`).
@@ -129,9 +136,13 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
       await expect(page.getByRole('columnheader', { name: 'Entradas', exact: true })).toBeVisible()
 
       const groupHeaders = page.locator('[data-testid="session-group-row"]')
-      await expect(groupHeaders).toHaveCount(1)
-      const sessionRow = groupHeaders.first()
-      await expect(sessionRow.getByText(sessionName, { exact: false })).toBeVisible()
+      await expect(groupHeaders).toHaveCount(2)
+      // Engram can replace the visible name, but the accessible full ID
+      // remains stable and identifies the target independently of row order.
+      const targetMarker = page.getByRole('button', { name: `Sesión: ${sessionId} —` })
+      const sessionRow = groupHeaders.filter({ has: targetMarker })
+      await expect(sessionRow).toHaveCount(1)
+      await expect(sessionRow.getByRole('button', { name: `Sesión: ${sessionId} —` })).toBeVisible()
 
       // Entries count is its own right-aligned cell, no "N entradas" label.
       const entriesCountCell = sessionRow.locator('[data-testid="session-entries-count"]')
@@ -169,6 +180,22 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
       await toggle.click()
       await expect(toggle).toHaveAttribute('aria-expanded', 'false')
       await expect(page.locator('[data-testid="session-group-entries"]')).toHaveCount(0)
+
+      // Selecting the marker filters AND loads nested entries. Repeated
+      // selection ensures open, while the explicit chevron still collapses.
+      const marker = sessionRow.getByRole('button', { name: `Sesión: ${sessionId} —` })
+      await marker.click()
+      await expect(groupHeaders).toHaveCount(1)
+      await expect(sessionRow).toHaveCount(1)
+      await expect(page.getByRole('button', { name: 'Quitar filtro de sesión', exact: true })).toBeVisible()
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      await expect(entryRows).toHaveCount(2)
+      await marker.click()
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      await toggle.click()
+      await expect(nestedArea).toHaveCount(0)
+      await marker.click()
+      await expect(entryRows).toHaveCount(2)
 
       // Switch to flat: per-entry rows, no group header, model filter
       // enabled again.

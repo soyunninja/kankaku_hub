@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { Archive, ArchiveRestore, ArrowRight, LayoutGrid, List, Pencil, Plus, Search, Trash2 } from '@lucide/vue'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import RowActions from '@/components/common/RowActions.vue'
@@ -34,6 +35,8 @@ const toast = useToast()
 const { canWrite } = useAuth()
 
 const filterClient = ref('')
+const search = ref('')
+const view = ref<'grid' | 'list'>('grid')
 const totalsByProject = ref<Record<string, { cost: number, workMs: number }>>({})
 /** True when the fallback path's `fetchRange` scan was capped before
  * covering the full range — surfaces `totals.fallbackTruncated`. */
@@ -82,7 +85,11 @@ function nextSortLabel(key: SortKey, column: string) {
   return t(direction === 'asc' ? 'projects.sortAscending' : 'projects.sortDescending', { column })
 }
 const filtered = computed(() => {
-  const visible = filterClient.value ? projects.value.filter(p => p.client === filterClient.value) : projects.value
+  const query = search.value.trim().toLocaleLowerCase()
+  const visible = projects.value.filter(p =>
+    (!filterClient.value || p.client === filterClient.value)
+    && [p.name, p.code, clientName(p.client)].some(value => value.toLocaleLowerCase().includes(query)),
+  )
   return sortProjects(visible, sortKey.value, sortDirection.value, locale.value, clientName, totalsByProject.value)
 })
 
@@ -146,16 +153,15 @@ async function toggleArchive(project: ProjectRecord) {
 
 <template>
   <TooltipProvider>
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-xl font-semibold tracking-tight">
-          {{ t('projects.title') }}
-        </h1>
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight">{{ t('projects.title') }}</h1>
+          <p class="mt-1 text-sm text-muted-foreground">
+            {{ t(projects.length === 1 ? 'projects.countOne' : 'projects.count', { count: projects.length }) }}
+          </p>
+        </div>
         <div class="flex items-center gap-2">
-          <Select
-            v-model="filterClient" class="w-48" :placeholder="t('projects.filterByClient')"
-            :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
-          />
           <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
             <Plus class="size-4" />
             {{ t('projects.new') }}
@@ -167,7 +173,84 @@ async function toggleArchive(project: ProjectRecord) {
         {{ t('totals.fallbackTruncated', { count: truncatedEntryCount }) }}
       </p>
 
-      <Card>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="relative min-w-0 flex-1">
+          <Search aria-hidden="true" class="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input id="project-search" v-model="search" type="search" :aria-label="t('projects.search')" :placeholder="t('projects.search')" class="h-12 rounded-2xl bg-card pl-11" />
+        </div>
+        <div class="flex min-w-0 flex-col gap-1 sm:w-48">
+          <Label for="project-client-filter" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('projects.filterByClient') }}</Label>
+          <Select id="project-client-filter" v-model="filterClient" :aria-label="t('projects.filterByClient')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]">
+            <template #option="{ option }">
+              <span class="flex min-w-0 items-center gap-2">
+                <ClientAvatar v-if="option.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
+                <span class="truncate">{{ option.label }}</span>
+              </span>
+            </template>
+            <template #selected="{ option, label }">
+              <span class="flex min-w-0 items-center gap-2">
+                <ClientAvatar v-if="option?.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
+                <span class="truncate">{{ label }}</span>
+              </span>
+            </template>
+          </Select>
+        </div>
+        <div role="group" :aria-label="t('projects.viewLabel')" class="flex shrink-0 gap-1 self-start rounded-2xl bg-muted p-1 sm:self-auto">
+          <Button :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" class="rounded-xl" @click="view = 'list'">
+            <List aria-hidden="true" class="size-4" />{{ t('projects.listView') }}
+          </Button>
+          <Button :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" class="rounded-xl" @click="view = 'grid'">
+            <LayoutGrid aria-hidden="true" class="size-4" />{{ t('projects.gridView') }}
+          </Button>
+        </div>
+      </div>
+
+      <template v-if="view === 'grid'">
+        <div v-if="loading && projects.length === 0" role="status" :aria-label="t('common.loading')" class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+          <div v-for="n in 6" :key="n" class="h-48 animate-pulse rounded-3xl bg-muted" />
+        </div>
+        <div v-else class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+          <article v-for="p in filtered" :key="p.id" data-testid="project-card" class="flex min-w-0 flex-col gap-3 rounded-3xl border border-border/50 bg-card p-2 transition-colors hover:border-border sm:gap-5 sm:p-5">
+            <div class="flex min-w-0 flex-col gap-2">
+              <div class="flex min-w-0 items-start justify-between gap-1">
+                <h2 class="min-w-0 flex-1 text-sm font-semibold [overflow-wrap:anywhere] sm:text-base">{{ p.name }}</h2>
+                <RowActions
+                  v-if="canWrite" data-testid="write-action" class="shrink-0"
+                  :actions="[
+                    { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(p) },
+                    { icon: p.active ? Archive : ArchiveRestore, label: p.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(p) },
+                  ]"
+                />
+              </div>
+              <div class="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                <ClientAvatar :client="clientById(p.client) ?? { id: p.client, name: clientName(p.client), favicon: '', updated: '' }" size="xs" class="shrink-0" />
+                <p class="min-w-0 truncate" :title="clientName(p.client) + (p.code ? ` / ${p.code}` : '')">
+                  {{ clientName(p.client) }}<span v-if="p.code"> / {{ p.code }}</span>
+                </p>
+              </div>
+            </div>
+            <dl class="grid min-w-0 grid-cols-1 gap-3 text-sm [overflow-wrap:anywhere] sm:grid-cols-2">
+              <div class="min-w-0">
+                <dt class="text-xs text-muted-foreground" :title="t('common.timeHint')">{{ t('common.time') }}</dt>
+                <dd class="mt-1 font-medium tabular-nums">{{ formatDuration(totalsByProject[p.id]?.workMs ?? 0) }}</dd>
+              </div>
+              <div class="min-w-0">
+                <dt class="text-xs text-muted-foreground">{{ t('common.cost') }}</dt>
+                <dd class="mt-1 font-medium tabular-nums">{{ formatCost(totalsByProject[p.id]?.cost ?? 0) }}</dd>
+              </div>
+            </dl>
+            <div class="mt-auto flex flex-wrap items-center justify-between gap-1">
+              <Badge :variant="p.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{{ p.active ? t('common.active') : t('common.inactive') }}</Badge>
+              <Button variant="ghost" size="icon" class="shrink-0 rounded-full text-muted-foreground" :aria-label="t('projects.openDetail', { name: p.name })" @click="navigateTo(`/projects/${p.id}`)">
+                <ArrowRight aria-hidden="true" class="size-5" />
+              </Button>
+            </div>
+          </article>
+        </div>
+        <EmptyState v-if="!loading && filtered.length === 0" :title="t(projects.length === 0 ? 'projects.empty' : 'projects.noResults')" />
+      </template>
+
+      <Card v-else>
         <CardContent class="p-0">
           <Table>
             <TableHeader>
@@ -196,7 +279,7 @@ async function toggleArchive(project: ProjectRecord) {
               <SkeletonRows v-if="loading && projects.length === 0" :rows="4" :cols="6" />
               <TableRow v-for="p in filtered" :key="p.id" class="cursor-pointer" @click="navigateTo(`/projects/${p.id}`)">
                 <TableCell class="font-medium">
-                  {{ p.name }}
+                  <NuxtLink :to="`/projects/${p.id}`" class="rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring" @click.stop>{{ p.name }}</NuxtLink>
                 </TableCell>
                 <TableCell class="text-muted-foreground">
                   <ClientName v-if="clientById(p.client)" :client="clientById(p.client)!" size="xs" class="max-w-40" />
@@ -226,7 +309,7 @@ async function toggleArchive(project: ProjectRecord) {
               </TableRow>
             </TableBody>
           </Table>
-          <EmptyState v-if="!loading && filtered.length === 0" :title="t('projects.empty')" class="m-4" />
+          <EmptyState v-if="!loading && filtered.length === 0" :title="t(projects.length === 0 ? 'projects.empty' : 'projects.noResults')" class="m-4" />
         </CardContent>
       </Card>
 

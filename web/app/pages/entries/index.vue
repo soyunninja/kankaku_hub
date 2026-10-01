@@ -2,6 +2,7 @@
 import { sessionMarkerLabel } from '@/lib/session-marker'
 import { ChevronDown, ChevronLeft, ChevronRight, X } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
+import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
@@ -10,6 +11,7 @@ import SessionMarker from '@/components/entries/SessionMarker.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -37,8 +39,8 @@ const route = useRoute()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
-const { tasks, ensureLoaded: ensureTasks, refresh: refreshTasks, byId: taskById } = useTasks()
-const { list, getOne, listWorkRecords, updateAssignment, fetchAgentOptions, listAgents } = useEntriesExplorer()
+const { tasks, ensureLoaded: ensureTasks, refresh: refreshTasks, create: createTask, byId: taskById } = useTasks()
+const { list, getOne, listWorkRecords, updateAssignment, collectEntryIds, bulkAssignTask, fetchAgentOptions, listAgents } = useEntriesExplorer()
 const { fetchSessionTotalsForEntries } = useSessions()
 const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
@@ -215,8 +217,17 @@ interface SessionRowEntriesState {
  * dynamically `delete`-ing computed keys. */
 const sessionRowEntries = reactive(new Map<string, SessionRowEntriesState>())
 const expandedSessions = reactive(new Set<string>())
+let pendingSessionExpansion = filters.session_id
+let refreshGeneration = 0
+function refreshKey() {
+  return JSON.stringify([filters, sort.value, page.value, groupBySession.value])
+}
 
 async function loadSessionEntries(sessionId: string) {
+  const generation = refreshGeneration
+  const key = refreshKey()
+  const isCurrent = () => generation === refreshGeneration && key === refreshKey()
+
   sessionRowEntries.set(sessionId, { loading: true, error: false, items: [] })
   try {
     const res = await list({
@@ -225,10 +236,10 @@ async function loadSessionEntries(sessionId: string) {
       sort: sort.value,
       filters: { ...entriesFiltersSplit.value.groupable, dateStart: filters.dateStart, dateEnd: filters.dateEnd, session_id: sessionId },
     })
-    sessionRowEntries.set(sessionId, { loading: false, error: false, items: res.items })
+    if (isCurrent()) sessionRowEntries.set(sessionId, { loading: false, error: false, items: res.items })
   }
   catch {
-    sessionRowEntries.set(sessionId, { loading: false, error: true, items: [] })
+    if (isCurrent()) sessionRowEntries.set(sessionId, { loading: false, error: true, items: [] })
   }
 }
 
@@ -237,11 +248,15 @@ function toggleSession(sessionId: string) {
     expandedSessions.delete(sessionId)
     return
   }
+  ensureSessionOpen(sessionId)
+}
+
+function ensureSessionOpen(sessionId: string) {
   expandedSessions.add(sessionId)
   if (!sessionRowEntries.has(sessionId)) loadSessionEntries(sessionId)
 }
 
-async function loadSessions() {
+async function loadSessions(isCurrent: () => boolean) {
   expandedSessions.clear()
   sessionRowEntries.clear()
 
@@ -253,6 +268,7 @@ async function loadSessions() {
     page: page.value,
     perPage,
   })
+  if (!isCurrent()) return
   sessionRows.value = res.sessions
   sessionTotalGroups.value = res.totalGroups
   sessionTotalPages.value = res.totalPages || 1
@@ -267,9 +283,15 @@ const displayTotalItems = computed(() => primaryGrouped.value ? sessionTotalGrou
 const displayTotalPages = computed(() => primaryGrouped.value ? sessionTotalPages.value : totalPages.value)
 
 function filterToSession(sessionId: string) {
+  pendingSessionExpansion = primaryGrouped.value ? sessionId || undefined : undefined
+  if (sessionId && filters.session_id === sessionId && primaryGrouped.value && !loading.value) {
+    ensureSessionOpen(sessionId)
+    pendingSessionExpansion = undefined
+  }
   filters.session_id = sessionId || undefined
 }
 function clearSessionFilter() {
+  pendingSessionExpansion = undefined
   filters.session_id = undefined
 }
 /** Label for the active session-filter chip: the matching row's
@@ -355,8 +377,9 @@ const displayRows = computed<DisplayRow[]>(() => {
 /** Flat, entry-level fetch (unchanged): the pre-existing behaviour used
  * by flat mode, and by grouped mode's fallback when the totals route
  * 404s (`refresh` below). */
-async function loadFlat() {
-  const res = await list({ page: page.value, perPage, sort: sort.value, filters })
+async function loadFlat(isCurrent: () => boolean) {
+  const res = await list({ page: page.value, perPage, sort: sort.value, filters: { ...filters } })
+  if (!isCurrent()) return
   items.value = res.items
   totalItems.value = res.totalItems
   totalPages.value = res.totalPages
@@ -372,29 +395,40 @@ async function loadFlat() {
  * "Group by session" behaved before this feature.
  */
 async function refresh() {
+  const generation = ++refreshGeneration
+  const key = refreshKey()
+  const isCurrent = () => generation === refreshGeneration && key === refreshKey()
   loading.value = true
   try {
     if (!groupBySession.value) {
       groupingFallback.value = false
-      await loadFlat()
+      pendingSessionExpansion = undefined
+      await loadFlat(isCurrent)
       return
     }
     try {
-      await loadSessions()
+      await loadSessions(isCurrent)
+      if (!isCurrent()) return
       groupingFallback.value = false
+      if (pendingSessionExpansion === filters.session_id && sessionRows.value.some(row => row.sessionId === pendingSessionExpansion)) {
+        ensureSessionOpen(pendingSessionExpansion!)
+      }
+      pendingSessionExpansion = undefined
       // Fire-and-forget: never blocks the just-loaded session rows from
       // rendering, and never rejects (see loadEngramNarratives's own
       // never-throws contract via useEngramNarrative).
       loadEngramNarratives(sessionRows.value.map(r => r.sessionId))
     }
     catch (err) {
+      if (!isCurrent()) return
       if (!(err instanceof TotalsRouteUnavailableError)) throw err
       groupingFallback.value = true
-      await loadFlat()
+      pendingSessionExpansion = undefined
+      await loadFlat(isCurrent)
     }
   }
   finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -439,6 +473,84 @@ function toggleSort(field: string) {
   if (sort.value === field) sort.value = `-${field}`
   else if (sort.value === `-${field}`) sort.value = field
   else sort.value = `-${field}`
+}
+
+// Session-scoped bulk selection. Filter changes invalidate even off-page IDs.
+const bulkEnabled = computed(() => canWrite.value && !!filters.session_id)
+const selectedIds = reactive(new Set<string>())
+const bulkBusy = ref(false)
+const bulkTask = ref('')
+const bulkProject = ref('')
+const bulkTitle = ref('')
+const bulkDialog = ref<'assign' | 'create' | null>(null)
+let selectionGeneration = 0
+watch([filters, canWrite], () => {
+  selectionGeneration++
+  selectedIds.clear()
+  bulkDialog.value = null
+}, { deep: true, flush: 'sync' })
+const visibleEntryIds = computed(() => {
+  if (loading.value) return []
+  const rows = primaryGrouped.value
+    ? [...sessionRowEntries.entries()].filter(([id]) => expandedSessions.has(id)).flatMap(([, state]) => state.items)
+    : items.value
+  return rows.filter(entry => entry.session_id === filters.session_id).map(entry => entry.id)
+})
+function toggleEntry(id: string) {
+  if (!bulkEnabled.value || bulkBusy.value) return
+  if (selectedIds.has(id)) selectedIds.delete(id)
+  else selectedIds.add(id)
+}
+function selectVisible(clear = false) {
+  if (!bulkEnabled.value || bulkBusy.value) return
+  for (const id of visibleEntryIds.value) {
+    if (clear) selectedIds.delete(id)
+    else selectedIds.add(id)
+  }
+}
+async function selectAllInSession() {
+  if (!bulkEnabled.value || bulkBusy.value) return
+  const generation = selectionGeneration
+  bulkBusy.value = true
+  try {
+    const ids = await collectEntryIds({ ...filters })
+    if (generation === selectionGeneration && bulkEnabled.value) {
+      selectedIds.clear()
+      ids.forEach(id => selectedIds.add(id))
+    }
+  }
+  catch { toast.error(t('common.error')) }
+  finally { bulkBusy.value = false }
+}
+async function assignSelected(createNew = false) {
+  if (!bulkEnabled.value || bulkBusy.value || !selectedIds.size) return
+  if (createNew ? !bulkTitle.value.trim() || !bulkProject.value : !bulkTask.value) return
+  const ids = [...selectedIds]
+  const generation = selectionGeneration
+  bulkBusy.value = true
+  try {
+    let task = bulkTask.value
+    if (createNew) {
+      const created = await createTask({ title: bulkTitle.value.trim(), project: bulkProject.value, status: 'open' })
+      task = created.id
+      bulkTask.value = task
+      bulkTitle.value = '' // Retry failed assignments using the task already created.
+    }
+    if (generation !== selectionGeneration || !bulkEnabled.value) return
+    const result = await bulkAssignTask(ids, task)
+    if (generation === selectionGeneration) {
+      result.succeeded.forEach(id => selectedIds.delete(id))
+      // Keep failures in the assignment dialog, reusing any newly created task.
+      bulkDialog.value = result.failed.length ? 'assign' : null
+    }
+    const message = t('entries.bulk.result', { succeeded: result.succeeded.length, failed: result.failed.length })
+    if (result.failed.length) toast.error(message)
+    else toast.success(message)
+    pendingSessionExpansion = filters.session_id
+    await Promise.all([refresh(), refreshTasks()])
+  }
+  catch { toast.error(t('common.error')) }
+  finally { bulkBusy.value = false }
 }
 
 // Detail drawer
@@ -492,31 +604,59 @@ function onDetailOpenAutoFocus(event: Event) {
       {{ t('entries.title') }}
     </h1>
 
-    <Card>
-      <CardContent class="flex flex-wrap gap-2 p-3">
-        <Select :model-value="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient" />
-        <Select v-model="filters.project" class="w-40" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]" />
-        <Select
-v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options="[
-          { value: '', label: t('common.all') },
-          { value: 'completed', label: t('entries.status.completed') },
-          { value: 'aborted', label: t('entries.status.aborted') },
-          { value: 'interrupted', label: t('entries.status.interrupted') },
-        ]"
-        />
-        <Select
-v-model="filters.agent" class="w-40" :placeholder="t('common.agent')" :options="[
-          { value: '', label: t('common.all') },
-          ...agentOptions.map(a => ({ value: a, label: agentLabel(a) })),
-        ]"
-        />
-        <Select
-v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" :placeholder="t('entries.filtersFields.quality')" :options="[
-          { value: '', label: t('common.all') },
-          { value: 'waitingUnavailable', label: t('entries.qualityFilter.waitingUnavailable') },
-          { value: 'costUnknown', label: t('entries.qualityFilter.costUnknown') },
-        ]"
-        />
+    <Card class="py-0">
+      <CardContent class="flex flex-wrap items-end gap-2 p-3">
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-client" class="text-xs text-muted-foreground">{{ t('common.client') }}</label>
+          <Select id="entries-filter-client" :model-value="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient">
+            <template #option="{ option }">
+              <span class="flex min-w-0 items-center gap-2">
+                <ClientAvatar v-if="option.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
+                <span class="truncate">{{ option.label }}</span>
+              </span>
+            </template>
+            <template #selected="{ option, label }">
+              <span class="flex min-w-0 items-center gap-2">
+                <ClientAvatar v-if="option?.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
+                <span class="truncate">{{ label }}</span>
+              </span>
+            </template>
+          </Select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-project" class="text-xs text-muted-foreground">{{ t('common.project') }}</label>
+          <Select id="entries-filter-project" v-model="filters.project" class="w-40" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-status" class="text-xs text-muted-foreground">{{ t('common.status') }}</label>
+          <Select
+            id="entries-filter-status" v-model="filters.status" class="w-36" :placeholder="t('common.status')" :options="[
+              { value: '', label: t('common.all') },
+              { value: 'completed', label: t('entries.status.completed') },
+              { value: 'aborted', label: t('entries.status.aborted') },
+              { value: 'interrupted', label: t('entries.status.interrupted') },
+            ]"
+          />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-agent" class="text-xs text-muted-foreground">{{ t('common.agent') }}</label>
+          <Select
+            id="entries-filter-agent" v-model="filters.agent" class="w-40" :placeholder="t('common.agent')" :options="[
+              { value: '', label: t('common.all') },
+              ...agentOptions.map(a => ({ value: a, label: agentLabel(a) })),
+            ]"
+          />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-quality" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.quality') }}</label>
+          <Select
+            id="entries-filter-quality" v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" :placeholder="t('entries.filtersFields.quality')" :options="[
+              { value: '', label: t('common.all') },
+              { value: 'waitingUnavailable', label: t('entries.qualityFilter.waitingUnavailable') },
+              { value: 'costUnknown', label: t('entries.qualityFilter.costUnknown') },
+            ]"
+          />
+        </div>
         <Input v-model="filters.model" :placeholder="t('common.model')" class="w-32" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
         <Input v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
         <EntriesDateFilter id="entries-date-start" v-model="filters.dateStart" :label="t('entries.filtersFields.dateStart')" />
@@ -538,7 +678,44 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
       </Badge>
     </div>
 
-    <Card>
+    <div v-if="bulkEnabled" class="flex flex-wrap items-center gap-2 rounded-md border p-3" data-testid="entries-bulk-toolbar">
+      <span class="text-sm" aria-live="polite">{{ t('entries.bulk.selected', { count: selectedIds.size }) }}</span>
+      <Button size="sm" variant="outline" :disabled="bulkBusy || !visibleEntryIds.length" @click="selectVisible()">{{ t('entries.bulk.selectVisible') }}</Button>
+      <Button size="sm" variant="outline" :disabled="bulkBusy" @click="selectAllInSession">{{ t('entries.bulk.allInSession') }}</Button>
+      <Button size="icon" variant="ghost" class="size-8" :disabled="bulkBusy || !selectedIds.size" :aria-label="t('entries.bulk.clear')" :title="t('entries.bulk.clear')" @click="selectedIds.clear()">
+        <X class="size-4" aria-hidden="true" />
+      </Button>
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        <Button size="sm" :disabled="bulkBusy || !selectedIds.size" @click="bulkDialog = 'assign'">{{ t('entries.bulk.assign') }}</Button>
+        <Button size="sm" variant="outline" :disabled="bulkBusy || !selectedIds.size" @click="bulkDialog = 'create'">{{ t('entries.bulk.create') }}</Button>
+      </div>
+    </div>
+
+    <Dialog :open="bulkEnabled && bulkDialog !== null" @update:open="value => { if (!value && !bulkBusy) bulkDialog = null }">
+      <DialogContent :data-testid="bulkDialog === 'create' ? 'bulk-create-dialog' : 'bulk-assign-dialog'" @escape-key-down="event => { if (bulkBusy) event.preventDefault() }" @interact-outside="event => { if (bulkBusy) event.preventDefault() }">
+        <DialogHeader>
+          <DialogTitle>{{ bulkDialog === 'create' ? t('entries.bulk.create') : t('entries.bulk.assign') }}</DialogTitle>
+          <DialogDescription>{{ t('entries.bulk.selected', { count: selectedIds.size }) }}. {{ t('entries.bulk.dialogHelp') }}</DialogDescription>
+        </DialogHeader>
+        <div v-if="bulkDialog === 'create'" class="flex flex-col gap-3">
+          <label for="bulk-project" class="text-sm">{{ t('common.project') }}</label>
+          <Select id="bulk-project" v-model="bulkProject" :disabled="bulkBusy" :placeholder="t('common.project')" :options="projects.map(project => ({ value: project.id, label: project.name }))" />
+          <label for="bulk-title" class="text-sm">{{ t('entries.bulk.newTitle') }}</label>
+          <Input id="bulk-title" v-model="bulkTitle" :disabled="bulkBusy" :placeholder="t('entries.bulk.newTitle')" />
+        </div>
+        <div v-else class="flex flex-col gap-2">
+          <label for="bulk-task" class="text-sm">{{ t('common.task') }}</label>
+          <Select id="bulk-task" v-model="bulkTask" :disabled="bulkBusy" :placeholder="t('common.task')" :options="tasks.map(task => ({ value: task.id, label: task.title }))" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" :disabled="bulkBusy" @click="bulkDialog = null">{{ t('common.cancel') }}</Button>
+          <Button v-if="bulkDialog === 'create'" :disabled="bulkBusy || !selectedIds.size || !bulkProject || !bulkTitle.trim()" @click="assignSelected(true)">{{ t('entries.bulk.createAssignCount', { count: selectedIds.size }) }}</Button>
+          <Button v-else :disabled="bulkBusy || !selectedIds.size || !bulkTask" @click="assignSelected()">{{ t('entries.bulk.assignCount', { count: selectedIds.size }) }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Card class="py-0">
       <CardContent class="p-0">
         <Table>
           <TableHeader>
@@ -721,6 +898,7 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                         </TableRow>
                         <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry)">
                           <TableCell class="tabular-nums">
+                            <input v-if="bulkEnabled && entry.session_id === filters.session_id" type="checkbox" class="mr-2" :checked="selectedIds.has(entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @click.stop @change="toggleEntry(entry.id)">
                             {{ formatCompactEntryDateTime(entry.started_at) }}
                           </TableCell>
                           <TableCell><Badge :variant="statusPresentation(entry.status).tone">{{ t(`entries.status.${entry.status}`) }}</Badge></TableCell>
@@ -764,6 +942,7 @@ v-model="filters.quality" class="w-48" :disabled="primaryGrouped" :title="primar
                 </TableRow>
                 <TableRow v-else class="cursor-pointer" @click="openDetail(dr.entry)">
                   <TableCell class="tabular-nums">
+                    <input v-if="bulkEnabled && dr.entry.session_id === filters.session_id" type="checkbox" class="mr-2" :checked="selectedIds.has(dr.entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @click.stop @change="toggleEntry(dr.entry.id)">
                     {{ formatCompactEntryDateTime(dr.entry.started_at) }}
                   </TableCell>
                   <template v-if="!groupBySession">

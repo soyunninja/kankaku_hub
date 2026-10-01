@@ -1,3 +1,4 @@
+import { chunk } from '~/lib/aggregate'
 import { localWallClockToUtc, toPbDateFilter } from '~/lib/local-day'
 import { LEGACY_AGENT, listDistinctAgents } from '~/lib/measurement-quality'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
@@ -41,7 +42,7 @@ function buildFilter(filters: EntriesExplorerFilters): string {
   if (filters.status) parts.push(`status = "${filters.status}"`)
   if (filters.model) parts.push(`model = "${filters.model}"`)
   if (filters.machine) parts.push(`machine = "${filters.machine}"`)
-  if (filters.session_id) parts.push(`session_id = "${filters.session_id}"`)
+  if (filters.session_id) parts.push(`session_id = "${escapeFilterValue(filters.session_id)}"`)
   if (filters.agent) parts.push(filters.agent === LEGACY_AGENT ? `agent = ""` : `agent = "${filters.agent}"`)
   if (filters.quality === 'waitingUnavailable') parts.push(`waiting_quality = "unavailable"`)
   if (filters.quality === 'costUnknown') parts.push(`cost_quality = "unknown"`)
@@ -87,6 +88,38 @@ export function useEntriesExplorer() {
 
   async function updateAssignment(id: string, data: { client?: string, project?: string, task?: string }) {
     return $pb.collection('task_entries').update<TaskEntryRecord>(id, data)
+  }
+
+  /** Full ID-only scan: never limited to the visible or expanded page. */
+  async function collectEntryIds(filters: EntriesExplorerFilters): Promise<string[]> {
+    if (!filters.session_id) throw new Error('A session filter is required')
+    const rows = await $pb.collection('task_entries').getFullList<Pick<TaskEntryRecord, 'id'>>({
+      filter: buildFilter(filters), fields: 'id', sort: 'id',
+    })
+    return rows.map(row => row.id)
+  }
+
+  async function bulkAssignTask(entryIds: string[], task: string): Promise<{ succeeded: string[], failed: string[] }> {
+    if (!task) throw new Error('A task is required')
+    const succeeded: string[] = []
+    const failed: string[] = []
+    for (const ids of chunk([...new Set(entryIds)], 50)) {
+      const batch = $pb.createBatch()
+      for (const id of ids) batch.collection('task_entries').update(id, { task })
+      try {
+        const results = await batch.send()
+        // A rejected send rolls back the whole chunk; missing results are not success.
+        ids.forEach((id, index) => {
+          const status = results[index]?.status ?? 0
+          if (status >= 200 && status < 300) succeeded.push(id)
+          else failed.push(id)
+        })
+      }
+      catch {
+        failed.push(...ids)
+      }
+    }
+    return { succeeded, failed }
   }
 
   async function listWorkRecords(taskEntryId: string) {
@@ -138,5 +171,5 @@ export function useEntriesExplorer() {
     return listDistinctAgents(result.items)
   }
 
-  return { list, getOne, updateAssignment, listWorkRecords, fetchAgentOptions, listAgents }
+  return { list, getOne, updateAssignment, collectEntryIds, bulkAssignTask, listWorkRecords, fetchAgentOptions, listAgents }
 }

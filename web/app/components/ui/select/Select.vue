@@ -25,7 +25,8 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 const attrs = useAttrs()
 const { t } = useI18n()
 const disabled = computed(() => attrs.disabled !== undefined && attrs.disabled !== false)
-const selectedLabel = computed(() => props.options.find(option => option.value === (props.modelValue ?? ''))?.label ?? props.placeholder ?? '')
+const selectedOption = computed(() => props.options.find(option => option.value === (props.modelValue ?? '')))
+const selectedLabel = computed(() => selectedOption.value?.label ?? props.placeholder ?? '')
 // Reka reserves the empty string for clearing a selection and rejects empty item values.
 // Keep the public empty value unchanged while giving its explicit All/None item a private key.
 const emptyOptionKey = computed(() => {
@@ -61,7 +62,9 @@ function select(value: unknown) {
             props.class,
           )"
         >
-          <span class="truncate">{{ selectedLabel }}</span>
+          <span class="min-w-0 truncate">
+            <slot name="selected" :option="selectedOption" :label="selectedLabel">{{ selectedLabel }}</slot>
+          </span>
           <ChevronsUpDown class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </button>
       </ComboboxTrigger>
@@ -71,7 +74,7 @@ function select(value: unknown) {
       <ComboboxViewport>
         <ComboboxEmpty>{{ t('common.noResults') }}</ComboboxEmpty>
         <ComboboxItem v-for="option in options" :key="option.value" :value="option.value === '' ? emptyOptionKey : option.value" :text-value="option.label">
-          {{ option.label }}
+          <slot name="option" :option="option">{{ option.label }}</slot>
           <Check v-if="option.value === (modelValue ?? '')" class="ml-auto size-4" aria-hidden="true" />
         </ComboboxItem>
       </ComboboxViewport>

@@ -31,7 +31,15 @@ export function useTasks() {
 
   async function create(data: { title: string, project: string, status: TaskStatus, external_ref?: string, description?: string }) {
     const record = await $pb.collection('tasks').create<TaskRecord>(data)
-    await refresh()
+    // Creation is committed: never hide its ID behind a catalog read failure,
+    // which would make create-and-assign callers retry by creating a duplicate.
+    try {
+      await refresh()
+    }
+    catch {
+      tasks.value = [record, ...tasks.value.filter(task => task.id !== record.id)]
+      loaded.value = false // Let ensureLoaded retry the incomplete catalog later.
+    }
     return record
   }
 
