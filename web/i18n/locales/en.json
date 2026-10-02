@@ -36,6 +36,7 @@
     "readOnly": "Read only"
   },
   "common": {
+    "export": "Export",
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
@@ -90,6 +91,12 @@
       "custom": "Custom"
     },
     "includeUnassigned": "Include Sin determinar",
+    "export": {
+      "csv": "Export CSV",
+      "xlsx": "Export XLSX",
+      "started": "Export download started",
+      "failed": "Could not export dashboard"
+    },
     "kpi": {
       "workTime": "Work time",
       "wallTime": "Wall time",
@@ -105,7 +112,14 @@
       "avgCostExcludedNotice": "{count} entries excluded because cost wasn't knowable"
     },
     "vsPrevious": "vs. previous period",
+    "summaryError": "Could not refresh dashboard summary. Previous summary retained.",
     "chart": {
+      "loading": "Loading time series…",
+      "error": "Could not load time series.",
+      "retry": "Retry",
+      "summaryUnavailable": "Time series unavailable until the summary is refreshed.",
+      "others": "Others",
+      "partial": "Partial chart: the fallback entry limit was reached.",
       "title": "Time series",
       "metric": "Metric",
       "work": "Work time",
@@ -329,6 +343,18 @@
     }
   },
   "entries": {
+    "loadError": "Could not load entries. Retry to load the current view.",
+    "loadRetry": "Retry",
+    "export": {
+      "csv": "Export CSV",
+      "xlsx": "Export XLSX",
+      "started": "Exported {count} entries (prompts excluded).",
+      "truncated": "Partial export: {count} of {total} entries (prompts excluded).",
+      "partialTitle": "Download a partial export?",
+      "partialDescription": "Only the first {count} of {total} matching entries will be exported (prompts excluded).",
+      "confirmPartial": "Download first {count}",
+      "failed": "Could not export entries. Please try again."
+    },
     "bulk": {
       "selected": "{count} selected",
       "selectVisible": "Select visible",
@@ -348,10 +374,11 @@
     "title": "Entries",
     "filters": "Filters",
     "filtersFields": {
+      "search": "Prompt search",
       "machine": "Machine",
       "quality": "Measurement quality",
-      "dateStart": "Start date (YY/MM/DD)",
-      "dateEnd": "End date (YY/MM/DD)",
+      "dateStart": "Start",
+      "dateEnd": "End",
       "invalidDate": "Enter a valid date as YY/MM/DD.",
       "openCalendar": "Open calendar for {label}",
       "clearDate": "Clear {label}"
@@ -458,6 +485,7 @@
       "tasks": "{count} tasks",
       "agents": "{count} agents",
       "unsupportedFilterHint": "Available in the flat view",
+       "activeUnsupportedFilters": "Flat view is required while model, quality, or prompt search filters are active. Clear these filters to enable grouping; browse and export keep the same filters.",
       "columns": {
         "entries": "Entries"
       },

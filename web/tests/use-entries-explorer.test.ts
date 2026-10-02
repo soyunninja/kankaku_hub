@@ -58,6 +58,71 @@ function totalsResponse(groups: TotalsGroup[], totalPages = 1): TotalsResponse {
 }
 
 describe('useEntriesExplorer', () => {
+  it.each([
+    ['plain', 'model-a', 'machine-a', 'model = "model-a" && machine = "machine-a"'],
+    ['quoted', 'model "preview"', 'host "office"', String.raw`model = "model \"preview\"" && machine = "host \"office\""`],
+  ])('browse and export preserve combined %s model/machine filters', async (_case, model, machine, clauses) => {
+    const getList = vi.fn(async () => ({ items: [], totalItems: 0, totalPages: 0 }))
+    const collection = vi.fn(() => ({ getList }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection } }))
+    vi.stubGlobal('useTotals', () => ({}))
+    const { useEntriesExplorer } = await import('../app/composables/useEntriesExplorer')
+    const explorer = useEntriesExplorer()
+    const filters = { client: 'c1', model, machine, session_id: 's1', search: 'needle' }
+    await explorer.list({ page: 1, perPage: 200, sort: '-started_at', filters })
+    await explorer.fetchExport({ filters, sort: '-started_at' })
+
+    const options = expect.objectContaining({
+      filter: `client = "c1" && ${clauses} && session_id = "s1" && prompt ~ "needle"`,
+      sort: '-started_at',
+      expand: 'client,project,task',
+    })
+    expect(getList).toHaveBeenNthCalledWith(1, 1, 200, options)
+    expect(getList).toHaveBeenNthCalledWith(2, 1, 500, options)
+    expect(collection).toHaveBeenCalledWith('task_entries')
+  })
+
+  it.each([
+    ['plain', 'plain-value'],
+    ['quotes', 'a "quoted" value'],
+    ['backslash before quote', 'before\\"after'],
+    ['trailing backslash', 'trailing\\'],
+    ['literal backslash sequences', String.raw`path\new\tab\root`],
+    ['control characters', 'line\ncarriage\rtab\tbackspace\bformfeed\fnull\0'],
+  ])('list and fetchExport serialize combined %s filters as JSON literals', async (_case, value) => {
+    const getList = vi.fn(async () => ({ items: [], totalItems: 0, totalPages: 0 }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: () => ({ getList }) } }))
+    vi.stubGlobal('useTotals', () => ({}))
+    const { useEntriesExplorer } = await import('../app/composables/useEntriesExplorer')
+    const explorer = useEntriesExplorer()
+    const filters = { model: value, machine: value, session_id: value, search: value }
+    const literal = JSON.stringify(value)
+    const options = expect.objectContaining({
+      filter: `model = ${literal} && machine = ${literal} && session_id = ${literal} && prompt ~ ${literal}`,
+    })
+
+    await explorer.list({ page: 1, perPage: 200, sort: '-started_at', filters })
+    expect(getList).toHaveBeenNthCalledWith(1, 1, 200, options)
+    await explorer.fetchExport({ filters, sort: '-started_at' })
+    expect(getList).toHaveBeenNthCalledWith(2, 1, 500, options)
+  })
+
+  it.each([0, 501, 5000, 5001])('exports bounded pages for %i matching entries', async (totalItems) => {
+    const getList = vi.fn(async (page: number, perPage: number) => ({ totalItems, totalPages: Math.ceil(totalItems / perPage), items: Array.from({ length: Math.max(0, Math.min(perPage, totalItems - (page - 1) * perPage)) }, (_, i) => ({ id: String((page - 1) * perPage + i) })) }))
+    const collection = vi.fn(() => ({ getList }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection } }))
+    vi.stubGlobal('useTotals', () => ({}))
+    const { useEntriesExplorer } = await import('../app/composables/useEntriesExplorer')
+    const result = await useEntriesExplorer().fetchExport({ filters: { client: 'c1', search: 'needle', session_id: 's1' }, sort: '-cost' })
+    expect(result).toMatchObject({ totalItems, truncated: totalItems > 5000, rowLimit: 5000 })
+    expect(result.items).toHaveLength(Math.min(totalItems, 5000))
+    expect(getList).toHaveBeenCalledTimes(Math.max(1, Math.ceil(Math.min(totalItems, 5000) / 500)))
+    for (const [index, call] of getList.mock.calls.entries()) {
+      expect(call).toEqual([index + 1, 500, expect.objectContaining({ sort: '-cost', expand: 'client,project,task', filter: 'client = "c1" && session_id = "s1" && prompt ~ "needle"' })])
+      expect((call as unknown as [number, number, { fields: string }])[2].fields.split(',')).not.toContain('prompt')
+    }
+    expect(collection.mock.calls.every(call => (call as unknown as string[])[0] === 'task_entries')).toBe(true)
+  })
   it('collects every filtered session id and rejects an unscoped scan', async () => {
     const getFullList = vi.fn(async () => [{ id: 'a' }, { id: 'b' }])
     vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: () => ({ getFullList }) } }))

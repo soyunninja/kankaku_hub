@@ -5,7 +5,7 @@
  * `FILTER_KEYS` whitelist).
  */
 import { describe, expect, it } from 'vitest'
-import { entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '../app/lib/entries-session-filters'
+import { canGroupEntriesFilters, entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '../app/lib/entries-session-filters'
 import { LEGACY_AGENT } from '../app/lib/measurement-quality'
 import type { EntriesExplorerFilters } from '../app/composables/useEntriesExplorer'
 
@@ -62,6 +62,29 @@ describe('splitEntriesFiltersForTotals', () => {
     const result = splitEntriesFiltersForTotals({ dateStart: '2026-01-01', dateEnd: '2026-01-31' })
     expect(result.groupable).toEqual({})
     expect(result.unsupported).toEqual([])
+  })
+})
+
+describe('canGroupEntriesFilters', () => {
+  it.each([
+    {},
+    { client: 'c', project: 'p', task: 't', agent: LEGACY_AGENT, status: 'completed', machine: 'm', session_id: 's' },
+    { dateStart: '2026-01-01', dateEnd: '2026-01-31' },
+    { model: '', search: '', quality: undefined },
+  ])('allows supported or empty filters: %j', (filters) => {
+    expect(canGroupEntriesFilters(filters)).toBe(true)
+  })
+
+  it.each<EntriesExplorerFilters>([
+    { model: 'gpt-6' },
+    { quality: 'waitingUnavailable' },
+    { quality: 'costUnknown' },
+    { search: 'refactor' },
+    { model: 'gpt-6', quality: 'costUnknown', search: 'refactor', client: 'c', dateStart: '2026-01-01' },
+  ])('requires flat browse without changing filters: %j', (filters) => {
+    const before = { ...filters }
+    expect(canGroupEntriesFilters(filters)).toBe(false)
+    expect(filters).toEqual(before)
   })
 })
 

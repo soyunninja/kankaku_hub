@@ -88,6 +88,17 @@ task, never for computing a total.
     Status, Agent, Model, Work, Cost) SHALL fit at 1280px viewport width
     without horizontal scroll.
 
+18. `ENTRIES-REQ-018` — With no active unsupported filters, session grouping
+    SHALL remain the default (subject to the saved user choice). Active
+    `model`, `quality`, or prompt `search` filters SHALL force flat browse,
+    including quality deep links and after restoring a saved grouped choice.
+    Filter values SHALL be retained and applied identically to browse and
+    detail export; unsupported filters SHALL NOT be silently omitted. The
+    grouping toggle SHALL be disabled with a localized explanation while
+    these filters are active. Clearing them SHALL unlock grouping without
+    automatically enabling it. Supported filters and date bounds SHALL
+    survive presentation changes. This does not expand the totals API.
+
 ## Scenarios
 
 ### Scenario: a prompt search with special characters does not break the filter (`ENTRIES-REQ-003`)
@@ -163,6 +174,17 @@ task, never for computing a total.
   `AgentIcon` per row
 - **Then** the document does not scroll horizontally
 
+### Scenario: active unsupported filters require flat browse (`ENTRIES-REQ-018`)
+
+- **Given** a saved grouped choice and a quality deep link, or model/search
+  values entered after switching to flat browse
+- **When** the explorer loads or the filters change
+- **Then** flat browse and export apply every active filter, grouping is
+  disabled with an explanation, and no filter value is cleared
+- **When** all model/quality/search filters are cleared
+- **Then** grouping becomes available again, with supported filters and
+  dates retained
+
 ## Configuration
 
 None beyond the shared PocketBase connection.
@@ -194,6 +216,7 @@ None beyond the shared PocketBase connection.
 
 | Requirement | Proof | Status |
 |---|---|---|
+| `ENTRIES-REQ-018` | `web/tests/entries-session-filters.test.ts`, `web/e2e/entries-grouped-filter-consistency.spec.ts` (isolated stack) | unit and browser covered |
 | `ENTRIES-REQ-001` | `web/e2e/smoke.spec.ts` | covered |
 | `ENTRIES-REQ-002` | `web/e2e/smoke.spec.ts` | covered |
 | `ENTRIES-REQ-003` | code review (`useEntriesExplorer.ts#escapeFilterValue`); not directly exercised by an automated test found in this pass | not covered |

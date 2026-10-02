@@ -36,6 +36,7 @@
     "readOnly": "Solo lectura"
   },
   "common": {
+    "export": "Exportar",
     "loading": "Cargando…",
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -90,6 +91,12 @@
       "custom": "Personalizado"
     },
     "includeUnassigned": "Incluir Sin determinar",
+    "export": {
+      "csv": "Exportar CSV",
+      "xlsx": "Exportar XLSX",
+      "started": "Descarga de la exportación iniciada",
+      "failed": "No se pudo exportar el panel"
+    },
     "kpi": {
       "workTime": "Tiempo de trabajo",
       "wallTime": "Tiempo total",
@@ -105,7 +112,14 @@
       "avgCostExcludedNotice": "{count} registros excluidos porque no se pudo conocer su coste"
     },
     "vsPrevious": "vs. periodo anterior",
+    "summaryError": "No se pudo actualizar el resumen. Se conserva el resumen anterior.",
     "chart": {
+      "loading": "Cargando serie temporal…",
+      "error": "No se pudo cargar la serie temporal.",
+      "retry": "Reintentar",
+      "summaryUnavailable": "La serie temporal no está disponible hasta actualizar el resumen.",
+      "others": "Otros",
+      "partial": "Gráfico parcial: se alcanzó el límite de entradas del modo alternativo.",
       "title": "Serie temporal",
       "metric": "Métrica",
       "work": "Tiempo de trabajo",
@@ -329,6 +343,18 @@
     }
   },
   "entries": {
+    "loadError": "No se pudieron cargar las entradas. Reintenta para cargar la vista actual.",
+    "loadRetry": "Reintentar",
+    "export": {
+      "csv": "Exportar CSV",
+      "xlsx": "Exportar XLSX",
+      "started": "Se exportaron {count} entradas (sin prompts).",
+      "truncated": "Exportación parcial: {count} de {total} entradas (sin prompts).",
+      "partialTitle": "¿Descargar una exportación parcial?",
+      "partialDescription": "Solo se exportarán las primeras {count} de {total} entradas coincidentes (sin prompts).",
+      "confirmPartial": "Descargar las primeras {count}",
+      "failed": "No se pudieron exportar las entradas. Inténtalo de nuevo."
+    },
     "bulk": {
       "selected": "{count} seleccionados",
       "selectVisible": "Seleccionar visibles",
@@ -348,10 +374,11 @@
     "title": "Registros",
     "filters": "Filtros",
     "filtersFields": {
+      "search": "Búsqueda en prompt",
       "machine": "Máquina",
       "quality": "Calidad de medición",
-      "dateStart": "Fecha de inicio (AA/MM/DD)",
-      "dateEnd": "Fecha de fin (AA/MM/DD)",
+      "dateStart": "Inicio",
+      "dateEnd": "Fin",
       "invalidDate": "Introduzca una fecha válida con formato AA/MM/DD.",
       "openCalendar": "Abrir calendario para {label}",
       "clearDate": "Borrar {label}"
@@ -458,6 +485,7 @@
       "tasks": "{count} tareas",
       "agents": "{count} agentes",
       "unsupportedFilterHint": "Disponible en la vista plana",
+       "activeUnsupportedFilters": "Los filtros de modelo, calidad o búsqueda de prompt requieren la vista plana. Bórralos para habilitar la agrupación; la vista y la exportación mantienen los mismos filtros.",
       "columns": {
         "entries": "Entradas"
       },

@@ -1,0 +1,11 @@
+# Data export to CSV/XLS
+
+- [x] T1 — Map current dashboard data shapes and implement pure CSV/Excel-compatible export helpers with unit tests.
+- [x] T2 — Wire dashboard CSV/XLS buttons and i18n labels.
+- [x] T3 — Run focused/full checks and verify export content.
+- [x] T4 — Add regression coverage for failed dashboard reload preserving export snapshot metadata.
+- [x] T5 — Add export metadata and completeness indicators to the dashboard export.
+- [x] T6 — Map Entries filters and implement detailed task_entries export respecting the Entries view filters.
+- [x] T7 — Fix quoted-value escaping for Entries model and machine filters.
+- [x] T8 — Add Entries download E2E coverage for filters, pagination, and file contents.
+- [x] T9 — Keep unsupported Entries filters active by enforcing flat browse and explaining grouping eligibility.

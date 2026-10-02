@@ -56,7 +56,7 @@ const maxDate = markRaw(new CalendarDate(2099, 12, 31))
 
 <template>
   <div class="flex flex-col gap-1">
-    <label class="sr-only" :for="id">{{ label }}</label>
+    <label class="text-xs text-muted-foreground" :for="id">{{ label }}</label>
     <div class="flex items-center gap-1">
       <Input
         :id="id" v-model="draft" type="text" inputmode="numeric" maxlength="8"

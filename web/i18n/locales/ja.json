@@ -36,6 +36,7 @@
     "readOnly": "閲覧のみ"
   },
   "common": {
+    "export": "エクスポート",
     "loading": "読み込み中…",
     "save": "保存",
     "cancel": "キャンセル",
@@ -90,6 +91,12 @@
       "custom": "カスタム"
     },
     "includeUnassigned": "未割り当てを含める",
+    "export": {
+      "csv": "CSVをエクスポート",
+      "xlsx": "XLSXをエクスポート",
+      "started": "エクスポートのダウンロードを開始しました",
+      "failed": "ダッシュボードをエクスポートできませんでした"
+    },
     "kpi": {
       "workTime": "作業時間",
       "wallTime": "合計時間",
@@ -105,7 +112,14 @@
       "avgCostExcludedNotice": "コストが不明なため{count}件を除外しました"
     },
     "vsPrevious": "前期間比",
+    "summaryError": "概要を更新できませんでした。前回の概要を保持しています。",
     "chart": {
+      "loading": "時系列を読み込み中…",
+      "error": "時系列を読み込めませんでした。",
+      "retry": "再試行",
+      "summaryUnavailable": "概要が更新されるまで時系列は利用できません。",
+      "others": "その他",
+      "partial": "一部のデータのみ表示：代替モードのエントリー上限に達しました。",
       "title": "時系列",
       "metric": "指標",
       "work": "作業時間",
@@ -329,6 +343,18 @@
     }
   },
   "entries": {
+    "loadError": "エントリーを読み込めませんでした。再試行して現在のビューを読み込んでください。",
+    "loadRetry": "再試行",
+    "export": {
+      "csv": "CSVエクスポート",
+      "xlsx": "XLSXエクスポート",
+      "started": "{count} 件をエクスポートしました（プロンプトは除外）。",
+      "truncated": "部分エクスポート：全 {total} 件中 {count} 件（プロンプトは除外）。",
+      "partialTitle": "部分エクスポートをダウンロードしますか？",
+      "partialDescription": "一致する全 {total} 件のうち、最初の {count} 件のみをエクスポートします（プロンプトは除外）。",
+      "confirmPartial": "最初の {count} 件をダウンロード",
+      "failed": "エクスポートできませんでした。もう一度お試しください。"
+    },
     "bulk": {
       "selected": "{count} 件選択済み",
       "selectVisible": "表示中の行を選択",
@@ -348,10 +374,11 @@
     "title": "エントリー",
     "filters": "フィルター",
     "filtersFields": {
+      "search": "プロンプト検索",
       "machine": "マシン",
       "quality": "測定品質",
-      "dateStart": "開始日 (YY/MM/DD)",
-      "dateEnd": "終了日 (YY/MM/DD)",
+      "dateStart": "開始",
+      "dateEnd": "終了",
       "invalidDate": "YY/MM/DD形式の有効な日付を入力してください。",
       "openCalendar": "{label}のカレンダーを開く",
       "clearDate": "{label}をクリア"
@@ -458,6 +485,7 @@
       "tasks": "{count} タスク",
       "agents": "{count} エージェント",
       "unsupportedFilterHint": "フラット表示で利用可能",
+       "activeUnsupportedFilters": "モデル、品質、プロンプト検索のフィルターが有効な間はフラット表示になります。これらを解除するとグループ化が可能になります。表示とエクスポートには同じフィルターが適用されます。",
       "columns": {
         "entries": "エントリー数"
       },

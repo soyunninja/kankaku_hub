@@ -2,9 +2,11 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
 import ClientName from '@/components/clients/ClientName.vue'
+import ExportMenu from '@/components/common/ExportMenu.vue'
 import BreakdownTable from '@/components/dashboard/BreakdownTable.vue'
 import DateRangePicker from '@/components/dashboard/DateRangePicker.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -12,8 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
 import { resolveAgent } from '@/lib/agents'
 import { cacheHitRatio } from '@/lib/cache-hit'
+import { DASHBOARD_PREFERENCES_KEY, parseDashboardPreferences } from '@/lib/dashboard-preferences'
+import { buildDashboardExport, createCsvExport, createXlsxExport, type DashboardExportMetadata } from '@/lib/export'
 import { buildLocalDayBoundaries, localDateRangeToUtcFilters, utcInstantToLocalDay } from '@/lib/local-day'
 import { computeAverageCost, LEGACY_AGENT, listDistinctAgents, summarizeWorkTimeQuality } from '@/lib/measurement-quality'
+import { PROJECT_OTHERS_KEY, projectRemainder, rankProjects } from '@/lib/project-chart'
 import type { DateRange, PresetKey } from '@/lib/period'
 import { previousEquivalentPeriod, resolvePreset } from '@/lib/period'
 import type { ClientRecord, TaskEntryRecord } from '@/lib/pocketbase-types'
@@ -29,6 +34,7 @@ import {
 import { TotalsRouteUnavailableError, type TotalsFilters } from '@/composables/useTotals'
 
 const { t } = useI18n()
+const toast = useToast()
 useHead({ title: computed(() => t('dashboard.title')) })
 const { formatCost, formatDuration, formatPercent, formatTokensCompact } = useFormatters()
 
@@ -42,10 +48,13 @@ const preset = ref<PresetKey>('30d')
 const range = ref<DateRange>(resolvePreset('30d'))
 const includeUnassigned = ref(false)
 const metric = ref<'work' | 'cost'>('work')
-const stackBy = ref<'none' | 'client' | 'project'>('none')
+const stackBy = ref<'none' | 'client' | 'project'>('project')
 const agentFilter = ref('')
 
 const loading = ref(true)
+const summaryError = ref(false)
+const chartLoading = ref(true)
+const chartError = ref(false)
 /** True once a totals-route call has 404'd this session — sticky for the
  * page's lifetime so every subsequent `load()` goes straight to the
  * fallback instead of re-probing on every debounced realtime refresh
@@ -82,6 +91,48 @@ const byClient = ref<(GroupTotalsLike & { label: string })[]>([])
 const byProject = ref<(GroupTotalsLike & { label: string })[]>([])
 const topExpensive = ref<Pick<TaskEntryRecord, 'id' | 'client' | 'project' | 'cost' | 'work_ms' | 'model'>[]>([])
 const agentOptions = ref<string[]>([])
+// Keep export metadata paired with the data, even if a later load fails.
+const exportSnapshot = ref<(LoadSnapshot & { metadata: DashboardExportMetadata }) | null>(null)
+
+const exporting = ref(false)
+async function downloadExport(format: 'csv' | 'xlsx') {
+  const snapshot = exportSnapshot.value
+  if (loading.value || exporting.value || !snapshot) return
+  exporting.value = true
+  try {
+    const table = buildDashboardExport({
+      generatedAt: new Date().toISOString(),
+      metadata: snapshot.metadata,
+      period: snapshot.range,
+      includeUnassigned: snapshot.includeUnassigned,
+      agent: snapshot.agent,
+      totals: totals.value,
+      byClient: byClient.value,
+      byProject: byProject.value,
+      topExpensive: topExpensive.value,
+    })
+    const payload = format === 'csv' ? createCsvExport(table) : await createXlsxExport(table)
+    const url = URL.createObjectURL(new Blob([payload.content], { type: payload.mimeType }))
+    const link = document.createElement('a')
+    try {
+      link.href = url
+      link.download = `dashboard-${snapshot.range.start}-${snapshot.range.end}.${payload.extension}`
+      document.body.appendChild(link)
+      link.click()
+    }
+    finally {
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+    toast.success(t('dashboard.export.started'))
+  }
+  catch {
+    toast.error(t('dashboard.export.failed'))
+  }
+  finally {
+    exporting.value = false
+  }
+}
 
 /** One-click drill-down into the entries explorer, pre-filtered to the
  * rows the work-time notice is talking about (same range and agent filter
@@ -96,14 +147,17 @@ const workTimeUpperBoundDrilldown = computed(() => ({
   },
 }))
 
+const committedProjectKeys = ref<string[]>([])
+const projectChartMetric = ref(metric.value)
+const chartPartial = ref(false)
 const chartSeriesKeys = computed(() => {
   if (stackBy.value === 'client') return byClient.value.slice(0, 5).map(g => g.key)
-  if (stackBy.value === 'project') return byProject.value.slice(0, 5).map(g => g.key)
+  if (stackBy.value === 'project') return committedProjectKeys.value
   return ['total']
 })
 const chartSeriesLabels = computed<Record<string, string>>(() => {
   if (stackBy.value === 'client') return Object.fromEntries(byClient.value.map(g => [g.key, g.label]))
-  if (stackBy.value === 'project') return Object.fromEntries(byProject.value.map(g => [g.key, g.label]))
+  if (stackBy.value === 'project') return Object.fromEntries(committedProjectKeys.value.map(key => [key, key === PROJECT_OTHERS_KEY ? t('dashboard.chart.others') : projectName(key)]))
   return { total: metric.value === 'work' ? t('dashboard.chart.work') : t('dashboard.chart.cost') }
 })
 const chartSeriesClients = computed(() => {
@@ -124,6 +178,8 @@ const dayLabels = ref<string[]>([])
 const dayGroupsBySeries = ref<Record<string, TotalsGroup[]>>({})
 
 const chartPoints = computed(() => {
+  if (chartLoading.value || chartError.value || summaryError.value) return []
+  if (stackBy.value === 'project' && projectChartMetric.value !== metric.value) return []
   return dayLabels.value.map((day, idx) => {
     const values: Record<string, number> = {}
     for (const key of chartSeriesKeys.value) {
@@ -168,13 +224,33 @@ const isCurrent = (generation: number) => mounted && generation === loadGenerati
 async function loadChart(snapshot: LoadSnapshot, generation: number) {
   const chartRequest = ++chartGeneration
   const stacking = stackBy.value
+  const selectedMetric = metric.value
   const { boundaries, labels } = buildLocalDayBoundaries(snapshot.range)
   const baseFilters = buildServerFilters(snapshot)
+  const current = () => isCurrent(generation) && chartRequest === chartGeneration
+  chartLoading.value = true
+  chartError.value = false
   try {
+    if (totalsRouteUnavailable.value) {
+      await loadFallbackChart(snapshot, generation, chartRequest)
+      return
+    }
     let groups: Record<string, TotalsGroup[]>
     if (stacking === 'none') {
       const resp = await fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters: baseFilters, perPage: boundaries.length })
       groups = { total: resp.groups }
+    }
+    else if (stacking === 'project') {
+      const utc = localDateRangeToUtcFilters(snapshot.range)
+      const ranked = await fetchTotals({ from: utc.start, to: utc.end, groupBy: 'project', sort: selectedMetric === 'work' ? '-work_ms' : '-cost', filters: baseFilters, perPage: 6 })
+      const keys = ranked.groups.filter(g => g.groupKey).slice(0, 5).map(g => g.groupKey)
+      const [overall, ...selected] = await Promise.all([
+        fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters: baseFilters, perPage: boundaries.length }),
+        ...keys.map(project => fetchTotals({ groupBy: 'day', dayBoundaries: boundaries, filters: { ...baseFilters, project }, perPage: boundaries.length })),
+      ])
+      groups = Object.fromEntries(keys.map((key, idx) => [key, selected[idx]!.groups]))
+      const remainder = projectRemainder(overall!.groups, groups)
+      if (remainder.some(row => (selectedMetric === 'work' ? row.workMs : row.cost) !== 0)) groups[PROJECT_OTHERS_KEY] = remainder
     }
     else {
       const keys = stacking === 'client' ? byClient.value.slice(0, 5).map(g => g.key) : byProject.value.slice(0, 5).map(g => g.key)
@@ -185,13 +261,35 @@ async function loadChart(snapshot: LoadSnapshot, generation: number) {
       }))
       groups = Object.fromEntries(results)
     }
-    if (!isCurrent(generation) || chartRequest !== chartGeneration || stacking !== stackBy.value) return
+    if (!isCurrent(generation) || chartRequest !== chartGeneration || stacking !== stackBy.value || (stacking === 'project' && selectedMetric !== metric.value)) return
+    if (stacking === 'project') {
+      committedProjectKeys.value = Object.keys(groups)
+      projectChartMetric.value = selectedMetric
+    }
+    chartPartial.value = false
     dayLabels.value = labels
     dayGroupsBySeries.value = groups
   }
   catch (err) {
-    if (isCurrent(generation) && chartRequest === chartGeneration) throw err
+    if (!current()) return
+    if (err instanceof TotalsRouteUnavailableError) {
+      totalsRouteUnavailable.value = true
+      try {
+        await loadFallbackChart(snapshot, generation, chartRequest)
+      }
+      catch {
+        if (current()) chartError.value = true
+      }
+    }
+    else chartError.value = true
   }
+  finally {
+    if (current()) chartLoading.value = false
+  }
+}
+
+function retryChart() {
+  if (chartDataGeneration === loadGeneration && chartSnapshot) void loadChart(snapshotLoad(), loadGeneration)
 }
 
 async function fetchTopExpensive(snapshot: LoadSnapshot) {
@@ -215,6 +313,9 @@ async function load() {
   chartSnapshot = null
   const snapshot = snapshotLoad()
   loading.value = true
+  summaryError.value = false
+  chartError.value = false
+  chartLoading.value = true
   try {
     if (totalsRouteUnavailable.value) {
       await loadFallback(snapshot, generation)
@@ -230,8 +331,14 @@ async function load() {
       await loadFallback(snapshot, generation)
     }
   }
+  catch {
+    if (isCurrent(generation)) summaryError.value = true
+  }
   finally {
-    if (isCurrent(generation)) loading.value = false
+    if (isCurrent(generation)) {
+      loading.value = false
+      if (summaryError.value) chartLoading.value = false
+    }
   }
 }
 
@@ -264,6 +371,13 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
   byClient.value = groupsToGroupTotals(clientResp.groups, currentResp.total).map(g => ({ ...g, label: clientName(g.key) }))
   byProject.value = groupsToGroupTotals(projectResp.groups.filter(g => g.groupKey !== ''), currentResp.total).map(g => ({ ...g, label: projectName(g.key) }))
   topExpensive.value = topExpensiveRows
+  exportSnapshot.value = { ...snapshot, metadata: {
+    dataSource: 'totals_endpoint',
+    clientBreakdownLimit: 200, projectBreakdownLimit: 200, topExpensiveLimit: 10,
+    clientBreakdownTruncated: clientResp.totalGroups > clientResp.groups.length,
+    projectBreakdownTruncated: projectResp.totalGroups > projectResp.groups.length,
+    fallbackRowsTruncated: null,
+  } }
 
   const rawAgentKeys = agentResp.groups.map(g => g.groupKey === '' ? LEGACY_AGENT : g.groupKey)
   agentOptions.value = rawAgentKeys.sort((a, b) => {
@@ -315,6 +429,13 @@ function toTotalsRow(entries: TaskEntryRecord[]): TotalsRow {
  * when POST /api/kankaku/totals 404s (the owner hasn't restarted
  * PocketBase yet) — no error toast, this is a silent, documented
  * degrade-gracefully path. */
+let fallbackRows: { snapshot: LoadSnapshot, current: Awaited<ReturnType<typeof fetchRange>> } | null = null
+
+function visibleFallback(entries: TaskEntryRecord[], snapshot: LoadSnapshot) {
+  return entries.filter(e => (snapshot.includeUnassigned || e.client !== snapshot.unassignedClientId)
+    && (!snapshot.agent || (snapshot.agent === LEGACY_AGENT ? !e.agent?.trim() : e.agent?.trim() === snapshot.agent)))
+}
+
 async function loadFallback(snapshot: LoadSnapshot, generation: number) {
   const prevRange = previousEquivalentPeriod(snapshot.range)
   const [current, previous] = await Promise.all([
@@ -322,21 +443,10 @@ async function loadFallback(snapshot: LoadSnapshot, generation: number) {
     fetchRange(prevRange),
   ])
   if (!isCurrent(generation)) return
+  fallbackRows = { snapshot, current }
   const currentEntries = current.entries
-  const previousEntries = previous.entries
-  const stacking = stackBy.value
-
-  function matchesAgentFilter(entry: TaskEntryRecord) {
-    if (!snapshot.agent) return true
-    if (snapshot.agent === LEGACY_AGENT) return !entry.agent?.trim()
-    return entry.agent?.trim() === snapshot.agent
-  }
-  function visible(entries: TaskEntryRecord[]) {
-    return (snapshot.includeUnassigned ? entries : entries.filter(e => e.client !== snapshot.unassignedClientId)).filter(matchesAgentFilter)
-  }
-
-  const visibleCurrent = visible(currentEntries)
-  const visiblePrevious = visible(previousEntries)
+  const visibleCurrent = visibleFallback(currentEntries, snapshot)
+  const visiblePrevious = visibleFallback(previous.entries, snapshot)
 
   totals.value = toTotalsRow(visibleCurrent)
   previousTotals.value = toTotalsRow(visiblePrevious)
@@ -347,18 +457,39 @@ async function loadFallback(snapshot: LoadSnapshot, generation: number) {
   byClient.value = groupByClient(visibleCurrent).map(g => ({ ...toTotalsRow(visibleCurrent.filter(e => e.client === g.key)), key: g.key, costShare: g.costShare, workMsShare: g.workMsShare, label: clientName(g.key) }))
   byProject.value = groupByProject(visibleCurrent.filter(e => e.project)).map(g => ({ ...toTotalsRow(visibleCurrent.filter(e => e.project === g.key)), key: g.key, costShare: g.costShare, workMsShare: g.workMsShare, label: projectName(g.key) }))
   topExpensive.value = [...visibleCurrent].sort((a, b) => b.cost - a.cost).slice(0, 10)
+  exportSnapshot.value = { ...snapshot, metadata: {
+    dataSource: 'fallback_task_entries',
+    clientBreakdownLimit: null, projectBreakdownLimit: null, topExpensiveLimit: 10,
+    clientBreakdownTruncated: false, projectBreakdownTruncated: false,
+    fallbackRowsTruncated: current.truncated,
+  } }
 
+  chartSnapshot = snapshot
+  chartDataGeneration = generation
+  await loadChart(snapshot, generation)
+}
+
+async function loadFallbackChart(snapshot: LoadSnapshot, generation: number, chartRequest: number) {
+  const stacking = stackBy.value
+  const selectedMetric = metric.value
+  const cached = fallbackRows && JSON.stringify(fallbackRows.snapshot) === JSON.stringify(snapshot)
+  const current = cached ? fallbackRows!.current : await fetchRange(snapshot.range)
+  if (!isCurrent(generation) || chartRequest !== chartGeneration) return
+  fallbackRows = { snapshot, current }
+  const visibleCurrent = visibleFallback(current.entries, snapshot)
   // Fallback path builds real (partial) `TotalsGroup`-shaped rows — both
   // `workMs` and `cost` summed unconditionally per bucket, not gated by
   // the current `metric` — so `chartPoints`'s computed (which picks the
   // field based on `metric.value` at render time) stays correct across a
   // metric toggle without needing a second aggregation pass.
+  const projectKeys = rankProjects(groupByProject(visibleCurrent.filter(e => e.project)).map(g => ({ groupKey: g.key, workMs: g.workMs, cost: g.cost })), selectedMetric)
+  const fallbackKeys = stacking === 'project' ? [...projectKeys, PROJECT_OTHERS_KEY] : chartSeriesKeys.value
   const byDay = new Map<string, Record<string, { workMs: number, cost: number }>>()
   for (const e of visibleCurrent) {
     const day = utcInstantToLocalDay(e.started_at)
     const bucket = byDay.get(day) ?? {}
-    const key = stacking === 'client' ? e.client : stacking === 'project' ? (e.project || '—') : 'total'
-    if (chartSeriesKeys.value.includes(key)) {
+    const key = stacking === 'client' ? e.client : stacking === 'project' ? (projectKeys.includes(e.project) ? e.project : PROJECT_OTHERS_KEY) : 'total'
+    if (fallbackKeys.includes(key)) {
       const cell = bucket[key] ?? { workMs: 0, cost: 0 }
       cell.workMs += e.work_ms ?? 0
       cell.cost += e.cost ?? 0
@@ -393,16 +524,46 @@ async function loadFallback(snapshot: LoadSnapshot, generation: number) {
       seriesMap[key] = [...(seriesMap[key] ?? []), row]
     }
   })
+  if (stacking === 'project') {
+    committedProjectKeys.value = fallbackKeys.filter(key => key !== PROJECT_OTHERS_KEY || seriesMap[key]?.some(row => (selectedMetric === 'work' ? row.workMs : row.cost) !== 0))
+    projectChartMetric.value = selectedMetric
+  }
+  chartPartial.value = current.truncated
   dayGroupsBySeries.value = seriesMap
+  chartSnapshot = snapshot
   chartDataGeneration = generation
 }
 
 let unsubscribe: (() => void) | null = null
+let restoringPreferences = true
+function persistPreferences() {
+  if (restoringPreferences) return
+  try {
+    localStorage.setItem(DASHBOARD_PREFERENCES_KEY, JSON.stringify({ metric: metric.value, stackBy: stackBy.value }))
+  }
+  catch { /* Storage may be disabled; preferences remain usable in memory. */ }
+}
 onMounted(async () => {
-  await Promise.all([ensureClients(), ensureProjects()])
-  if (!mounted) return
-  await load()
-  if (mounted) unsubscribe = subscribe(() => load())
+  try {
+    const saved = parseDashboardPreferences(localStorage.getItem(DASHBOARD_PREFERENCES_KEY))
+    metric.value = saved.metric
+    stackBy.value = saved.stackBy
+  }
+  catch { /* Keep work/project defaults when storage is unavailable. */ }
+  restoringPreferences = false
+  try {
+    await Promise.all([ensureClients(), ensureProjects()])
+    if (!mounted) return
+    await load()
+    if (mounted) unsubscribe = subscribe(() => load())
+  }
+  catch {
+    if (mounted) {
+      summaryError.value = true
+      loading.value = false
+      chartLoading.value = false
+    }
+  }
 })
 onBeforeUnmount(() => {
   mounted = false
@@ -413,15 +574,22 @@ onBeforeUnmount(() => {
 
 watch(range, load, { deep: true })
 watch([includeUnassigned, agentFilter], load)
-watch(stackBy, () => {
+watch(metric, () => {
+  if (restoringPreferences) return
+  persistPreferences()
+  if (stackBy.value !== 'project') return
   ++chartGeneration
-  if (totalsRouteUnavailable.value) {
-    void load()
-  }
-  else if (chartDataGeneration === loadGeneration && chartSnapshot) {
+  if (chartDataGeneration !== loadGeneration || !chartSnapshot) return
+  void loadChart(chartSnapshot, loadGeneration)
+}, { flush: 'sync' })
+watch(stackBy, () => {
+  if (restoringPreferences) return
+  persistPreferences()
+  ++chartGeneration
+  if (chartDataGeneration === loadGeneration && chartSnapshot) {
     void loadChart(chartSnapshot, loadGeneration)
   }
-})
+}, { flush: 'sync' })
 </script>
 
 <template>
@@ -442,7 +610,13 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
         ]"
         />
         <DateRangePicker v-model:preset="preset" v-model:range="range" />
+        <ExportMenu :disabled="loading || exporting || !exportSnapshot" @format="downloadExport" />
       </div>
+    </div>
+
+    <div v-if="summaryError" role="alert" class="text-sm">
+      {{ t('dashboard.summaryError') }}
+      <Button variant="outline" size="sm" @click="load">{{ t('dashboard.chart.retry') }}</Button>
     </div>
 
     <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -492,6 +666,13 @@ v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :optio
         </div>
       </CardHeader>
       <CardContent>
+        <p v-if="chartLoading" class="py-10 text-center text-sm text-muted-foreground">{{ t('dashboard.chart.loading') }}</p>
+        <div v-else-if="chartError" role="alert" class="py-10 text-center text-sm">
+          {{ t('dashboard.chart.error') }}
+          <Button variant="outline" size="sm" @click="retryChart">{{ t('dashboard.chart.retry') }}</Button>
+        </div>
+        <p v-else-if="summaryError" class="py-10 text-center text-sm text-muted-foreground">{{ t('dashboard.chart.summaryUnavailable') }}</p>
+        <p v-if="chartPartial && !chartLoading && !chartError && !summaryError" class="mb-2 text-sm text-muted-foreground">{{ t('dashboard.chart.partial') }}</p>
         <StackedBarChart
           v-if="chartPoints.length > 0"
           :points="chartPoints"
@@ -501,7 +682,7 @@ v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :optio
           :format-value="metric === 'work' ? formatDuration : (n) => formatCost(n)"
           :tick-unit="metric === 'work' ? 3_600_000 : 1"
         />
-        <p v-else class="py-10 text-center text-sm text-muted-foreground">
+        <p v-else-if="!chartLoading && !chartError && !summaryError" class="py-10 text-center text-sm text-muted-foreground">
           {{ t('dashboard.noData') }}
         </p>
       </CardContent>

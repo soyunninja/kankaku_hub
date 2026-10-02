@@ -11,6 +11,7 @@
  */
 import { useElementSize } from '@vueuse/core'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
+import { PROJECT_OTHERS_KEY } from '@/lib/project-chart'
 import { niceTicks } from '@/lib/ticks'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 
@@ -38,7 +39,7 @@ const props = defineProps<{
 }>()
 
 const height = computed(() => props.height ?? 220)
-const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)']
+const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', '#64748b']
 
 const AXIS_WIDTH = 52
 const BOTTOM_AXIS_HEIGHT = 24
@@ -103,7 +104,8 @@ const hovered = ref<number | null>(null)
 const hoveredPoint = computed(() => hovered.value === null ? null : (props.points[hovered.value] ?? null))
 
 function colorFor(key: string) {
-  return colors[props.seriesKeys.indexOf(key) % colors.length] ?? colors[0]!
+  if (key === PROJECT_OTHERS_KEY) return colors[5]!
+  return colors[props.seriesKeys.indexOf(key) % 5] ?? colors[0]!
 }
 
 function pointLabel(point: { day: string, values: Record<string, number> }) {

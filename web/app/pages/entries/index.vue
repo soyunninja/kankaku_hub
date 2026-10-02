@@ -5,6 +5,7 @@ import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ExportMenu from '@/components/common/ExportMenu.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
 import EntriesDateFilter from '@/components/entries/EntriesDateFilter.vue'
 import SessionMarker from '@/components/entries/SessionMarker.vue'
@@ -25,8 +26,9 @@ import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { resolveAgent } from '@/lib/agents'
 import { formatCompactEntryDateTime } from '@/lib/entries-compact-date'
 import { statusPresentation } from '@/lib/entry-detail'
-import { entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/lib/entries-session-filters'
+import { canGroupEntriesFilters, entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/lib/entries-session-filters'
 import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
+import { buildEntriesDetailExport, createCsvExport, createXlsxExport } from '@/lib/export'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import { narrativeBody, narrativeBodyLineCount } from '@/lib/narrative-format'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
@@ -40,7 +42,7 @@ const route = useRoute()
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
 const { tasks, ensureLoaded: ensureTasks, refresh: refreshTasks, create: createTask, byId: taskById } = useTasks()
-const { list, getOne, listWorkRecords, updateAssignment, collectEntryIds, bulkAssignTask, fetchAgentOptions, listAgents } = useEntriesExplorer()
+const { list, fetchExport, getOne, listWorkRecords, updateAssignment, collectEntryIds, bulkAssignTask, fetchAgentOptions, listAgents } = useEntriesExplorer()
 const { fetchSessionTotalsForEntries } = useSessions()
 const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
@@ -70,6 +72,72 @@ const page = ref(1)
 const perPage = 25
 const sort = ref('-started_at')
 const loading = ref(true)
+const browseError = ref(false)
+const exporting = ref(false)
+interface PendingExport {
+  filters: EntriesExplorerFilters
+  sort: string
+  generatedAt: string
+  format: 'csv' | 'xlsx'
+  result: Awaited<ReturnType<typeof fetchExport>>
+}
+const pendingExport = shallowRef<PendingExport | null>(null)
+
+async function deliverExport(snapshot: PendingExport) {
+  const { result, format } = snapshot
+  const table = buildEntriesDetailExport({ ...snapshot, ...result })
+  const payload = format === 'csv' ? createCsvExport(table) : await createXlsxExport(table)
+  const url = URL.createObjectURL(new Blob([payload.content], { type: payload.mimeType }))
+  const link = document.createElement('a')
+  try {
+    link.href = url
+    link.download = `entries-${snapshot.generatedAt.slice(0, 10)}.${payload.extension}`
+    document.body.appendChild(link)
+    link.click()
+  }
+  finally {
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  toast.success(result.truncated
+    ? t('entries.export.truncated', { count: result.items.length, total: result.totalItems })
+    : t('entries.export.started', { count: result.items.length }))
+}
+
+async function confirmExport() {
+  if (!pendingExport.value || exporting.value) return
+  const snapshot = pendingExport.value
+  pendingExport.value = null
+  exporting.value = true
+  try {
+    await deliverExport(snapshot)
+  }
+  catch {
+    toast.error(t('entries.export.failed'))
+  }
+  finally {
+    exporting.value = false
+  }
+}
+
+async function downloadExport(format: 'csv' | 'xlsx') {
+  if (loading.value || exporting.value || pendingExport.value) return
+  exporting.value = true
+  // Capture the click-time filters/sort so later UI changes cannot relabel the file.
+  const snapshot = { filters: { ...filters }, sort: sort.value, generatedAt: new Date().toISOString() }
+  try {
+    const result = await fetchExport(snapshot)
+    const captured = { ...snapshot, format, result }
+    if (result.truncated) pendingExport.value = captured
+    else await deliverExport(captured)
+  }
+  catch {
+    toast.error(t('entries.export.failed'))
+  }
+  finally {
+    exporting.value = false
+  }
+}
 const items = ref<TaskEntryRecord[]>([])
 const totalItems = ref(0)
 const totalPages = ref(1)
@@ -97,11 +165,15 @@ function selectClient(clientId: string) {
  * the entry is the finer-grained audit unit. `'0'` still means flat,
  * `'1'` still means grouped — only the "never set" case changed. */
 const GROUP_BY_SESSION_STORAGE_KEY = 'kankaku-entries-group-by-session'
-const groupBySession = ref(true)
+const groupingEligible = computed(() => canGroupEntriesFilters(filters))
+const groupBySession = ref(groupingEligible.value)
+// Enforce before any queued refresh sees the new filters. Clearing filters
+// unlocks the toggle but does not discard the user's current flat choice.
+watch(groupingEligible, eligible => { if (!eligible) groupBySession.value = false }, { flush: 'sync' })
 onMounted(() => {
   try {
     const stored = window.localStorage.getItem(GROUP_BY_SESSION_STORAGE_KEY)
-    groupBySession.value = stored === null ? true : stored === '1'
+    groupBySession.value = groupingEligible.value && (stored === null ? true : stored === '1')
   }
   catch {
     // localStorage unavailable (private mode, etc.) — the default (grouped) stands.
@@ -120,7 +192,7 @@ watch(groupBySession, (value) => {
  * page 1, same as a filter change. Registered before `refresh` reads
  * `groupBySession.value` below is declared further down, but that's
  * fine: the watcher callback only runs later, once `refresh` exists. */
-watch(groupBySession, () => { page.value = 1; refresh() })
+watch(groupBySession, () => { page.value = 1 }, { flush: 'sync' })
 
 // -- server-backed grouped mode (primary) --------------------------------
 
@@ -139,10 +211,8 @@ const primaryGrouped = computed(() => groupBySession.value && !groupingFallback.
 /** The Entries filters the totals contract can honor, split from the
  * ones it cannot (`app/lib/entries-session-filters.ts`) — used both for
  * the session-totals fetch below and for a session row's lazy entries
- * fetch. The unsupported side (`model`/`quality`/`search`) doesn't need
- * a separate name here: their controls are disabled outright whenever
- * `primaryGrouped` is true, per the feature's own "always disabled, not
- * only when active" design (see the filter bar's `:disabled` bindings). */
+ * fetch. Active unsupported filters enforce flat browse; their controls
+ * remain disabled while the user is browsing grouped sessions. */
 const entriesFiltersSplit = computed(() => splitEntriesFiltersForTotals(filters))
 
 const sessionRows = ref<SessionTotal[]>([])
@@ -399,7 +469,10 @@ async function refresh() {
   const key = refreshKey()
   const isCurrent = () => generation === refreshGeneration && key === refreshKey()
   loading.value = true
+  browseError.value = false
   try {
+    await ensureBrowseInitialized()
+    if (!isCurrent()) return
     if (!groupBySession.value) {
       groupingFallback.value = false
       pendingSessionExpansion = undefined
@@ -427,6 +500,9 @@ async function refresh() {
       await loadFlat(isCurrent)
     }
   }
+  catch {
+    if (isCurrent()) browseError.value = true
+  }
   finally {
     if (isCurrent()) loading.value = false
   }
@@ -451,13 +527,33 @@ async function loadAgentOptions() {
   }
 }
 
-onMounted(async () => {
-  await Promise.all([ensureClients(), ensureProjects(), ensureTasks(), loadAgentOptions()])
-  await refresh()
+// Share in-flight initialization; keep successes so Retry only repeats missing reads.
+const browseInitializers = [ensureClients, ensureProjects, ensureTasks, loadAgentOptions]
+const initializedReads = new Set<number>()
+let initialization: Promise<void> | undefined
+function ensureBrowseInitialized(): Promise<void> {
+  if (!initialization) {
+    initialization = Promise.allSettled(browseInitializers.map(async (initialize, index) => {
+      if (initializedReads.has(index)) return
+      await initialize()
+      initializedReads.add(index)
+    })).then((results) => {
+      if (results.some(result => result.status === 'rejected')) throw new Error('Entries initialization failed')
+    }).finally(() => { initialization = undefined })
+  }
+  return initialization
+}
+
+let browseReady = false
+onMounted(() => {
+  browseReady = true
+  refresh()
 })
 
-watch([filters, sort], () => { page.value = 1; refresh() }, { deep: true })
-watch(page, refresh)
+watch([filters, sort], () => { page.value = 1 }, { deep: true, flush: 'sync' })
+// One batched refresh for filter + enforced toggle + page reset, and none
+// during storage restoration/catalog initialization.
+watch(refreshKey, () => { if (browseReady) refresh() })
 
 function clientName(id: string) {
   return clients.value.find(c => c.id === id)?.name ?? id
@@ -490,7 +586,7 @@ watch([filters, canWrite], () => {
   bulkDialog.value = null
 }, { deep: true, flush: 'sync' })
 const visibleEntryIds = computed(() => {
-  if (loading.value) return []
+  if (loading.value || browseError.value) return []
   const rows = primaryGrouped.value
     ? [...sessionRowEntries.entries()].filter(([id]) => expandedSessions.has(id)).flatMap(([, state]) => state.items)
     : items.value
@@ -605,7 +701,8 @@ function onDetailOpenAutoFocus(event: Event) {
     </h1>
 
     <Card class="py-0">
-      <CardContent class="flex flex-wrap items-end gap-2 p-3">
+      <CardContent class="flex flex-col gap-3 p-3 sm:flex-row sm:items-end" data-testid="entries-filter-layout">
+        <div class="flex min-w-0 flex-1 flex-wrap items-end gap-2" data-testid="entries-filter-controls">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-client" class="text-xs text-muted-foreground">{{ t('common.client') }}</label>
           <Select id="entries-filter-client" :model-value="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient">
@@ -657,19 +754,35 @@ function onDetailOpenAutoFocus(event: Event) {
             ]"
           />
         </div>
-        <Input v-model="filters.model" :placeholder="t('common.model')" class="w-32" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
-        <Input v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-model" class="text-xs text-muted-foreground">{{ t('common.model') }}</label>
+          <Input id="entries-filter-model" v-model="filters.model" :placeholder="t('common.model')" class="w-32" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-machine" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.machine') }}</label>
+          <Input id="entries-filter-machine" v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
+        </div>
         <EntriesDateFilter id="entries-date-start" v-model="filters.dateStart" :label="t('entries.filtersFields.dateStart')" />
         <EntriesDateFilter id="entries-date-end" v-model="filters.dateEnd" :label="t('entries.filtersFields.dateEnd')" />
-        <Input v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
+        <div class="flex flex-col gap-1">
+          <label for="entries-filter-search" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.search') }}</label>
+          <Input id="entries-filter-search" v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
+        </div>
+        </div>
+        <div class="flex shrink-0 justify-end border-t pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-3" data-testid="entries-filter-actions">
+          <ExportMenu :disabled="loading || exporting || pendingExport !== null" @format="downloadExport" />
+        </div>
       </CardContent>
     </Card>
 
     <div class="flex flex-wrap items-center gap-3">
       <label class="flex items-center gap-2 text-sm text-muted-foreground">
-        <Switch v-model="groupBySession" />
+        <Switch v-model="groupBySession" :disabled="!groupingEligible" :aria-describedby="!groupingEligible ? 'entries-grouping-notice' : undefined" />
         {{ t('entries.groupBySession') }}
       </label>
+      <p v-if="!groupingEligible" id="entries-grouping-notice" class="text-sm text-muted-foreground" role="status">
+        {{ t('entries.sessionGroup.activeUnsupportedFilters') }}
+      </p>
       <Badge v-if="filters.session_id" variant="secondary" class="gap-1.5">
         {{ t('entries.sessionFilter.chip', { label: sessionFilterLabel }) }}
         <button type="button" class="rounded-full hover:bg-muted-foreground/20" :aria-label="t('entries.sessionFilter.remove')" @click="clearSessionFilter">
@@ -690,6 +803,19 @@ function onDetailOpenAutoFocus(event: Event) {
         <Button size="sm" variant="outline" :disabled="bulkBusy || !selectedIds.size" @click="bulkDialog = 'create'">{{ t('entries.bulk.create') }}</Button>
       </div>
     </div>
+
+    <Dialog :open="pendingExport !== null" @update:open="value => { if (!value) pendingExport = null }">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ t('entries.export.partialTitle') }}</DialogTitle>
+          <DialogDescription>{{ t('entries.export.partialDescription', { count: pendingExport?.result.items.length, total: pendingExport?.result.totalItems }) }}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="pendingExport = null">{{ t('common.cancel') }}</Button>
+          <Button :disabled="exporting || !pendingExport" @click="confirmExport">{{ t('entries.export.confirmPartial', { count: pendingExport?.result.items.length }) }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <Dialog :open="bulkEnabled && bulkDialog !== null" @update:open="value => { if (!value && !bulkBusy) bulkDialog = null }">
       <DialogContent :data-testid="bulkDialog === 'create' ? 'bulk-create-dialog' : 'bulk-assign-dialog'" @escape-key-down="event => { if (bulkBusy) event.preventDefault() }" @interact-outside="event => { if (bulkBusy) event.preventDefault() }">
@@ -717,7 +843,11 @@ function onDetailOpenAutoFocus(event: Event) {
 
     <Card class="py-0">
       <CardContent class="p-0">
-        <Table>
+        <div v-if="browseError" role="alert" class="flex items-center justify-center gap-3 p-6 text-sm">
+          <p class="text-destructive">{{ t('entries.loadError') }}</p>
+          <Button variant="outline" size="sm" @click="refresh">{{ t('entries.loadRetry') }}</Button>
+        </div>
+        <Table v-else>
           <TableHeader>
             <!-- Primary server-backed grouped mode gets its OWN header/columns:
                  the session row below is a normal data row (one <td> per
@@ -976,15 +1106,15 @@ function onDetailOpenAutoFocus(event: Event) {
             </template>
           </TableBody>
         </Table>
-        <EmptyState v-if="!loading && (primaryGrouped ? sessionRows.length === 0 : items.length === 0)" :title="t('entries.empty')" class="m-4" />
+        <EmptyState v-if="!loading && !browseError && (primaryGrouped ? sessionRows.length === 0 : items.length === 0)" :title="t('entries.empty')" class="m-4" />
 
         <div class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
-          <span>{{ displayTotalItems }} · {{ page }}/{{ displayTotalPages }}</span>
+          <span v-if="!loading && !browseError">{{ displayTotalItems }} · {{ page }}/{{ displayTotalPages }}</span>
           <div class="flex gap-2">
             <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
               <ChevronLeft class="size-4" />
             </Button>
-            <Button size="icon" variant="outline" :disabled="page >= displayTotalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
+            <Button size="icon" variant="outline" :disabled="browseError || page >= displayTotalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
               <ChevronRight class="size-4" />
             </Button>
           </div>

@@ -8,9 +8,8 @@
  *
  * `quality` (waiting/cost measurement quality), `model` and `search`
  * (free-text prompt search) have no equivalent totals filter — the
- * Entries page disables their controls in grouped mode and never sends
- * them, rather than silently dropping sessions the flat view would have
- * shown. `dateStart`/`dateEnd` are deliberately NOT part of either
+ * Entries page disables their controls in grouped mode; active values
+ * require flat browse so browse and export honor the same filters. `dateStart`/`dateEnd` are deliberately NOT part of either
  * `groupable` or `unsupported` here: the totals contract honors them
  * too, but as the request's top-level `from`/`to`, never inside
  * `filters` (`totals-query.js`'s `FILTER_KEYS` has no `dateStart`/
@@ -49,8 +48,7 @@ export interface EntriesFiltersSplit {
  * Splits the Entries screen's current filter state into what the totals
  * endpoint can honor (`groupable`, ready to pass as `TotalsRequest.filters`)
  * and what it cannot (`unsupported`) — the Entries page uses the latter
- * to disable those controls' inputs in grouped mode and to show the
- * "available in the flat view" hint.
+ * to require flat browse whenever an unsupported filter is active.
  */
 export function splitEntriesFiltersForTotals(filters: EntriesExplorerFilters): EntriesFiltersSplit {
   const groupable: GroupableEntriesFilters = {}
@@ -68,6 +66,11 @@ export function splitEntriesFiltersForTotals(filters: EntriesExplorerFilters): E
   if (filters.search) unsupported.push('search')
 
   return { groupable, unsupported }
+}
+
+/** Grouping must never silently omit an active Entries filter. */
+export function canGroupEntriesFilters(filters: EntriesExplorerFilters): boolean {
+  return splitEntriesFiltersForTotals(filters).unsupported.length === 0
 }
 
 export interface EntriesTotalsDateRange {

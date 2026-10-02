@@ -10,6 +10,7 @@ function harness() {
   const state = {
     filters, sort: ref('-started_at'), page: ref(1), groupBySession: ref(true),
     primaryGrouped: ref(true), groupingFallback: ref(false), loading: ref(false),
+    browseError: ref(false), ensureBrowseInitialized: vi.fn().mockResolvedValue(undefined),
     sessionRows: ref<{ sessionId: string }[]>([]), sessionTotalGroups: ref(0), sessionTotalPages: ref(1),
     items: ref<unknown[]>([]), totalItems: ref(0), totalPages: ref(1),
     sessionRowEntries: new Map(), entriesFiltersSplit: ref({ groupable: {} }), perPage: 25,
@@ -174,6 +175,7 @@ describe('Entries session selection', () => {
     h.fetchSessionTotalsForEntries.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise)
     h.filterToSession('a')
     const first = h.refresh()
+    await Promise.resolve() // Let browse initialization finish and the old totals request start.
     h.filterToSession('b')
     const second = h.refresh()
     old.resolve(rows('a'))

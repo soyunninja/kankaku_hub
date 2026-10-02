@@ -1,4 +1,5 @@
 import { chunk } from '~/lib/aggregate'
+import { ENTRIES_DETAIL_FIELDS } from '~/lib/export'
 import { localWallClockToUtc, toPbDateFilter } from '~/lib/local-day'
 import { LEGACY_AGENT, listDistinctAgents } from '~/lib/measurement-quality'
 import type { TaskEntryRecord } from '~/lib/pocketbase-types'
@@ -31,7 +32,7 @@ export interface EntriesExplorerFilters {
 }
 
 function escapeFilterValue(value: string) {
-  return value.replace(/"/g, '\\"')
+  return JSON.stringify(value).slice(1, -1)
 }
 
 function buildFilter(filters: EntriesExplorerFilters): string {
@@ -40,8 +41,8 @@ function buildFilter(filters: EntriesExplorerFilters): string {
   if (filters.project) parts.push(`project = "${filters.project}"`)
   if (filters.task) parts.push(`task = "${filters.task}"`)
   if (filters.status) parts.push(`status = "${filters.status}"`)
-  if (filters.model) parts.push(`model = "${filters.model}"`)
-  if (filters.machine) parts.push(`machine = "${filters.machine}"`)
+  if (filters.model) parts.push(`model = "${escapeFilterValue(filters.model)}"`)
+  if (filters.machine) parts.push(`machine = "${escapeFilterValue(filters.machine)}"`)
   if (filters.session_id) parts.push(`session_id = "${escapeFilterValue(filters.session_id)}"`)
   if (filters.agent) parts.push(filters.agent === LEGACY_AGENT ? `agent = ""` : `agent = "${filters.agent}"`)
   if (filters.quality === 'waitingUnavailable') parts.push(`waiting_quality = "unavailable"`)
@@ -80,6 +81,25 @@ export function useEntriesExplorer() {
       sort: opts.sort,
       expand: 'client,project,task',
     })
+  }
+
+  /** All matching detail rows, independent of browse page/grouping; never raw work records. */
+  async function fetchExport(opts: { filters: EntriesExplorerFilters, sort: string }) {
+    const rowLimit = 5000
+    const perPage = 500
+    const items: TaskEntryRecord[] = []
+    const options = {
+      filter: buildFilter(opts.filters), sort: opts.sort, expand: 'client,project,task',
+      fields: [...ENTRIES_DETAIL_FIELDS, 'expand.client.name', 'expand.project.name', 'expand.task.title'].join(','),
+    }
+    let totalItems = 0
+    for (let page = 1; items.length < rowLimit; page++) {
+      const result = await $pb.collection('task_entries').getList<TaskEntryRecord>(page, perPage, options)
+      if (page === 1) totalItems = result.totalItems
+      items.push(...result.items.slice(0, rowLimit - items.length))
+      if (!result.items.length || page >= result.totalPages) break
+    }
+    return { items, totalItems, truncated: totalItems > items.length, rowLimit }
   }
 
   async function getOne(id: string) {
@@ -171,5 +191,5 @@ export function useEntriesExplorer() {
     return listDistinctAgents(result.items)
   }
 
-  return { list, getOne, updateAssignment, collectEntryIds, bulkAssignTask, listWorkRecords, fetchAgentOptions, listAgents }
+  return { list, fetchExport, getOne, updateAssignment, collectEntryIds, bulkAssignTask, listWorkRecords, fetchAgentOptions, listAgents }
 }
