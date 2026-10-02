@@ -2,7 +2,7 @@
   "name": "kankaku-hub",
   "private": false,
   "license": "MIT",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "PocketBase backend for kankaku: canonical clients/projects/tasks and synced task_entries/work_records.",
   "repository": {
     "type": "git",

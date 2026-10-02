@@ -43,6 +43,13 @@ invoicing tool.
 - All artifacts (code, comments, docs, migration files, commit messages)
   are in English, except `ESTADO.md`, which is a status note for the
   repo owner and stays in Spanish on purpose.
+- Localized user-facing UI text is exempt from the English-only artifact
+  rule: translations in `web/i18n/locales/` use their target languages,
+  and language-picker display names (including locale `name` values in
+  `web/nuxt.config.ts`) may use native names such as `Español` and `日本語`.
+  Identifiers, locale keys, code comments, and technical documentation
+  remain in English. Do not require localized UI text to be translated
+  back to English during review.
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, ...).
 - No AI attribution of any kind in commits (no `Co-Authored-By`, no
   "Generated with", nothing).
