@@ -393,6 +393,8 @@
     },
     "searchPrompt": "Buscar en el prompt…",
     "empty": "No hay registros con estos filtros.",
+    "clearFilters": "Borrar filtros",
+    "clearFiltersError": "No se pudieron borrar los filtros. Inténtalo de nuevo.",
     "pagination": {
       "previous": "Página anterior",
       "next": "Página siguiente"
@@ -405,6 +407,11 @@
     "detail": {
       "title": "Detalle del registro",
       "fallbackTitle": "Registro {id}",
+      "panelTitle": "Detalles del registro",
+      "panelDescription": "Mediciones consolidadas y detalle de procesos sin consolidar.",
+      "viewEntry": "Ver detalles del registro: {context}",
+      "loading": "Cargando detalles del registro…",
+      "loadError": "No se pudieron cargar los detalles. Reintenta o cierra este panel.",
       "summary": "Resumen",
       "waiting": "Espera",
       "runs": "Ejecuciones",
@@ -481,6 +488,20 @@
       "remove": "Quitar filtro de sesión"
     },
     "groupBySession": "Agrupar por sesión",
+    "desktopFilters": {
+      "view": "Vista de registros",
+      "sessions": "Sesiones",
+      "entries": "Entradas",
+      "more": "Más filtros · {count}",
+      "entryHint": "El modelo, la calidad de medición y la búsqueda en el prompt están disponibles en la vista Entradas. Los filtros activos siguen aplicados al cerrar este panel."
+    },
+    "mobileLedger": {
+      "work": "Trabajo",
+      "tokenCost": "Coste tokens",
+      "detail": "Ver detalles",
+      "entryCountOne": "{count} entrada",
+      "entryCountMany": "{count} entradas"
+    },
     "sessionGroup": {
       "count": "{count} entradas",
       "mixedColumn": "Cliente · Proyecto",

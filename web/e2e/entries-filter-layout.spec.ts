@@ -15,7 +15,7 @@ for (const width of [1440, 390]) {
     await loginAs(page, VIEWER_EMAIL, VIEWER_PASSWORD)
     await page.goto('/entries')
     const layout = page.getByTestId('entries-filter-layout')
-    const controls = page.getByTestId('entries-filter-controls')
+    const controls = layout
     const actions = page.getByTestId('entries-filter-actions')
     const exportButton = actions.getByRole('button', { name: 'Export', exact: true })
     await expect(exportButton).toBeEnabled()
@@ -29,6 +29,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByLabel('End', { exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(range).toBeFocused()
+    await page.getByRole('button', { name: 'More filters · 0', exact: true }).click()
     for (const [id, text] of [['entries-filter-model', 'Model'], ['entries-filter-machine', 'Machine'], ['entries-filter-search', 'Prompt search']]) {
       const label = controls.locator(`label[for="${id}"]`)
       await expect(label).toHaveText(text!)
@@ -43,15 +44,14 @@ for (const width of [1440, 390]) {
     await expect(page.getByLabel('Model', { exact: true })).toHaveAttribute('placeholder', 'Model')
     await expect(page.getByLabel('Machine', { exact: true })).toHaveAttribute('placeholder', 'Machine')
     await expect(page.getByLabel('Prompt search', { exact: true })).toHaveAttribute('placeholder', 'Search in prompt…')
-    await page.getByRole('switch', { name: 'Group by session' }).click()
-    await expect(page.getByRole('switch', { name: 'Group by session' })).toBeChecked()
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Sessions', exact: true })).toHaveAttribute('aria-pressed', 'true')
     for (const [id, text] of [['entries-filter-model', 'Model'], ['entries-filter-search', 'Prompt search']]) {
       await expect(controls.locator(`label[for="${id}"]`)).toBeVisible()
       await expect(page.getByRole('textbox', { name: text, exact: true })).toBeDisabled()
     }
     await expect(page.getByLabel('Machine', { exact: true })).toBeEnabled()
-    expect(await layout.evaluate(el => el.lastElementChild?.getAttribute('data-testid'))).toBe('entries-filter-actions')
-    const filterBox = (await controls.boundingBox())!
+    const filterBox = (await page.getByTestId('entries-filter-controls').boundingBox())!
     const actionBox = (await actions.boundingBox())!
     const exportBox = (await exportButton.boundingBox())!
     expect(exportBox.x + exportBox.width).toBeCloseTo(actionBox.x + actionBox.width, 0)
@@ -60,8 +60,8 @@ for (const width of [1440, 390]) {
       expect(await actions.evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth))).toBeGreaterThan(0)
     }
     else {
-      expect(actionBox.y - (filterBox.y + filterBox.height)).toBeGreaterThanOrEqual(12)
-      expect(await actions.evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0)
+      expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(filterBox.y)
+      expect(exportBox.height).toBeGreaterThanOrEqual(44)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       expect(await layout.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
       for (const box of [filterBox, actionBox, exportBox]) {

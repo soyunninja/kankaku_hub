@@ -89,7 +89,7 @@ test('stale list failure cannot replace a newer grouped success', async ({ page 
     active = true
     await page.goto('/entries')
     await expect.poll(() => pending).toBe(true)
-    await page.getByRole('switch', { name: 'Group by session' }).click()
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
     release()
     await page.waitForLoadState('networkidle')

@@ -107,6 +107,7 @@ test('Entries exports all matching identities in CSV and XLSX across browse pres
   await page.goto('/entries')
   await selectCombobox(comboboxTrigger(page, 'Client'), client.name)
   await selectCombobox(comboboxTrigger(page, 'Project'), project!.name)
+  await page.getByRole('button', { name: 'More filters · 0', exact: true }).click()
   await selectCombobox(comboboxTrigger(page, 'Status'), 'Completed')
   await page.getByRole('columnheader', { name: 'Started', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
@@ -116,8 +117,8 @@ test('Entries exports all matching identities in CSV and XLSX across browse pres
 
   for (const format of ['csv', 'xlsx'] as const) {
     if (format === 'xlsx') {
-      await page.getByRole('switch', { name: 'Group by session' }).click()
-      await expect(page.getByRole('switch', { name: 'Group by session' })).toBeChecked()
+      await page.getByRole('button', { name: 'Sessions', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Sessions', exact: true })).toHaveAttribute('aria-pressed', 'true')
     }
     const button = page.getByRole('button', { name: 'Export', exact: true })
     await expect(button).toBeEnabled()

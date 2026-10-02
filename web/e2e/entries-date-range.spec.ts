@@ -49,7 +49,7 @@ for (const bounds of [{}, { dateStart: '2026-01-01' }, { dateEnd: '2026-01-31' }
     if (bounds.dateStart) expect(csv).toContain(bounds.dateStart)
     if (bounds.dateEnd) expect(csv).toContain(bounds.dateEnd)
     expect(reads.at(-1)!.searchParams.get('filter')).toBe(filter)
-    await page.getByRole('switch', { name: 'Group by session' }).click()
+    await page.getByRole('button', { name: 'Sessions', exact: true }).click()
     await expect.poll(() => totals.length).toBe(1)
     expect(totals[0]!.from ?? undefined).toBe(utc.from)
     expect(totals[0]!.to ?? undefined).toBe(utc.to)
@@ -63,7 +63,7 @@ for (const bounds of [{}, { dateStart: '2026-01-01' }, { dateEnd: '2026-01-31' }
     expect(totals.at(-1)!.from).toBeUndefined()
     expect(totals.at(-1)!.to).toBeUndefined()
     expect(totals.at(-1)!.filters).toMatchObject({ agent: 'pi' })
-    await expect(page.getByRole('switch', { name: 'Group by session' })).toBeChecked()
+    await expect(page.getByRole('button', { name: 'Sessions', exact: true })).toHaveAttribute('aria-pressed', 'true')
     // Invalid drafts never change the applied range; an empty bound stays open.
     await page.getByLabel('Start', { exact: true }).fill('bad')
     await page.getByLabel('Start', { exact: true }).press('Enter')

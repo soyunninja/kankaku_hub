@@ -393,6 +393,8 @@
     },
     "searchPrompt": "プロンプトを検索…",
     "empty": "この条件に一致するエントリーはありません。",
+    "clearFilters": "フィルターをクリア",
+    "clearFiltersError": "フィルターをクリアできませんでした。もう一度お試しください。",
     "pagination": {
       "previous": "前のページ",
       "next": "次のページ"
@@ -405,6 +407,11 @@
     "detail": {
       "title": "エントリー詳細",
       "fallbackTitle": "エントリー {id}",
+      "panelTitle": "エントリーの詳細",
+      "panelDescription": "集約済みの測定値と未集約のプロセス詳細。",
+      "viewEntry": "エントリーの詳細を表示: {context}",
+      "loading": "エントリーの詳細を読み込み中…",
+      "loadError": "詳細を読み込めませんでした。再試行するか、このパネルを閉じてください。",
       "summary": "概要",
       "waiting": "待機",
       "runs": "実行回数",
@@ -481,6 +488,20 @@
       "remove": "セッションフィルターを削除"
     },
     "groupBySession": "セッションでグループ化",
+    "desktopFilters": {
+      "view": "エントリーの表示方法",
+      "sessions": "セッション",
+      "entries": "エントリー",
+      "more": "詳細フィルター · {count}",
+      "entryHint": "モデル、計測品質、プロンプト検索はエントリー表示で利用できます。このパネルを閉じても、選択したフィルターは適用されます。"
+    },
+    "mobileLedger": {
+      "work": "作業時間",
+      "tokenCost": "トークンコスト",
+      "detail": "詳細を見る",
+      "entryCountOne": "{count}件のエントリー",
+      "entryCountMany": "{count}件のエントリー"
+    },
     "sessionGroup": {
       "count": "{count}件のエントリー",
       "mixedColumn": "クライアント · プロジェクト",

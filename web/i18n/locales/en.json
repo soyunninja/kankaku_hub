@@ -393,6 +393,8 @@
     },
     "searchPrompt": "Search in prompt…",
     "empty": "No entries match these filters.",
+    "clearFilters": "Clear filters",
+    "clearFiltersError": "Could not clear filters. Try again.",
     "pagination": {
       "previous": "Previous page",
       "next": "Next page"
@@ -405,6 +407,11 @@
     "detail": {
       "title": "Entry detail",
       "fallbackTitle": "Entry {id}",
+      "panelTitle": "Entry details",
+      "panelDescription": "Consolidated measurements and raw process detail.",
+      "viewEntry": "View entry details: {context}",
+      "loading": "Loading entry details…",
+      "loadError": "Entry details could not be loaded. Retry or close this panel.",
       "summary": "Summary",
       "waiting": "Waiting",
       "runs": "Runs",
@@ -481,6 +488,20 @@
       "remove": "Remove session filter"
     },
     "groupBySession": "Group by session",
+    "desktopFilters": {
+      "view": "Entry view",
+      "sessions": "Sessions",
+      "entries": "Entries",
+      "more": "More filters · {count}",
+      "entryHint": "Model, measurement quality, and prompt search are available in Entries view. Active filters remain applied when this panel is closed."
+    },
+    "mobileLedger": {
+      "work": "Work",
+      "tokenCost": "Token cost",
+      "detail": "View details",
+      "entryCountOne": "{count} entry",
+      "entryCountMany": "{count} entries"
+    },
     "sessionGroup": {
       "count": "{count} entries",
       "mixedColumn": "Client · Project",

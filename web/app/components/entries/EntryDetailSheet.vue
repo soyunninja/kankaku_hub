@@ -47,6 +47,8 @@ const props = withDefaults(defineProps<{
    * and hides "Save" (odd/tasks/viewer-role.md T2). Defaults to `true`
    * so any other, older caller behaves exactly as before. */
   canWrite?: boolean
+  /** The page owns the stable dialog title across loading and failure. */
+  headerTitleProvided?: boolean
 }>(), {
   canWrite: true,
 })
@@ -210,10 +212,11 @@ defineOptions({ inheritAttrs: false })
 
 <template>
   <TooltipProvider>
-    <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
+    <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6" :class="headerTitleProvided ? 'pt-0' : 'pt-8'">
       <!-- Header -->
       <div class="flex flex-col gap-2">
         <h2
+          v-if="!headerTitleProvided"
           ref="titleEl"
           tabindex="-1"
           class="text-base leading-snug font-semibold break-words outline-none"

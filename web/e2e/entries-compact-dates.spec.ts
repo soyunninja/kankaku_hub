@@ -13,6 +13,10 @@ test('Entries compact dates, lean grouped/flat tables and validated ISO-backed f
   if (!isolatedStack) {
     throw new Error('Run this read-only spec only against an isolated :3002/:8092 or :3003/:8093 stack')
   }
+  await page.route('**/api/collections/*/records**', async route => {
+    expect(route.request().method()).toBe('GET')
+    await route.continue()
+  })
   const token = await apiLogin(request)
   const response = await request.get(pbUrl('/api/collections/task_entries/records?perPage=100&sort=-started_at'), { headers: { Authorization: token } })
   expect(response.ok()).toBeTruthy()
@@ -44,17 +48,23 @@ test('Entries compact dates, lean grouped/flat tables and validated ISO-backed f
     start: new Date(Number(y), Number(m) - 1, Number(d)).toISOString().replace('T', ' ').slice(0, 23),
     end: new Date(Number(y), Number(m) - 1, Number(d), 23, 59, 59, 999).toISOString().replace('T', ' ').slice(0, 23),
   }), [`20${year}`, month!, day!] as const)
-  const start = page.getByRole('textbox', { name: /fecha de inicio/i })
-  const end = page.getByRole('textbox', { name: /fecha de fin/i })
+  await page.locator('#entries-date-range').click()
+  const start = page.getByRole('textbox', { name: 'Inicio', exact: true })
+  const end = page.getByRole('textbox', { name: 'Fin', exact: true })
   await expect(start).toHaveAttribute('placeholder', 'YY/MM/DD')
   await expect(start).toHaveAttribute('inputmode', 'numeric')
   await expect(start).toHaveAttribute('maxlength', '8')
+  await page.keyboard.press('Escape')
   await expect(page.locator('[data-testid="session-group-row"]').first()).toBeVisible()
   const outer = page.locator('table').first()
   await expect(outer.locator('thead tr').first().locator('th')).toHaveCount(10)
   const session = page.locator('[data-testid="session-group-row"]').first()
   await expect(session.locator('td').first()).toHaveText(expected.at(-1)!.timestamp)
-  await session.getByRole('button', { name: 'Entradas de la sesión' }).click()
+  await page.waitForLoadState('networkidle')
+  const expander = session.getByRole('button', { name: 'Entradas de la sesión' })
+  // A session deep link already expands its sole group after loading.
+  if (await expander.getAttribute('aria-expanded') !== 'true') await expander.click()
+  await expect(expander).toHaveAttribute('aria-expanded', 'true')
   const nested = page.locator('[data-testid="session-group-entries"] table')
   await expect(nested.locator('thead th')).toHaveCount(4)
   await expect(nested.getByRole('columnheader', { name: 'Modelo' })).toHaveCount(0)
@@ -66,7 +76,7 @@ test('Entries compact dates, lean grouped/flat tables and validated ISO-backed f
   await expect(page.locator('[data-slot="sheet-content"]')).toContainText(sessionEntries[modelRowIndex]!.model)
   await page.keyboard.press('Escape')
 
-  await page.getByRole('switch', { name: 'Agrupar por sesión' }).click()
+  await page.getByRole('button', { name: 'Entradas', exact: true }).click()
   await expect(outer.locator('thead tr').first().locator('th')).toHaveCount(8)
   await expect(outer.getByRole('columnheader', { name: 'Modelo' })).toHaveCount(0)
   const flatRows = outer.locator('tbody tr').filter({ hasText: expected[0]!.timestamp })
@@ -79,6 +89,7 @@ test('Entries compact dates, lean grouped/flat tables and validated ISO-backed f
   page.on('request', (r) => {
     if (r.url().includes('/api/collections/task_entries/records?')) fetches.push(r.url())
   })
+  await page.locator('#entries-date-range').click()
   await start.fill('26/02/30') // impossible day: leave the applied filter untouched
   await start.press('Enter')
   await expect(start).toHaveAttribute('aria-invalid', 'true')
@@ -109,7 +120,7 @@ test('Entries compact dates, lean grouped/flat tables and validated ISO-backed f
   await expect(start).toHaveValue('')
   await expect.poll(() => fetches.length).toBeGreaterThan(beforeClear)
   const beforeCalendar = fetches.length
-  await page.getByRole('button', { name: /abrir calendario para fecha de inicio/i }).click()
+  await page.getByRole('button', { name: /abrir calendario para inicio/i }).click()
   const calendar = page.locator('[data-slot="calendar"]')
   await expect(calendar).toBeVisible()
   // Placeholder tracks the last applied day; select it via the real keyboard-operable grid.
@@ -121,9 +132,10 @@ test('Entries compact dates, lean grouped/flat tables and validated ISO-backed f
   await expect.poll(() => fetches.length).toBeGreaterThan(beforeCalendar)
   expect(decodeURIComponent(fetches.at(-1)!)).toContain(bounds.start)
   const beforeVisibleClear = fetches.length
-  await page.getByRole('button', { name: /borrar fecha de fin/i }).click()
+  await page.getByRole('button', { name: /borrar fin/i }).click()
   await expect(end).toHaveValue('')
   await expect.poll(() => fetches.length).toBeGreaterThan(beforeVisibleClear)
   await page.goto(`/entries?session_id=${encodeURIComponent(entry.session_id)}&dateStart=20${year}-${month}-${day}`)
+  await page.locator('#entries-date-range').click()
   await expect(start).toHaveValue(expected[0]!.day)
 })

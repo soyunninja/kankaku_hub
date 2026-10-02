@@ -8,6 +8,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import ExportMenu from '@/components/common/ExportMenu.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
 import EntriesDateRangeFilter from '@/components/entries/EntriesDateRangeFilter.vue'
+import EntriesMobileLedger from '@/components/entries/EntriesMobileLedger.vue'
 import SessionMarker from '@/components/entries/SessionMarker.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,9 +16,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import type { EntriesExplorerFilters } from '@/composables/useEntriesExplorer'
 import type { Narrative } from '@/composables/useEngramNarrative'
@@ -25,7 +25,7 @@ import type { SessionTotal } from '@/composables/useSessions'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { resolveAgent } from '@/lib/agents'
 import { formatCompactEntryDateTime } from '@/lib/entries-compact-date'
-import { statusPresentation } from '@/lib/entry-detail'
+import { deriveEntryTitle, statusPresentation } from '@/lib/entry-detail'
 import { canGroupEntriesFilters, entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/lib/entries-session-filters'
 import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
 import { buildEntriesDetailExport, createCsvExport, createXlsxExport } from '@/lib/export'
@@ -38,6 +38,7 @@ const { t } = useI18n()
 useHead({ title: computed(() => t('entries.title')) })
 const { formatCost, formatDuration } = useFormatters()
 const route = useRoute()
+const router = useRouter()
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, ensureLoaded: ensureProjects } = useProjects()
@@ -68,6 +69,46 @@ const filters = reactive<EntriesExplorerFilters>({
 // Keep applied ISO local days in the shared filter model; each picker owns its draft.
 watch(() => route.query.dateStart, value => { filters.dateStart = typeof value === 'string' && value ? value : undefined })
 watch(() => route.query.dateEnd, value => { filters.dateEnd = typeof value === 'string' && value ? value : undefined })
+// Move the existing controls, rather than cloning them: visual and keyboard
+// order agree at both breakpoints; mobile B moves project into More.
+const desktopFilters = ref(false)
+const moreFiltersOpen = ref(false)
+// One disclosure preference follows the user across the breakpoint.
+const advancedFilterCount = computed(() => [filters.model, filters.quality, filters.search, filters.agent, filters.status, filters.machine, ...(!desktopFilters.value ? [filters.project] : [])].filter(Boolean).length)
+onMounted(() => {
+  const media = window.matchMedia('(min-width: 768px)')
+  const inFilters = (element: Element | null): element is HTMLElement => element instanceof HTMLElement && !!(element.closest('[data-testid="entries-filter-controls"]') || element.closest('#entries-advanced-filters') || element.id === 'entries-grouping-switch')
+  let lastFocused: HTMLElement | null = null
+  const rememberFocus = (event: FocusEvent) => { lastFocused = inFilters(event.target as Element) ? event.target as HTMLElement : null }
+  const forgetFocus = () => {
+    // CSS can hide desktop controls before matchMedia's change event runs.
+    // Retain only that breakpoint-induced blur, not intentional blur to BODY.
+    if (media.matches === desktopFilters.value) lastFocused = null
+  }
+  document.addEventListener('focusin', rememberFocus)
+  document.addEventListener('focusout', forgetFocus)
+  const update = async () => {
+    const active = document.activeElement
+    const focused = inFilters(active) ? active : active === document.body ? lastFocused : null
+    if (focused && [...(!media.matches ? ['project'] : []), 'model', 'quality', 'search', 'agent', 'status', 'machine'].some(field => focused.id === `entries-filter-${field}`)) moreFiltersOpen.value = true
+    desktopFilters.value = media.matches
+    await nextTick()
+    if (!focused) return
+    // Teleport retains the element but DOM relocation drops browser focus.
+    // Never restore into disabled/hidden controls or steal unrelated focus.
+    const usable = (element: HTMLElement | null): element is HTMLElement => !!element?.isConnected && !element.matches(':disabled, [aria-disabled="true"]') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
+    const fallback = document.getElementById('entries-more-filters')
+    const target = usable(focused) ? focused : usable(fallback) ? fallback : document.getElementById(media.matches ? 'entries-date-range' : 'entries-filter-machine')
+    if (usable(target) && (document.activeElement === document.body || document.activeElement === focused)) target.focus({ preventScroll: true })
+  }
+  update()
+  media.addEventListener('change', update)
+  onBeforeUnmount(() => {
+    media.removeEventListener('change', update)
+    document.removeEventListener('focusin', rememberFocus)
+    document.removeEventListener('focusout', forgetFocus)
+  })
+})
 const page = ref(1)
 const perPage = 25
 const sort = ref('-started_at')
@@ -352,6 +393,33 @@ function taskName(id: string): string {
 const displayTotalItems = computed(() => primaryGrouped.value ? sessionTotalGroups.value : totalItems.value)
 const displayTotalPages = computed(() => primaryGrouped.value ? sessionTotalPages.value : totalPages.value)
 
+const filterKeys = ['client', 'project', 'task', 'status', 'model', 'machine', 'agent', 'quality', 'search', 'dateStart', 'dateEnd', 'session_id'] as const satisfies readonly (keyof EntriesExplorerFilters)[]
+const hasActiveFilters = computed(() => filterKeys.some(key => !!filters[key]))
+const clearingFilters = ref(false)
+async function clearFilters(event: MouseEvent) {
+  if (clearingFilters.value) return
+  const origin = event.currentTarget as HTMLElement | null
+  const query = { ...route.query }
+  for (const key of filterKeys) Reflect.deleteProperty(query, key)
+  clearingFilters.value = true
+  try {
+    // Commit the source URL first: failed navigation must not pretend that
+    // bookmark filters were removed. Date watchers see only the clean query.
+    const failure = await router.replace({ query, hash: route.hash })
+    if (failure) throw failure
+    pendingSessionExpansion = undefined
+    for (const key of filterKeys) Reflect.deleteProperty(filters, key)
+    page.value = 1
+    await nextTick()
+    // Recover a removed empty-state action immediately, not after a fetch.
+    // An intervening interaction with another control always wins.
+    if (origin && (document.activeElement === origin || (!origin.isConnected && document.activeElement === document.body))) {
+      document.getElementById('entries-date-range')?.focus({ preventScroll: true })
+    }
+  }
+  catch { toast.error(t('entries.clearFiltersError')) }
+  finally { clearingFilters.value = false }
+}
 function filterToSession(sessionId: string) {
   pendingSessionExpansion = primaryGrouped.value ? sessionId || undefined : undefined
   if (sessionId && filters.session_id === sessionId && primaryGrouped.value && !loading.value) {
@@ -433,6 +501,40 @@ const columnCount = computed(() => {
   if (!groupBySession.value) return 8
   if (groupingFallback.value) return anyMixedGroup.value ? 6 : 5
   return 10
+})
+
+// Adapt existing grouped values, never introduce a new rollup rule.
+const mobileFallbackExpanded = reactive(new Set<string>())
+watch(refreshKey, () => mobileFallbackExpanded.clear())
+function toggleMobileSession(key: string) {
+  if (primaryGrouped.value) toggleSession(key)
+  else if (mobileFallbackExpanded.has(key)) mobileFallbackExpanded.delete(key)
+  else mobileFallbackExpanded.add(key)
+}
+const mobileRows = computed(() => {
+  if (primaryGrouped.value) return sessionRows.value.map(row => ({
+    key: row.sessionId, sessionId: row.sessionId, sessionName: row.sessionName,
+    title: sessionTitle(row.sessionId, row.sessionName, sessionNarratives.get(row.sessionId)?.title),
+    date: formatCompactEntryDateTime(row.minStartedAt),
+    context: `${row.distinctClient === 1 ? clientName(row.sampleClient) || '—' : t('entries.sessionGroup.clients', { count: row.distinctClient })} · ${row.distinctProject === 1 ? projectName(row.sampleProject) : t('entries.sessionGroup.projects', { count: row.distinctProject })}`,
+    work: formatDuration(row.workMs), cost: formatCost(row.cost), count: row.entries,
+    uncertainty: [row.waitingUnavailableEntries > 0 ? t('entries.qualityFilter.waitingUnavailable') : '', row.costUnknownEntries > 0 ? t('entries.qualityFilter.costUnknown') : '', row.costEstimatedEntries > 0 ? t('entries.detail.quality.costEstimated') : ''].filter(Boolean).join(' · '),
+    expanded: expandedSessions.has(row.sessionId), ...sessionRowEntries.get(row.sessionId),
+    children: sessionRowEntries.get(row.sessionId)?.items,
+  }))
+  if (groupBySession.value) return [...new Set(groupOf.value.values())].map(group => ({
+    key: group.sessionId, sessionId: group.sessionId, sessionName: group.sessionName,
+    title: sessionTitle(group.sessionId, group.sessionName), date: formatCompactEntryDateTime(group.mostRecentStartedAt),
+    context: `${group.clientIds.length === 1 ? clientName(group.clientIds[0]!) || '—' : t('entries.sessionGroup.clients', { count: group.clientIds.length })} · ${group.projectIds.length === 1 ? projectName(group.projectIds[0]!) : t('entries.sessionGroup.projects', { count: group.projectIds.length })}`,
+    work: formatDuration(group.workMs), cost: formatCost(group.cost), count: group.entries.length,
+    expanded: mobileFallbackExpanded.has(group.sessionId), children: group.entries,
+  }))
+  return items.value.map(entry => ({
+    key: entry.id, entry, sessionId: entry.session_id, sessionName: entry.session_name,
+    title: sessionTitle(entry.session_id, entry.session_name), date: formatCompactEntryDateTime(entry.started_at),
+    context: `${clientName(entry.client) || '—'} · ${projectName(entry.project)}`,
+    work: formatDuration(entry.work_ms), cost: formatCost(entry.cost),
+  }))
 })
 
 const displayRows = computed<DisplayRow[]>(() => {
@@ -657,17 +759,56 @@ const detailClient = ref('')
 const detailProject = ref('')
 const detailTask = ref('')
 
-async function openDetail(entry: TaskEntryRecord) {
+const detailLoading = ref(false)
+const detailError = ref(false)
+const detailTarget = ref<TaskEntryRecord | null>(null)
+const detailTitle = ref<HTMLElement | null>(null)
+let detailGeneration = 0
+let detailOrigin: HTMLElement | null = null
+const detailHeading = computed(() => {
+  if (!detail.value) return t('entries.detail.panelTitle')
+  const title = deriveEntryTitle(detail.value)
+  return title.kind === 'fallback' ? t('entries.detail.fallbackTitle', { id: title.shortId }) : title.text
+})
+watch(detailOpen, open => { if (!open) detailGeneration++ }, { flush: 'sync' })
+onBeforeUnmount(() => { detailGeneration++ })
+
+async function openDetail(entry: TaskEntryRecord, event?: MouseEvent) {
+  if (event) {
+    const target = event.currentTarget as HTMLElement | null
+    detailOrigin = target?.matches('button') ? target : target?.querySelector<HTMLElement>('[data-entry-detail]') ?? null
+  }
+  const generation = ++detailGeneration
+  const isCurrent = () => generation === detailGeneration && detailOpen.value
+  detailTarget.value = entry
+  detail.value = null
+  detailWorkRecords.value = []
+  detailError.value = false
+  detailLoading.value = true
   detailOpen.value = true
-  detail.value = await getOne(entry.id)
-  detailClient.value = detail.value.client
-  detailProject.value = detail.value.project
-  detailTask.value = detail.value.task
-  detailWorkRecords.value = await listWorkRecords(entry.id) as unknown as WorkRecordRecord[]
+  try {
+    const record = await getOne(entry.id)
+    if (!isCurrent()) return
+    const records = await listWorkRecords(entry.id) as unknown as WorkRecordRecord[]
+    if (!isCurrent()) return
+    detailClient.value = record.client
+    detailProject.value = record.project
+    detailTask.value = record.task
+    detail.value = record
+    detailWorkRecords.value = records
+  }
+  catch {
+    if (isCurrent()) detailError.value = true
+  }
+  finally {
+    if (isCurrent()) detailLoading.value = false
+  }
 }
 
 async function saveAssignment() {
   if (!detail.value) return
+  const entryId = detail.value.id
+  const generation = detailGeneration
   try {
     const taskChanged = detailTask.value !== detail.value.task
     await updateAssignment(detail.value.id, { client: detailClient.value, project: detailProject.value, task: detailTask.value })
@@ -675,7 +816,8 @@ async function saveAssignment() {
     // Re-read the entry so the sheet's read-only summary shows the new task,
     // and the task list too: linking work moves an open task to "doing"
     // on the hub (task-auto-doing hook).
-    detail.value = await getOne(detail.value.id)
+    const updated = await getOne(entryId)
+    if (generation === detailGeneration && detailOpen.value) detail.value = updated
     await Promise.all([refresh(), taskChanged ? refreshTasks() : Promise.resolve()])
   }
   catch {
@@ -687,22 +829,30 @@ async function saveAssignment() {
 // (a link, e.g. the client/project links in the assignment section) —
 // override it to the sheet's own title instead (WCAG 2.4.3 / a11y spec
 // for this screen: focus lands somewhere meaningful, not mid-content).
-const detailSheet = ref<InstanceType<typeof EntryDetailSheet> | null>(null)
 function onDetailOpenAutoFocus(event: Event) {
   event.preventDefault()
-  nextTick(() => detailSheet.value?.focusTitle())
+  nextTick(() => { if (detailOpen.value) detailTitle.value?.focus() })
+}
+function onDetailCloseAutoFocus(event: Event) {
+  const origin = detailOrigin?.isConnected && !detailOrigin.matches(':disabled') && detailOrigin.getClientRects().length ? detailOrigin : document.getElementById('entries-date-range')
+  if (origin) {
+    event.preventDefault()
+    origin.focus({ preventScroll: true })
+  }
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
-    <h1 class="text-xl font-semibold tracking-tight">
-      {{ t('entries.title') }}
-    </h1>
+    <div class="flex items-center justify-between gap-2">
+      <h1 class="text-xl font-semibold tracking-tight">{{ t('entries.title') }}</h1>
+      <div id="entries-mobile-export" />
+    </div>
 
-    <Card class="py-0">
-      <CardContent class="flex flex-col gap-3 p-3 sm:flex-row sm:items-end" data-testid="entries-filter-layout">
-        <div class="flex min-w-0 flex-1 flex-wrap items-end gap-2" data-testid="entries-filter-controls">
+    <Card class="border-0 shadow-none md:border md:shadow-sm py-0">
+      <CardContent class="grid gap-3 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end" data-testid="entries-filter-layout">
+        <div class="flex min-w-0 flex-wrap items-end gap-2" data-testid="entries-filter-controls">
+        <div id="entries-primary-period" class="contents" />
         <div class="flex flex-col gap-1">
           <label for="entries-filter-client" class="text-xs text-muted-foreground">{{ t('common.client') }}</label>
           <Select id="entries-filter-client" :model-value="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient">
@@ -720,10 +870,13 @@ function onDetailOpenAutoFocus(event: Event) {
             </template>
           </Select>
         </div>
+        <Teleport to="#entries-advanced-project" :disabled="desktopFilters">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-project" class="text-xs text-muted-foreground">{{ t('common.project') }}</label>
           <Select id="entries-filter-project" v-model="filters.project" class="w-40" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]" />
         </div>
+        </Teleport>
+        <Teleport to="#entries-advanced-status">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-status" class="text-xs text-muted-foreground">{{ t('common.status') }}</label>
           <Select
@@ -735,6 +888,8 @@ function onDetailOpenAutoFocus(event: Event) {
             ]"
           />
         </div>
+        </Teleport>
+        <Teleport to="#entries-advanced-agent">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-agent" class="text-xs text-muted-foreground">{{ t('common.agent') }}</label>
           <Select
@@ -744,6 +899,8 @@ function onDetailOpenAutoFocus(event: Event) {
             ]"
           />
         </div>
+        </Teleport>
+        <Teleport to="#entries-advanced-quality">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-quality" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.quality') }}</label>
           <Select
@@ -754,31 +911,60 @@ function onDetailOpenAutoFocus(event: Event) {
             ]"
           />
         </div>
+        </Teleport>
+        <Teleport to="#entries-advanced-model">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-model" class="text-xs text-muted-foreground">{{ t('common.model') }}</label>
           <Input id="entries-filter-model" v-model="filters.model" :placeholder="t('common.model')" class="w-32" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
         </div>
+        </Teleport>
+        <Teleport to="#entries-advanced-machine">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-machine" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.machine') }}</label>
           <Input id="entries-filter-machine" v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
         </div>
-        <EntriesDateRangeFilter v-model:start="filters.dateStart" v-model:end="filters.dateEnd" />
+        </Teleport>
+        <Teleport to="#entries-primary-period">
+          <EntriesDateRangeFilter v-model:start="filters.dateStart" v-model:end="filters.dateEnd" />
+        </Teleport>
+        <Teleport to="#entries-advanced-search">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-search" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.search') }}</label>
           <Input id="entries-filter-search" v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
         </div>
+        </Teleport>
+        <div class="entries-mode flex items-center gap-1 rounded-md bg-muted p-1" role="group" :aria-label="t('entries.desktopFilters.view')">
+          <Button type="button" size="sm" :variant="groupBySession ? 'outline' : 'ghost'" :aria-pressed="groupBySession" :disabled="!groupingEligible" :aria-describedby="!groupingEligible ? 'entries-grouping-notice' : undefined" @click="groupBySession = true">{{ t('entries.desktopFilters.sessions') }}</Button>
+          <Button type="button" size="sm" :variant="!groupBySession ? 'outline' : 'ghost'" :aria-pressed="!groupBySession" @click="groupBySession = false">{{ t('entries.desktopFilters.entries') }}</Button>
         </div>
-        <div class="flex shrink-0 justify-end border-t pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-3" data-testid="entries-filter-actions">
-          <ExportMenu :disabled="loading || exporting || pendingExport !== null" @format="downloadExport" />
+        <Button id="entries-more-filters" type="button" variant="outline" size="sm" class="entries-more" :aria-expanded="moreFiltersOpen" aria-controls="entries-advanced-filters" @click="moreFiltersOpen = !moreFiltersOpen">
+          {{ t('entries.desktopFilters.more', { count: advancedFilterCount }) }}
+          <ChevronDown class="size-4" :class="{ 'rotate-180': moreFiltersOpen }" aria-hidden="true" />
+        </Button>
+        </div>
+        <Teleport to="#entries-mobile-export" :disabled="desktopFilters">
+        <div class="flex shrink-0 justify-end md:border-l md:pl-3" data-testid="entries-filter-actions">
+          <ExportMenu :label="t('common.export')" :disabled="loading || exporting || pendingExport !== null" @format="downloadExport" />
+        </div>
+        </Teleport>
+        <div id="entries-advanced-filters" class="border-t pt-3 md:col-span-2" :class="{ hidden: !moreFiltersOpen }">
+          <div class="flex flex-wrap items-end gap-3">
+            <div id="entries-advanced-project" />
+            <div id="entries-advanced-model" />
+            <div id="entries-advanced-quality" />
+            <div id="entries-advanced-search" />
+          </div>
+          <p class="my-3 text-sm text-muted-foreground">{{ t('entries.desktopFilters.entryHint') }}</p>
+          <div class="flex flex-wrap items-end gap-3">
+            <div id="entries-advanced-agent" />
+            <div id="entries-advanced-status" />
+            <div id="entries-advanced-machine" />
+          </div>
         </div>
       </CardContent>
     </Card>
 
-    <div class="flex flex-wrap items-center gap-3">
-      <label class="flex items-center gap-2 text-sm text-muted-foreground">
-        <Switch v-model="groupBySession" :disabled="!groupingEligible" :aria-describedby="!groupingEligible ? 'entries-grouping-notice' : undefined" />
-        {{ t('entries.groupBySession') }}
-      </label>
+    <div v-if="!groupingEligible || filters.session_id" class="flex flex-wrap items-center gap-3">
       <p v-if="!groupingEligible" id="entries-grouping-notice" class="text-sm text-muted-foreground" role="status">
         {{ t('entries.sessionGroup.activeUnsupportedFilters') }}
       </p>
@@ -846,6 +1032,25 @@ function onDetailOpenAutoFocus(event: Event) {
           <p class="text-destructive">{{ t('entries.loadError') }}</p>
           <Button variant="outline" size="sm" @click="refresh">{{ t('entries.loadRetry') }}</Button>
         </div>
+        <EntriesMobileLedger
+          v-else-if="!desktopFilters" :rows="mobileRows" :loading="loading" :grouped="groupBySession" :sort="sort"
+          :client-name="clientName" :project-name="projectName" :task-name="taskName" :agent-label="agentLabel"
+          :bulk-enabled="bulkEnabled" :bulk-busy="bulkBusy" :selected-ids="selectedIds" :session-filter="filters.session_id"
+          @expand="toggleMobileSession" @retry="loadSessionEntries" @detail="openDetail" @session="filterToSession" @sort="toggleSort" @select="toggleEntry"
+        >
+          <template #context="{ sessionId }">
+            <template v-if="primaryGrouped">
+              <p v-for="row in sessionRows.filter(row => row.sessionId === sessionId)" :key="row.sessionId">
+                {{ row.distinctTask > 1 ? t('entries.sessionGroup.tasks', { count: row.distinctTask }) : taskName(row.sampleTask) || '—' }} · {{ row.distinctAgent === 1 ? agentLabel(row.sampleAgent) : t('entries.sessionGroup.agents', { count: row.distinctAgent }) }}
+              </p>
+              <div v-if="sessionNarratives.get(sessionId)" data-testid="session-narrative">
+                <p v-if="sessionNarratives.get(sessionId)!.goal">{{ t('engram.goal', { goal: sessionNarratives.get(sessionId)!.goal }) }}</p>
+                <p :class="expandedNarratives.has(sessionId) ? '' : 'line-clamp-6'" class="whitespace-pre-wrap">{{ narrativeBodyOf(sessionId) }}</p>
+                <Button v-if="narrativeHasMore(sessionId)" variant="ghost" class="min-h-11" @click="toggleNarrativeExpanded(sessionId)">{{ expandedNarratives.has(sessionId) ? t('engram.showLess') : t('engram.showMore') }}</Button>
+              </div>
+            </template>
+          </template>
+        </EntriesMobileLedger>
         <Table v-else>
           <TableHeader>
             <!-- Primary server-backed grouped mode gets its OWN header/columns:
@@ -863,11 +1068,14 @@ function onDetailOpenAutoFocus(event: Event) {
               <TableHead class="text-right">{{ t('entries.sessionGroup.columns.entries') }}</TableHead>
               <TableHead class="text-right"><span :title="t('common.timeHint')">{{ t('common.time') }}</span></TableHead>
               <TableHead class="text-right">{{ t('common.cost') }}</TableHead>
-              <TableHead><span class="sr-only">{{ t('entries.sessionGroup.entriesToggle') }}</span></TableHead>
+              <TableHead class="entries-expander"><span class="sr-only">{{ t('entries.sessionGroup.entriesToggle') }}</span></TableHead>
             </TableRow>
             <TableRow v-else>
-              <TableHead class="cursor-pointer" @click="toggleSort('started_at')">
-                {{ t('common.started') }}
+              <TableHead :aria-sort="sort === 'started_at' ? 'ascending' : sort === '-started_at' ? 'descending' : 'none'">
+                <Button variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('started_at')">
+                  {{ t('common.started') }}
+                  <ChevronDown v-if="sort.replace('-', '') === 'started_at'" class="size-3" :class="{ 'rotate-180': sort === 'started_at' }" aria-hidden="true" />
+                </Button>
               </TableHead>
               <!-- Flat mode: session, client and project each get their own
                    column. Only the fallback client-side grouping collapses
@@ -881,11 +1089,17 @@ function onDetailOpenAutoFocus(event: Event) {
               <TableHead v-else-if="anyMixedGroup">{{ t('entries.sessionGroup.mixedColumn') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
               <TableHead>{{ t('common.agent') }}</TableHead>
-              <TableHead class="cursor-pointer text-right" @click="toggleSort('work_ms')">
-                <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
+              <TableHead class="text-right" :aria-sort="sort === 'work_ms' ? 'ascending' : sort === '-work_ms' ? 'descending' : 'none'">
+                <Button variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('work_ms')">
+                  <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
+                  <ChevronDown v-if="sort.replace('-', '') === 'work_ms'" class="size-3" :class="{ 'rotate-180': sort === 'work_ms' }" aria-hidden="true" />
+                </Button>
               </TableHead>
-              <TableHead class="cursor-pointer text-right" @click="toggleSort('cost')">
-                {{ t('common.cost') }}
+              <TableHead class="text-right" :aria-sort="sort === 'cost' ? 'ascending' : sort === '-cost' ? 'descending' : 'none'">
+                <Button variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('cost')">
+                  {{ t('common.cost') }}
+                  <ChevronDown v-if="sort.replace('-', '') === 'cost'" class="size-3" :class="{ 'rotate-180': sort === 'cost' }" aria-hidden="true" />
+                </Button>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -952,7 +1166,7 @@ function onDetailOpenAutoFocus(event: Event) {
                   <TableCell class="text-right tabular-nums">
                     {{ formatCost(row.cost) }}
                   </TableCell>
-                  <TableCell>
+                  <TableCell class="entries-expander">
                     <button
                       type="button"
                       class="rounded p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -1025,10 +1239,12 @@ function onDetailOpenAutoFocus(event: Event) {
                             {{ t('entries.empty') }}
                           </TableCell>
                         </TableRow>
-                        <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry)">
+                        <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry, $event)">
                           <TableCell class="tabular-nums">
                             <input v-if="bulkEnabled && entry.session_id === filters.session_id" type="checkbox" class="mr-2" :checked="selectedIds.has(entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @click.stop @change="toggleEntry(entry.id)">
-                            {{ formatCompactEntryDateTime(entry.started_at) }}
+                            <Button data-entry-detail variant="ghost" size="sm" class="h-auto px-0 font-normal tabular-nums" :aria-label="t('entries.detail.viewEntry', { context: `${entry.session_name || entry.id} · ${formatCompactEntryDateTime(entry.started_at)}` })" @click.stop="openDetail(entry, $event)">
+                              {{ formatCompactEntryDateTime(entry.started_at) }}
+                            </Button>
                           </TableCell>
                           <TableCell><Badge :variant="statusPresentation(entry.status).tone">{{ t(`entries.status.${entry.status}`) }}</Badge></TableCell>
                           <TableCell class="text-right tabular-nums">
@@ -1069,10 +1285,12 @@ function onDetailOpenAutoFocus(event: Event) {
                     </div>
                   </TableHead>
                 </TableRow>
-                <TableRow v-else class="cursor-pointer" @click="openDetail(dr.entry)">
+                <TableRow v-else class="cursor-pointer" @click="openDetail(dr.entry, $event)">
                   <TableCell class="tabular-nums">
                     <input v-if="bulkEnabled && dr.entry.session_id === filters.session_id" type="checkbox" class="mr-2" :checked="selectedIds.has(dr.entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @click.stop @change="toggleEntry(dr.entry.id)">
-                    {{ formatCompactEntryDateTime(dr.entry.started_at) }}
+                    <Button data-entry-detail variant="ghost" size="sm" class="h-auto px-0 font-normal tabular-nums" :aria-label="t('entries.detail.viewEntry', { context: `${dr.entry.session_name || dr.entry.id} · ${formatCompactEntryDateTime(dr.entry.started_at)}` })" @click.stop="openDetail(dr.entry, $event)">
+                      {{ formatCompactEntryDateTime(dr.entry.started_at) }}
+                    </Button>
                   </TableCell>
                   <template v-if="!groupBySession">
                     <TableCell>
@@ -1105,15 +1323,17 @@ function onDetailOpenAutoFocus(event: Event) {
             </template>
           </TableBody>
         </Table>
-        <EmptyState v-if="!loading && !browseError && (primaryGrouped ? sessionRows.length === 0 : items.length === 0)" :title="t('entries.empty')" class="m-4" />
+        <EmptyState v-if="!loading && !browseError && (primaryGrouped ? sessionRows.length === 0 : items.length === 0)" :title="t('entries.empty')" class="m-4">
+          <Button v-if="hasActiveFilters" variant="outline" size="sm" :disabled="clearingFilters" @click="clearFilters">{{ t('entries.clearFilters') }}</Button>
+        </EmptyState>
 
         <div class="flex items-center justify-between border-t border-border p-3 text-sm text-muted-foreground">
-          <span v-if="!loading && !browseError">{{ displayTotalItems }} · {{ page }}/{{ displayTotalPages }}</span>
+          <span v-if="!loading && !browseError" data-testid="entries-pagination-count">{{ displayTotalItems }}<template v-if="displayTotalItems > 0 && displayTotalPages > 0"> · {{ page }}/{{ displayTotalPages }}</template></span>
           <div class="flex gap-2">
-            <Button size="icon" variant="outline" :disabled="page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
+            <Button size="icon" variant="outline" :disabled="loading || browseError || displayTotalItems === 0 || page <= 1" :aria-label="t('entries.pagination.previous')" :title="t('entries.pagination.previous')" @click="page--">
               <ChevronLeft class="size-4" />
             </Button>
-            <Button size="icon" variant="outline" :disabled="browseError || page >= displayTotalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
+            <Button size="icon" variant="outline" :disabled="loading || browseError || displayTotalItems === 0 || page >= displayTotalPages" :aria-label="t('entries.pagination.next')" :title="t('entries.pagination.next')" @click="page++">
               <ChevronRight class="size-4" />
             </Button>
           </div>
@@ -1122,10 +1342,21 @@ function onDetailOpenAutoFocus(event: Event) {
     </Card>
 
     <Sheet v-model:open="detailOpen">
-      <SheetContent side="right" class="flex w-full flex-col sm:w-[36rem] sm:max-w-xl" @open-auto-focus="onDetailOpenAutoFocus">
+      <SheetContent side="right" class="flex w-full flex-col sm:w-[36rem] sm:max-w-xl" @open-auto-focus="onDetailOpenAutoFocus" @close-auto-focus="onDetailCloseAutoFocus">
+        <div class="px-6 pt-8">
+          <SheetTitle as-child>
+            <h2 ref="detailTitle" tabindex="-1" class="text-base leading-snug font-semibold break-words outline-none">{{ detailHeading }}</h2>
+          </SheetTitle>
+          <SheetDescription class="mt-2">{{ t('entries.detail.panelDescription') }}</SheetDescription>
+        </div>
+        <p v-if="detailLoading" role="status" class="px-6 text-sm text-muted-foreground">{{ t('entries.detail.loading') }}</p>
+        <div v-else-if="detailError" class="space-y-3 px-6">
+          <p role="alert" class="text-sm text-destructive">{{ t('entries.detail.loadError') }}</p>
+          <Button variant="outline" @click="detailTarget && openDetail(detailTarget)">{{ t('entries.loadRetry') }}</Button>
+          <Button variant="ghost" @click="detailOpen = false">{{ t('common.close') }}</Button>
+        </div>
         <EntryDetailSheet
           v-if="detail"
-          ref="detailSheet"
           v-model:client="detailClient"
           v-model:project="detailProject"
           v-model:task="detailTask"
@@ -1135,9 +1366,43 @@ function onDetailOpenAutoFocus(event: Event) {
           :projects="projects"
           :tasks="tasks"
           :can-write="canWrite"
+          header-title-provided
           @save="saveAssignment"
         />
       </SheetContent>
     </Sheet>
   </div>
 </template>
+
+<style scoped>
+@media (max-width: 767px) {
+  [data-testid='entries-filter-controls'] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  [data-testid='entries-filter-controls'] :deep(button),
+  [data-testid='entries-filter-controls'] :deep(input) { min-height: 44px; width: 100%; min-width: 0; }
+  .entries-mode, .entries-more { grid-column: 1 / -1; }
+  .entries-mode > button { flex: 1; }
+  [data-testid='entries-filter-actions'] :deep(button) { min-height: 44px; }
+  [data-testid='entries-filter-layout'] { border: 0; padding: 0; }
+  [data-testid='entries-filter-layout'] :deep(label) { font-size: .875rem; }
+  #entries-advanced-filters :deep(input), #entries-advanced-filters :deep(button) { min-height: 44px; max-width: 100%; }
+  #entries-advanced-filters > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #entries-advanced-filters > div > div:empty { display: none; }
+  #entries-advanced-filters :deep(.flex-col) { min-width: 0; }
+}
+/* Presentation only: keep the outer grouped disclosure reachable without
+   changing measurement columns, table density, or aggregation. */
+@media (min-width: 768px) {
+  .entries-expander {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: var(--card);
+  }
+  td.entries-expander {
+    background: color-mix(in oklab, var(--muted) 40%, var(--card));
+  }
+  tr[data-state='selected'] > .entries-expander {
+    background: var(--muted);
+  }
+}
+</style>

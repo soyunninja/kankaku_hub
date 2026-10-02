@@ -120,11 +120,12 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
 
       // Scope to just this fixture via the (still-enabled-in-grouped-mode)
       // machine filter.
+      await page.getByRole('button', { name: 'Más filtros · 0', exact: true }).click()
       await page.getByPlaceholder('Máquina').fill(runBase)
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
 
-      await expect(page.getByRole('switch', { name: 'Agrupar por sesión' })).toHaveAttribute('data-state', 'checked')
+      await expect(page.getByRole('button', { name: 'Sesiones', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
       // The primary grouped mode has its own header/columns (Inicio | Sesión
       // | Cliente | Proyecto | Tarea | Agente | Entradas | Tiempo | Coste),
@@ -199,7 +200,7 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
 
       // Switch to flat: per-entry rows, no group header, model filter
       // enabled again.
-      await page.getByRole('switch', { name: 'Agrupar por sesión' }).click()
+      await page.getByRole('button', { name: 'Entradas', exact: true }).click()
       await page.waitForLoadState('networkidle')
       await page.waitForTimeout(300)
       await expect(groupHeaders).toHaveCount(0)
