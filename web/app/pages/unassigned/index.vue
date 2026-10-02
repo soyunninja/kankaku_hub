@@ -383,7 +383,7 @@ async function confirmAssign() {
       </Button>
     </div>
 
-    <Card>
+    <Card class="py-0">
       <CardContent class="p-0">
         <div v-if="loading" class="flex flex-col gap-2 p-4">
           <Skeleton class="h-10 w-full" />

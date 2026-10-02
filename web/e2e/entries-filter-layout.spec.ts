@@ -19,7 +19,17 @@ for (const width of [1440, 390]) {
     const actions = page.getByTestId('entries-filter-actions')
     const exportButton = actions.getByRole('button', { name: 'Export', exact: true })
     await expect(exportButton).toBeEnabled()
-    for (const [id, text] of [['entries-date-start', 'Start'], ['entries-date-end', 'End'], ['entries-filter-model', 'Model'], ['entries-filter-machine', 'Machine'], ['entries-filter-search', 'Prompt search']]) {
+    const range = controls.getByRole('button', { name: 'Date range: All time', exact: true })
+    await expect(range).toHaveCount(1)
+    await expect(controls.locator('label[for="entries-date-range"]')).toHaveText('Date range')
+    await expect(page.getByLabel('Start', { exact: true })).toHaveCount(0)
+    await expect(page.getByLabel('End', { exact: true })).toHaveCount(0)
+    await range.click()
+    await expect(page.getByLabel('Start', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('End', { exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(range).toBeFocused()
+    for (const [id, text] of [['entries-filter-model', 'Model'], ['entries-filter-machine', 'Machine'], ['entries-filter-search', 'Prompt search']]) {
       const label = controls.locator(`label[for="${id}"]`)
       await expect(label).toHaveText(text!)
       await expect(label).toBeVisible()

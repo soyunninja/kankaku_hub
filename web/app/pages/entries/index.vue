@@ -7,7 +7,7 @@ import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ExportMenu from '@/components/common/ExportMenu.vue'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
-import EntriesDateFilter from '@/components/entries/EntriesDateFilter.vue'
+import EntriesDateRangeFilter from '@/components/entries/EntriesDateRangeFilter.vue'
 import SessionMarker from '@/components/entries/SessionMarker.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -762,8 +762,7 @@ function onDetailOpenAutoFocus(event: Event) {
           <label for="entries-filter-machine" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.machine') }}</label>
           <Input id="entries-filter-machine" v-model="filters.machine" :placeholder="t('entries.filtersFields.machine')" class="w-32" />
         </div>
-        <EntriesDateFilter id="entries-date-start" v-model="filters.dateStart" :label="t('entries.filtersFields.dateStart')" />
-        <EntriesDateFilter id="entries-date-end" v-model="filters.dateEnd" :label="t('entries.filtersFields.dateEnd')" />
+        <EntriesDateRangeFilter v-model:start="filters.dateStart" v-model:end="filters.dateEnd" />
         <div class="flex flex-col gap-1">
           <label for="entries-filter-search" class="text-xs text-muted-foreground">{{ t('entries.filtersFields.search') }}</label>
           <Input id="entries-filter-search" v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
