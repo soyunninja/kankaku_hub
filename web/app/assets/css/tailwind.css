@@ -5,6 +5,34 @@
    `.dark` on <html>), not by prefers-color-scheme alone. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Opt-in geometry: semantic widgets and compact calendar/table internals stay independent. */
+@utility control-size {
+  height: 44px;
+  border-radius: 16px;
+  padding-inline: 12px;
+  font-size: 16px;
+  @media (min-width: 768px) { font-size: 14px; }
+}
+@utility control-field {
+  background-color: var(--muted);
+  border-width: 0;
+  color: var(--foreground);
+}
+@utility control-group {
+  height: 44px;
+  border-radius: 16px;
+  padding: 4px;
+}
+
+/* Calendar month/year pickers are internal compact controls, not standalone fields. */
+[data-slot="calendar"] [data-slot="native-select"] {
+  height: 32px;
+  border-radius: 8px;
+  padding-left: 8px;
+  padding-right: 24px;
+  font-size: 12px;
+}
+
 @theme inline {
   /*
    * Latin font stays first (unchanged for es/en, no visual regression
@@ -38,6 +66,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-focus-indicator: var(--focus-indicator);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -82,7 +111,7 @@
 :root {
   --radius: 0.625rem;
 
-  --background: oklch(1 0 0);
+  --background: oklch(0.982117640 0 0); /* #F9F9F9 light canvas */
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -136,9 +165,10 @@
 }
 
 /*
- * Dark palette: Gentleman-Cute (gentle-pi theme,
- * themes/Gentleman-Cute.json). Light mode keeps the original teal
- * palette. Each line's trailing comment names the source hex and the
+ * Dark palette: neutral charcoal surfaces with role-matched light brand pink.
+ * Small dark text uses neutral foregrounds; filled primary labels use white.
+ * Light mode retains its existing neutral surfaces and pink accents.
+ * Each line's trailing comment names the estimated surface hex or the
  * gentle-pi theme var it came from — see
  * odd/tasks/dark-theme-gentleman-cute.md for the full mapping.
  * `--chart-1..5` are duplicated in app/lib/client-avatar.ts's
@@ -146,49 +176,58 @@
  * tests/dark-palette.test.ts) — update both together.
  */
 .dark {
-  --background: oklch(0.113 0.011 316); /* #060407 bg */
+  --background: oklch(0.191251 0 0); /* #141414 estimated charcoal canvas */
   --foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
-  --card: oklch(0.155 0.014 332); /* #100A0F bgPanel */
+  --card: oklch(0.226450 0 0); /* #1C1C1C estimated charcoal card */
   --card-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
-  --popover: oklch(0.190 0.007 315); /* #151316 toolSuccessBg */
+  --popover: oklch(0.280940 0 0); /* #292929 estimated elevated charcoal */
   --popover-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
-  --primary: oklch(0.778 0.125 346); /* #F095C8 accent */
-  --primary-foreground: oklch(0.113 0.011 316); /* #060407 bg */
-  --secondary: oklch(0.229 0.026 332); /* #241822 secondary */
+  --primary: oklch(0.580 0.228 1); /* same primary pink as light */
+  --primary-foreground: oklch(0.98 0 0); /* same contrast-safe white as light */
+  --secondary: oklch(0.280940 0 0); /* #292929 estimated elevated charcoal */
   --secondary-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
-  --muted: oklch(0.195 0.017 335); /* #1A1218 muted (bg) */
-  --muted-foreground: oklch(0.673 0.035 345); /* #A78E9B muted (text) */
-  --accent: oklch(0.219 0.041 347); /* #28121E selection */
-  --accent-foreground: oklch(0.847 0.106 345); /* #FFB1DD activePink */
+  --muted: oklch(0.226450 0 0); /* #1C1C1C estimated subdued charcoal */
+  --muted-foreground: oklch(0.810 0 0); /* approximately #C1C1C1 neutral secondary text */
+  --accent: oklch(0.280940 0 0); /* #292929 neutral interaction surface */
+  --accent-foreground: oklch(0.959 0.009 342); /* existing neutral foreground */
   --destructive: oklch(0.727 0.174 9.4); /* #FF718F error */
   --destructive-foreground: oklch(0.113 0.011 316); /* #060407 bg */
   --success: oklch(0.884 0.068 157); /* #B4E7C7 mint */
   --success-foreground: oklch(0.113 0.011 316); /* #060407 bg */
   --warning: oklch(0.820 0.114 72); /* #F2B86D peach */
   --warning-foreground: oklch(0.113 0.011 316); /* #060407 bg */
-  --border: oklch(0.362 0.060 354 / 55%); /* #563040 border */
-  --input: oklch(0.362 0.060 354 / 75%); /* #563040 border */
-  --ring: oklch(0.778 0.125 346); /* #F095C8 accent */
+  --border: oklch(0.340697 0 0); /* #383838 subtle neutral dividers, not control boundaries */
+  --input: oklch(0.680 0 0); /* approximately #989898 visible control boundaries */
+  --ring: oklch(0.580 0.228 1); /* same opaque focus pink as light */
 
-  --chart-1: oklch(0.778 0.125 346); /* #F095C8 accent */
+  --chart-1: oklch(0.650 0.228 1); /* same distinct chart pink as light */
   --chart-2: oklch(0.824 0.097 88); /* #E0C27A champagne */
   --chart-3: oklch(0.821 0.064 255); /* #A9C7EE powderBlue */
   --chart-4: oklch(0.884 0.068 157); /* #B4E7C7 mint */
   --chart-5: oklch(0.820 0.114 72); /* #F2B86D peach */
 
-  --sidebar: oklch(0.155 0.014 332); /* #100A0F bgPanel */
+  --sidebar: oklch(0.226450 0 0); /* #1C1C1C estimated charcoal sidebar */
   --sidebar-foreground: oklch(0.959 0.009 342); /* #F6EFF3 text */
-  --sidebar-primary: oklch(0.778 0.125 346); /* #F095C8 accent */
-  --sidebar-primary-foreground: oklch(0.113 0.011 316); /* #060407 bg */
-  --sidebar-accent: oklch(0.219 0.041 347); /* #28121E selection */
-  --sidebar-accent-foreground: oklch(0.847 0.106 345); /* #FFB1DD activePink */
-  --sidebar-border: oklch(0.234 0.034 350); /* #2A1720 borderSubtle */
-  --sidebar-ring: oklch(0.778 0.125 346); /* #F095C8 accent */
+  --sidebar-primary: oklch(0.580 0.228 1); /* same primary pink as light; active icons */
+  --sidebar-primary-foreground: oklch(0.98 0 0); /* same contrast-safe white as light */
+  --sidebar-accent: oklch(0.280940 0 0); /* #292929 neutral interaction surface */
+  --sidebar-accent-foreground: oklch(0.959 0.009 342); /* existing neutral foreground */
+  --sidebar-border: oklch(0.340697 0 0); /* #383838 subtle neutral divider */
+  --sidebar-ring: oklch(0.580 0.228 1); /* same opaque focus pink as light */
+}
+
+/* Focus paint is separate from brand primitives. Explicit consumers opt in;
+   invalid-state utilities retain their own destructive color and priority. */
+:where(html) {
+  --focus-indicator: var(--ring);
+}
+:where(html.dark) {
+  --focus-indicator: var(--foreground);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-focus-indicator;
   }
 
   body {
@@ -249,6 +288,13 @@
   select:not(:disabled) {
     cursor: pointer;
   }
+}
+
+/* Action buttons are borderless even when a caller supplies a border utility.
+   Semantic field widgets keep their own boundaries; focus/invalid rings remain.
+   Unlayered so this policy also covers native actions and as-child Button links. */
+:is(button, [data-slot="button"]):not(:is([role="checkbox"], [role="radio"], [role="switch"], [role="combobox"], [data-slot="combobox-trigger"])) {
+  border-width: 0 !important;
 }
 
 /*

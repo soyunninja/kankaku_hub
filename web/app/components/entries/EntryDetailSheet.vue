@@ -563,7 +563,7 @@ defineOptions({ inheritAttrs: false })
         <pre v-if="entry.prompt" data-testid="prompt-pre" class="max-h-48 overflow-y-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-words text-foreground">{{ entry.prompt }}</pre>
         <p v-else class="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
           {{ t('entries.detail.promptEmpty') }}
-          <a :href="guideUrl" target="_blank" rel="noopener noreferrer" class="font-medium text-primary hover:underline">
+          <a :href="guideUrl" target="_blank" rel="noopener noreferrer" class="font-medium text-primary dark:text-foreground hover:underline">
             {{ t('entries.detail.promptEmptyLink') }}
           </a>
         </p>

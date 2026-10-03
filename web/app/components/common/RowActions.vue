@@ -30,7 +30,9 @@ export interface RowAction {
   destructive?: boolean
 }
 
-defineProps<{ actions: RowAction[] }>()
+withDefaults(defineProps<{ actions: RowAction[], noHover?: boolean }>(), {
+  noHover: false,
+})
 </script>
 
 <template>
@@ -39,9 +41,9 @@ defineProps<{ actions: RowAction[] }>()
       <TooltipTrigger as-child>
         <Button
           variant="ghost"
-          size="icon"
-          class="size-8"
-          :class="action.destructive ? 'hover:text-destructive' : ''"
+          size="icon-sm"
+          :no-hover="noHover"
+          :class="action.destructive && !noHover ? 'hover:text-destructive' : ''"
           :disabled="action.disabled"
           :aria-label="action.label"
           @click="action.onClick"

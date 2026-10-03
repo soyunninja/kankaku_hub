@@ -1,136 +1,163 @@
-import type { APIRequestContext, Browser } from '@playwright/test'
+import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
-import { localWallClockToUtc, toPbDateFilter } from '../app/lib/local-day'
-import { apiLogin, findClients, OWNER_EMAIL, OWNER_PASSWORD, pbUrl } from './helpers'
+import { loginAs, pbOrigin, VIEWER_EMAIL, VIEWER_PASSWORD } from './helpers'
 
-/**
- * MAJOR finding: day ranges were built in local time but stamped as UTC,
- * and the dashboard/project trend charts bucketed by a raw slice of the
- * stored UTC instant instead of the viewer's local day. A UTC+9 viewer
- * working just after local midnight (e.g. 00:10 JST) stores a UTC
- * instant that falls on the PREVIOUS UTC calendar day — exactly the case
- * that used to be excluded from "today" and mis-bucketed on the chart.
- *
- * This spec creates one such boundary-crossing `task_entries` row per
- * timezone (via `app/lib/local-day.ts`'s own conversion, so the fixture
- * is built the same way the app now builds its filters) and asserts it
- * lands under the SAME local day on the entries explorer, the dashboard,
- * and the project detail page, with the browser's `timezoneId` actually
- * set to that zone (Playwright's `timezoneId` context option — the
- * browser's `Intl`/`Date` behave as if physically in that zone, matching
- * how `app/lib/local-day.ts` resolves the viewer's zone at runtime).
- */
-
-async function loginAs(browser: Browser, timezoneId: string) {
-  const context = await browser.newContext({ timezoneId })
-  const page = await context.newPage()
-  await page.goto('/login')
-  await page.fill('#email', OWNER_EMAIL)
-  await page.fill('#password', OWNER_PASSWORD)
-  await page.click('button[type=submit]')
-  await page.waitForURL('/')
-  return { context, page }
-}
-
-/** `YYYY-MM-DD` for "today" in `timeZone`, matching what the app's own
- * `resolvePreset('today')` would compute for a viewer physically there. */
-function todayInZone(timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-}
-
-async function createBoundaryFixture(request: APIRequestContext, timeZone: string) {
-  const token = await apiLogin(request)
-  const { target } = await findClients(request, token)
-  const projectsRes = await request.get(pbUrl(`/api/collections/projects/records?perPage=1&filter=${encodeURIComponent(`client = "${target.id}"`)}`), {
-    headers: { Authorization: token },
-  })
-  const project = (await projectsRes.json()).items[0]
-
-  const runId = `e2e-day-boundary-${timeZone.replace(/\//g, '-')}-${Date.now()}`
-  const today = todayInZone(timeZone)
-  // 00:10 local — just after local midnight. In Asia/Tokyo (UTC+9) this
-  // is still 15:10 the PREVIOUS UTC day; in America/Los_Angeles (UTC-7/8)
-  // it stays on the same UTC day — both are exercised across the two
-  // describe blocks below, but the conversion is always done the same
-  // way the app itself now does it.
-  const startedAtUtc = localWallClockToUtc(today, { hour: 0, minute: 10, second: 0, ms: 0 }, timeZone)
-  const startedAt = toPbDateFilter(startedAtUtc)
-  // Fixed and distinctively high — unlikely to collide with seeded demo
-  // costs, and lets assertions match the exact formatted string
-  // (`formatCost`, `app/lib/format.ts`) instead of a substring/regex.
-  const cost = 888.81
-  const costText = '$888.81'
-
-  const res = await request.post(pbUrl('/api/collections/task_entries/records'), {
-    headers: { Authorization: token },
-    data: {
-      task_id: runId,
-      client: target.id,
-      project: project.id,
-      task: '',
-      started_at: startedAt,
-      ended_at: startedAt,
-      wall_ms: 600_000,
-      waiting_ms: 0,
-      work_ms: 600_000,
-      cost,
-      status: 'completed',
-      session_id: `${runId}-session`,
-      session_name: runId,
-      machine: runId,
-      prompt: runId,
-      legacy_client_label: '',
-      schema: 1,
-    },
-  })
-  expect(res.ok(), await res.text()).toBeTruthy()
-  const created = await res.json()
-  return { token, entryId: created.id as string, runId, today, cost, costText, projectId: project.id as string, projectName: project.name as string }
-}
-
-async function deleteFixture(request: APIRequestContext, token: string, id: string) {
-  await request.delete(pbUrl(`/api/collections/task_entries/records/${id}`), { headers: { Authorization: token } })
-}
-
-for (const timeZone of ['Asia/Tokyo', 'America/Los_Angeles']) {
-  test.describe(`day boundary consistency — ${timeZone}`, () => {
-    test(`an entry just after local midnight lands under the same local day everywhere (${timeZone})`, async ({ request, browser }) => {
-      test.setTimeout(60_000)
-      const fixture = await createBoundaryFixture(request, timeZone)
-      const { context, page } = await loginAs(browser, timeZone)
-
-      try {
-        // 1) Entries explorer: filter to exactly today (local) + this
-        // fixture's machine — must find exactly the one row (proves
-        // useEntriesExplorer's date filter converts the local day to UTC
-        // correctly). The table shows no machine/prompt column, so match
-        // on the row's own distinctive cost instead of the runId text.
-        await page.goto(`/entries?dateStart=${fixture.today}&dateEnd=${fixture.today}`)
-        await page.getByPlaceholder(/Máquina|Machine|マシン/).fill(fixture.runId)
-        await page.waitForTimeout(600)
-        const rows = page.locator('table tbody tr')
-        await expect(rows).toHaveCount(1, { timeout: 15_000 })
-        await expect(rows.first()).toContainText(fixture.costText)
-
-        // 2) Dashboard: default 30d range includes today, so the
-        // fixture's distinctive cost must show up in the "top expensive"
-        // table (sorted by cost desc, and $888.81 is far above any
-        // seeded demo cost).
-        await page.goto('/')
-        await page.waitForTimeout(800)
-        await expect(page.getByText(fixture.costText).first()).toBeVisible({ timeout: 15_000 })
-
-        // 3) Project detail: its trend/top-prompts fetch also goes through
-        // useTaskEntries().fetchRange with the same local-day conversion.
-        await page.goto(`/projects/${fixture.projectId}`)
-        await page.waitForTimeout(800)
-        const bodyText = await page.locator('main').innerText()
-        expect(bodyText).toContain(fixture.runId)
+for (const timezoneId of ['Asia/Tokyo', 'America/Los_Angeles']) {
+  test(`Dashboard and project display local-midnight measurement — ${timezoneId}`, async ({ browser }, testInfo) => {
+    expect(process.env.PW_BASE_URL).toBe('http://127.0.0.1:3003')
+    expect(pbOrigin()).toBe('http://127.0.0.1:8093')
+    const context = await browser.newContext({ timezoneId, viewport: { width: 1280, height: 900 } })
+    const page = await context.newPage()
+    const mutations: string[] = []
+    const queries: { kind: string, filter: string, from: string, to: string }[] = []
+    const prompt = `fictional-local-midnight-${timezoneId.replaceAll('/', '-')}`
+    let fixture: { id: string, client: string, project: string, started_at: string, cost: number, work_ms: number, model: string, prompt: string } | undefined
+    let expected: { from: string, to: string } | undefined
+    await context.route('**/api/**', async route => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      const allowedPost = request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime')
+      if (path.includes('/work_records/')) throw new Error('Raw work records are outside this measurement test')
+      if (request.method() !== 'GET' && !allowedPost) {
+        mutations.push(`${request.method()} ${path}`)
+        await route.abort()
+        throw new Error(`Forbidden business mutation: ${request.method()} ${path}`)
       }
-      finally {
-        await deleteFixture(request, fixture.token, fixture.entryId)
-        await context.close()
-      }
+      await route.continue()
     })
+    await page.route('**/api/collections/task_entries/records?*', async route => {
+      const url = new URL(route.request().url())
+      const fields = url.searchParams.get('fields')
+      const kind = fields === 'id,client,project,cost,work_ms,model' ? 'dashboard' : fields === 'id,prompt,cost,started_at' ? 'project' : undefined
+      if (!fixture || !kind) { await route.continue(); return }
+      expect(route.request().method()).toBe('GET')
+      expect(url.searchParams.get('page')).toBe('1')
+      expect(url.searchParams.get('perPage')).toBe('10')
+      expect(url.searchParams.get('sort')).toBe('-cost')
+      const filter = url.searchParams.get('filter') || ''
+      const from = filter.match(/started_at >= "([^"]+)"/)?.[1]
+      const to = filter.match(/started_at <= "([^"]+)"/)?.[1]
+      expect({ from, to }).toEqual(expected)
+      expect(fixture.started_at >= from! && fixture.started_at <= to!).toBe(true)
+      if (kind === 'project') expect(filter).toContain(`project = "${fixture.project}"`)
+      else expect(filter).not.toContain('project =')
+      queries.push({ kind, filter, from: from!, to: to! })
+      await route.fulfill({ json: { page: 1, perPage: 10, totalItems: 1, totalPages: 1, items: [fixture] } })
+    })
+    await page.addInitScript(() => localStorage.setItem('kankaku-locale', 'en'))
+    try {
+      const projectsResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/collections/projects/records' && response.request().method() === 'GET')
+      await loginAs(page, VIEWER_EMAIL, VIEWER_PASSWORD)
+      const response = await projectsResponse
+      expect(response.ok()).toBe(true)
+      const projects = (await response.json()).items as { id: string, client: string, name: string }[]
+      const project = projects[0]!
+      expect(project?.id).toBeTruthy()
+      const dates = await page.evaluate(() => {
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        const pb = (date: Date) => date.toISOString().replace('T', ' ')
+        return { started_at: pb(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 10)), from: pb(start), to: pb(end) }
+      })
+      expected = { from: dates.from, to: dates.to }
+      fixture = { id: 'boundaryaaaaaaa', client: project.client, project: project.id, started_at: dates.started_at, cost: 888.81, work_ms: 600000, model: 'fictional-boundary-model', prompt }
+      await page.goto('/')
+      await expect(page.locator('main h1')).toBeVisible()
+      const expensive = page.locator('table tbody tr').filter({ hasText: 'fictional-boundary-model' })
+      await expect(expensive).toHaveCount(1)
+      await expect(expensive).toContainText('$888.81')
+      await expect(expensive).toContainText(project.name)
+      await page.screenshot({ path: testInfo.outputPath('dashboard-midnight.png') })
+      await page.goto(`/projects/${project.id}`)
+      await expect(page.locator('main h1')).toHaveText(project.name)
+      const promptRow = page.locator('table tbody tr').filter({ hasText: prompt })
+      await expect(promptRow).toHaveCount(1)
+      await expect(promptRow).toContainText('$888.81')
+      expect(queries.map(query => query.kind)).toEqual(['dashboard', 'project'])
+      expect(mutations).toEqual([])
+      await page.screenshot({ path: testInfo.outputPath('project-midnight.png') })
+      await writeFile(testInfo.outputPath('midnight-display.json'), JSON.stringify({ timezoneId, started_at: dates.started_at, queries, mutations }, null, 2))
+    }
+    finally { await context.close() }
+  })
+
+  test(`Entries default and explicit local-day bounds — ${timezoneId}`, async ({ browser }) => {
+    expect(process.env.PW_BASE_URL).toBe('http://127.0.0.1:3003')
+    expect(pbOrigin()).toBe('http://127.0.0.1:8093')
+    const context = await browser.newContext({ timezoneId })
+    const page = await context.newPage()
+    const reads: URL[] = []
+    const totals: Record<string, unknown>[] = []
+    let boundaryEntry: { id: string, started_at: string, session_name: string, session_id: string, cost: number, status: string, work_ms: number } | undefined
+    await context.route('**/api/**', async route => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      const allowedPost = request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime')
+      if (request.method() !== 'GET' && !allowedPost) {
+        await route.abort()
+        throw new Error(`Forbidden business mutation: ${request.method()} ${path}`)
+      }
+      await route.continue()
+    })
+    await page.route('**/api/collections/task_entries/records?*', async route => {
+      expect(route.request().method()).toBe('GET')
+      const url = new URL(route.request().url())
+      if (url.searchParams.get('perPage') === '25') reads.push(url)
+      const filter = url.searchParams.get('filter') || ''
+      const from = filter.match(/started_at >= "([^"]+)"/)?.[1]
+      const to = filter.match(/started_at <= "([^"]+)"/)?.[1]
+      const items = boundaryEntry && (!from || boundaryEntry.started_at >= from) && (!to || boundaryEntry.started_at <= to) ? [boundaryEntry] : []
+      await route.fulfill({ json: { page: 1, totalItems: items.length, totalPages: 1, items } })
+    })
+    await page.route('**/api/kankaku/totals', async route => {
+      const body = route.request().postDataJSON()
+      if (body.group_by === 'session' && body.per_page === 25) totals.push(body)
+      await route.fulfill({ json: { groups: [], total: {}, total_groups: 0, total_pages: 1 } })
+    })
+    await page.addInitScript(() => {
+      localStorage.setItem('kankaku-locale', 'en')
+      if (localStorage.getItem('kankaku-entries-group-by-session') === null) localStorage.setItem('kankaku-entries-group-by-session', '0')
+    })
+    try {
+      await loginAs(page, VIEWER_EMAIL, VIEWER_PASSWORD)
+      const started_at = await page.evaluate(() => {
+        const now = new Date()
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 10).toISOString().replace('T', ' ')
+      })
+      boundaryEntry = { id: 'boundaryaaaaaaa', started_at, session_name: 'Local midnight boundary', session_id: 'boundary-session', cost: 888.81, status: 'completed', work_ms: 600000 }
+      await page.goto('/entries')
+      await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
+      const expected = await page.evaluate(() => {
+        const end = new Date()
+        const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 29)
+        const day = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        return { start: day(start), end: day(end), from: new Date(`${day(start)}T00:00:00`).toISOString().replace('T', ' '), to: new Date(`${day(end)}T23:59:59.999`).toISOString().replace('T', ' ') }
+      })
+      await expect(page.locator('table tbody tr')).toHaveCount(1)
+      await expect(page.locator('table tbody tr')).toContainText('$888.81')
+      expect(reads.length).toBeGreaterThan(0)
+      for (const url of reads) {
+        expect(url.searchParams.get('filter')).toContain(`started_at >= "${expected.from}"`)
+        expect(url.searchParams.get('filter')).toContain(`started_at <= "${expected.to}"`)
+      }
+      await page.getByRole('button', { name: 'Sessions', exact: true }).click()
+      await expect.poll(() => totals.length).toBe(1)
+      expect(totals[0]).toMatchObject({ from: expected.from, to: expected.to })
+      await page.goto(`/entries?dateStart=${expected.end}&dateEnd=${expected.end}`)
+      await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
+      const dayBounds = await page.evaluate(day => ({ from: new Date(`${day}T00:00:00`).toISOString().replace('T', ' '), to: new Date(`${day}T23:59:59.999`).toISOString().replace('T', ' ') }), expected.end)
+      await expect.poll(() => totals.at(-1)?.from).toBe(dayBounds.from)
+      expect(totals.at(-1)).toMatchObject(dayBounds)
+      await expect(page.locator('#entries-date-range')).toHaveAccessibleName(`Date range: ${expected.end} → ${expected.end}`)
+      await page.getByRole('button', { name: 'Entries', exact: true }).click()
+      await expect(page.locator('table tbody tr')).toHaveCount(1)
+      await expect(page.locator('table tbody tr')).toContainText('$888.81')
+      await page.goto(`/entries?dateEnd=${expected.start}`)
+      await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
+      await expect(page.getByTestId('entries-pagination-count')).toHaveText('0')
+    }
+    finally { await context.close() }
   })
 }

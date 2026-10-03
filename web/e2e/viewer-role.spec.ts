@@ -35,7 +35,7 @@ async function gotoAndSettle(page: Page, path: string) {
   await page.waitForLoadState('networkidle')
 }
 
-test.describe('viewer role — dashboard and header', () => {
+test.describe('viewer role — dashboard and sidebar footer', () => {
   test('viewer logs in, sees the dashboard with data, and the read-only badge', async ({ page }) => {
     await loginAs(page, VIEWER_EMAIL, VIEWER_PASSWORD)
 

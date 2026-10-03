@@ -69,7 +69,7 @@ function detailLabel(entry: TaskEntryRecord) {
     <div class="ledger-row ledger-header" role="row">
       <div v-for="(header, index) in headers" :key="header.field" role="columnheader" :aria-sort="grouped ? undefined : sort === header.field ? 'ascending' : sort === `-${header.field}` ? 'descending' : 'none'">
         <span v-if="grouped">{{ index === 0 ? t('entries.session') : header.label }}</span>
-        <Button v-else variant="ghost" class="min-h-11 h-auto w-full whitespace-normal px-0 text-sm" @click="emit('sort', header.field)">
+        <Button v-else no-hover variant="ghost" class="min-h-11 h-auto w-full whitespace-normal px-0 text-sm" @click="emit('sort', header.field)">
           {{ header.label }}
           <ChevronDown v-if="sort.replace('-', '') === header.field" class="size-3 shrink-0" :class="{ 'rotate-180': sort === header.field }" aria-hidden="true" />
         </Button>
@@ -85,8 +85,8 @@ function detailLabel(entry: TaskEntryRecord) {
             <p class="line-clamp-2 text-base font-medium" :title="row.title">{{ row.title }}</p>
             <p class="mt-1 text-sm text-muted-foreground">{{ row.date }}<br>{{ row.context }}</p>
             <p v-if="row.uncertainty || (row.entry && qualityNote(row.entry))" class="mt-1 text-sm text-muted-foreground">{{ row.uncertainty || (row.entry && qualityNote(row.entry)) }}</p>
-            <Button v-if="row.entry" data-entry-detail variant="link" class="min-h-11 h-auto max-w-full whitespace-normal px-0 text-sm" :aria-label="detailLabel(row.entry)" @click="emit('detail', row.entry, $event)">{{ t('entries.mobileLedger.detail') }}</Button>
-            <Button v-else variant="link" class="min-h-11 h-auto max-w-full whitespace-normal px-0 text-sm" :aria-label="`${t('entries.sessionGroup.entriesToggle')} · ${row.title}`" :aria-expanded="row.expanded" :aria-controls="`mobile-session-entries-${row.key}`" @click="emit('expand', row.key)">
+            <Button v-if="row.entry" no-hover data-entry-detail variant="link" class="min-h-11 h-auto max-w-full whitespace-normal px-0 text-sm" :aria-label="detailLabel(row.entry)" @click="emit('detail', row.entry, $event)">{{ t('entries.mobileLedger.detail') }}</Button>
+            <Button v-else no-hover variant="link" class="min-h-11 h-auto max-w-full whitespace-normal px-0 text-sm" :aria-label="`${t('entries.sessionGroup.entriesToggle')} · ${row.title}`" :aria-expanded="row.expanded" :aria-controls="`mobile-session-entries-${row.key}`" @click="emit('expand', row.key)">
               {{ t(row.count === 1 ? 'entries.mobileLedger.entryCountOne' : 'entries.mobileLedger.entryCountMany', { count: row.count }) }}
               <ChevronDown class="size-4 shrink-0" :class="{ 'rotate-180': row.expanded }" aria-hidden="true" />
             </Button>
@@ -107,12 +107,12 @@ function detailLabel(entry: TaskEntryRecord) {
           <p v-if="row.loading" role="status" class="p-3 text-sm">{{ t('entries.sessionGroup.loadingEntries') }}</p>
           <div v-else-if="row.error" role="alert" class="p-3 text-sm text-destructive">
             {{ t('entries.sessionGroup.loadError') }}
-            <Button variant="outline" class="min-h-11" @click="emit('retry', row.key)">{{ t('entries.sessionGroup.retry') }}</Button>
+            <Button no-hover variant="outline" class="min-h-11" @click="emit('retry', row.key)">{{ t('entries.sessionGroup.retry') }}</Button>
           </div>
           <p v-else-if="!row.children?.length" class="p-3 text-sm">{{ t('entries.empty') }}</p>
           <div v-for="entry in row.children ?? []" :key="entry.id" class="ledger-row border-t border-border">
             <div class="identity">
-              <Button data-entry-detail variant="link" class="min-h-11 h-auto w-full justify-start whitespace-normal px-0 text-left text-sm" :aria-label="detailLabel(entry)" @click="emit('detail', entry, $event)">{{ formatCompactEntryDateTime(entry.started_at) }}</Button>
+              <Button no-hover data-entry-detail variant="link" class="min-h-11 h-auto w-full justify-start whitespace-normal px-0 text-left text-sm" :aria-label="detailLabel(entry)" @click="emit('detail', entry, $event)">{{ formatCompactEntryDateTime(entry.started_at) }}</Button>
               <p class="text-sm text-muted-foreground">{{ clientName(entry.client) || '—' }} · {{ projectName(entry.project) }}<br>{{ taskName(entry.task) || '—' }} · {{ agentLabel(entry.agent ?? '') || '—' }} · {{ t(`entries.status.${entry.status}`) }}</p>
               <p v-if="qualityNote(entry)" class="mt-1 text-sm text-muted-foreground">{{ qualityNote(entry) }}</p>
               <input v-if="bulkEnabled && entry.session_id === sessionFilter" type="checkbox" class="size-11" :checked="selectedIds.has(entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @change="emit('select', entry.id)">

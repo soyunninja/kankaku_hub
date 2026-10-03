@@ -81,8 +81,8 @@ export const AVATAR_FOREGROUND_VAR = 'var(--avatar-foreground)'
  * one of these ten backgrounds — see `client-avatar.test.ts`. The light
  * chart-1 is the Gentleman-Sexy pink accent (#F43888) and chart-5 is
  * champagne (#E0C27A, moved off pink so it stays distinct from chart-1);
- * chart-2/3/4 are unchanged. The dark values are the Gentleman-Cute
- * gentle-pi theme's accent/champagne/powderBlue/mint/peach.
+ * chart-2/3/4 are unchanged. Dark chart-1 matches light chart-1;
+ * dark champagne/powderBlue/mint/peach remain unchanged.
  * `tests/dark-palette.test.ts` guards this array against both `:root`'s
  * and `.dark`'s `--chart-1..5` in tailwind.css directly.
  */
@@ -95,7 +95,7 @@ export const CHART_OKLCH_BY_THEME: Record<'light' | 'dark', Array<[number, numbe
     [0.824, 0.097, 88],
   ],
   dark: [
-    [0.778, 0.125, 346],
+    [0.65, 0.228, 1],
     [0.824, 0.097, 88],
     [0.821, 0.064, 255],
     [0.884, 0.068, 157],

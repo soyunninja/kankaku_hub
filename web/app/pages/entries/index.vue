@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { sessionMarkerLabel } from '@/lib/session-marker'
-import { ChevronDown, ChevronLeft, ChevronRight, X } from '@lucide/vue'
+import { ChevronDown, ChevronLeft, ChevronRight, Layers, List, X } from '@lucide/vue'
 import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
@@ -33,6 +33,7 @@ import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import { narrativeBody, narrativeBodyLineCount } from '@/lib/narrative-format'
 import type { TaskEntryRecord, WorkRecordRecord } from '@/lib/pocketbase-types'
 import { sessionTitle } from '@/lib/session-title'
+import { resolvePreset } from '@/lib/period'
 
 const { t } = useI18n()
 useHead({ title: computed(() => t('entries.title')) })
@@ -53,7 +54,7 @@ const { canWrite } = useAuth()
  * navigate here pre-filtered (e.g. `/entries?quality=waitingUnavailable
  * &dateStart=...&dateEnd=...&agent=...`) — every field stays optional and
  * this is the only place reading `route.query`, so a normal visit with no
- * query params behaves exactly as before. */
+ * query params starts with the shared last-30-local-days preset. */
 function queryString(key: string): string | undefined {
   const value = route.query[key]
   return typeof value === 'string' && value ? value : undefined
@@ -62,13 +63,34 @@ const initialQuality = queryString('quality')
 const filters = reactive<EntriesExplorerFilters>({
   agent: queryString('agent'),
   quality: initialQuality === 'waitingUnavailable' || initialQuality === 'costUnknown' ? initialQuality : undefined,
-  dateStart: queryString('dateStart'),
-  dateEnd: queryString('dateEnd'),
+  ...routeDateRange(),
   session_id: queryString('session_id'),
 })
-// Keep applied ISO local days in the shared filter model; each picker owns its draft.
-watch(() => route.query.dateStart, value => { filters.dateStart = typeof value === 'string' && value ? value : undefined })
-watch(() => route.query.dateEnd, value => { filters.dateEnd = typeof value === 'string' && value ? value : undefined })
+// Resolve before the first browse; explicit one-sided bounds stay one-sided.
+function routeDateRange() {
+  const dateStart = queryString('dateStart')
+  const dateEnd = queryString('dateEnd')
+  if (dateStart || dateEnd || queryString('dateRange') === 'all') return { dateStart, dateEnd }
+  const range = resolvePreset('30d')
+  return { dateStart: range.start, dateEnd: range.end }
+}
+watch(() => [route.query.dateStart, route.query.dateEnd, route.query.dateRange], () => {
+  Object.assign(filters, routeDateRange())
+})
+async function commitDateRange(range: { start?: string, end?: string }) {
+  const query = { ...route.query }
+  delete query.dateStart
+  delete query.dateEnd
+  delete query.dateRange
+  if (range.start) query.dateStart = range.start
+  if (range.end) query.dateEnd = range.end
+  if (!range.start && !range.end) query.dateRange = 'all'
+  try {
+    const failure = await router.push({ query, hash: route.hash })
+    if (failure) throw failure
+  }
+  catch { toast.error(t('entries.clearFiltersError')) }
+}
 // Move the existing controls, rather than cloning them: visual and keyboard
 // order agree at both breakpoints; mobile B moves project into More.
 const desktopFilters = ref(false)
@@ -394,13 +416,16 @@ const displayTotalItems = computed(() => primaryGrouped.value ? sessionTotalGrou
 const displayTotalPages = computed(() => primaryGrouped.value ? sessionTotalPages.value : totalPages.value)
 
 const filterKeys = ['client', 'project', 'task', 'status', 'model', 'machine', 'agent', 'quality', 'search', 'dateStart', 'dateEnd', 'session_id'] as const satisfies readonly (keyof EntriesExplorerFilters)[]
-const hasActiveFilters = computed(() => filterKeys.some(key => !!filters[key]))
+// The implicit period is baseline, not an extra advanced filter. Explicit
+// dates and All time are resettable deviations from that baseline.
+const hasActiveFilters = computed(() => filterKeys.some(key => key !== 'dateStart' && key !== 'dateEnd' && !!filters[key]) || !!queryString('dateStart') || !!queryString('dateEnd') || queryString('dateRange') === 'all')
 const clearingFilters = ref(false)
 async function clearFilters(event: MouseEvent) {
   if (clearingFilters.value) return
   const origin = event.currentTarget as HTMLElement | null
   const query = { ...route.query }
   for (const key of filterKeys) Reflect.deleteProperty(query, key)
+  delete query.dateRange
   clearingFilters.value = true
   try {
     // Commit the source URL first: failed navigation must not pretend that
@@ -408,7 +433,10 @@ async function clearFilters(event: MouseEvent) {
     const failure = await router.replace({ query, hash: route.hash })
     if (failure) throw failure
     pendingSessionExpansion = undefined
-    for (const key of filterKeys) Reflect.deleteProperty(filters, key)
+    for (const key of filterKeys) {
+      if (key !== 'dateStart' && key !== 'dateEnd') Reflect.deleteProperty(filters, key)
+    }
+    Object.assign(filters, routeDateRange())
     page.value = 1
     await nextTick()
     // Recover a removed empty-state action immediately, not after a fetch.
@@ -849,13 +877,12 @@ function onDetailCloseAutoFocus(event: Event) {
       <div id="entries-mobile-export" />
     </div>
 
-    <Card class="border-0 shadow-none md:border md:shadow-sm py-0">
-      <CardContent class="grid gap-3 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end" data-testid="entries-filter-layout">
+    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end" data-testid="entries-filter-layout">
         <div class="flex min-w-0 flex-wrap items-end gap-2" data-testid="entries-filter-controls">
         <div id="entries-primary-period" class="contents" />
         <div class="flex flex-col gap-1">
           <label for="entries-filter-client" class="text-xs text-muted-foreground">{{ t('common.client') }}</label>
-          <Select id="entries-filter-client" :model-value="filters.client" class="w-40" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient">
+          <Select id="entries-filter-client" :model-value="filters.client" class="w-40 border-0 bg-muted dark:bg-muted" :placeholder="t('common.client')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]" @update:model-value="selectClient">
             <template #option="{ option }">
               <span class="flex min-w-0 items-center gap-2">
                 <ClientAvatar v-if="option.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
@@ -873,7 +900,7 @@ function onDetailCloseAutoFocus(event: Event) {
         <Teleport to="#entries-advanced-project" :disabled="desktopFilters">
         <div class="flex flex-col gap-1">
           <label for="entries-filter-project" class="text-xs text-muted-foreground">{{ t('common.project') }}</label>
-          <Select id="entries-filter-project" v-model="filters.project" class="w-40" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]" />
+          <Select id="entries-filter-project" v-model="filters.project" class="w-40 border-0 bg-muted dark:bg-muted" :placeholder="t('common.project')" :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]" />
         </div>
         </Teleport>
         <Teleport to="#entries-advanced-status">
@@ -925,7 +952,7 @@ function onDetailCloseAutoFocus(event: Event) {
         </div>
         </Teleport>
         <Teleport to="#entries-primary-period">
-          <EntriesDateRangeFilter v-model:start="filters.dateStart" v-model:end="filters.dateEnd" />
+          <EntriesDateRangeFilter :start="filters.dateStart" :end="filters.dateEnd" @commit="commitDateRange" />
         </Teleport>
         <Teleport to="#entries-advanced-search">
         <div class="flex flex-col gap-1">
@@ -933,21 +960,21 @@ function onDetailCloseAutoFocus(event: Event) {
           <Input id="entries-filter-search" v-model="filters.search" :placeholder="t('entries.searchPrompt')" class="w-56" :disabled="primaryGrouped" :title="primaryGrouped ? t('entries.sessionGroup.unsupportedFilterHint') : undefined" />
         </div>
         </Teleport>
-        <div class="entries-mode flex items-center gap-1 rounded-md bg-muted p-1" role="group" :aria-label="t('entries.desktopFilters.view')">
-          <Button type="button" size="sm" :variant="groupBySession ? 'outline' : 'ghost'" :aria-pressed="groupBySession" :disabled="!groupingEligible" :aria-describedby="!groupingEligible ? 'entries-grouping-notice' : undefined" @click="groupBySession = true">{{ t('entries.desktopFilters.sessions') }}</Button>
-          <Button type="button" size="sm" :variant="!groupBySession ? 'outline' : 'ghost'" :aria-pressed="!groupBySession" @click="groupBySession = false">{{ t('entries.desktopFilters.entries') }}</Button>
+        <div class="entries-mode control-group flex shrink-0 gap-1 self-start bg-muted sm:self-auto" role="group" :aria-label="t('entries.desktopFilters.view')">
+          <Button type="button" size="segment" :variant="groupBySession ? 'secondary' : 'ghost'" :aria-pressed="groupBySession" :disabled="!groupingEligible" :aria-describedby="!groupingEligible ? 'entries-grouping-notice' : undefined" @click="groupBySession = true"><Layers class="size-4" aria-hidden="true" />{{ t('entries.desktopFilters.sessions') }}</Button>
+          <Button type="button" size="segment" :variant="!groupBySession ? 'secondary' : 'ghost'" :aria-pressed="!groupBySession" @click="groupBySession = false"><List class="size-4" aria-hidden="true" />{{ t('entries.desktopFilters.entries') }}</Button>
         </div>
-        <Button id="entries-more-filters" type="button" variant="outline" size="sm" class="entries-more" :aria-expanded="moreFiltersOpen" aria-controls="entries-advanced-filters" @click="moreFiltersOpen = !moreFiltersOpen">
+        <Button id="entries-more-filters" type="button" variant="toolbar" class="entries-more" :aria-expanded="moreFiltersOpen" aria-controls="entries-advanced-filters" @click="moreFiltersOpen = !moreFiltersOpen">
           {{ t('entries.desktopFilters.more', { count: advancedFilterCount }) }}
           <ChevronDown class="size-4" :class="{ 'rotate-180': moreFiltersOpen }" aria-hidden="true" />
         </Button>
         </div>
         <Teleport to="#entries-mobile-export" :disabled="desktopFilters">
-        <div class="flex shrink-0 justify-end md:border-l md:pl-3" data-testid="entries-filter-actions">
+        <div class="flex shrink-0 justify-end" data-testid="entries-filter-actions">
           <ExportMenu :label="t('common.export')" :disabled="loading || exporting || pendingExport !== null" @format="downloadExport" />
         </div>
         </Teleport>
-        <div id="entries-advanced-filters" class="border-t pt-3 md:col-span-2" :class="{ hidden: !moreFiltersOpen }">
+        <div id="entries-advanced-filters" class="md:col-span-2" :class="{ hidden: !moreFiltersOpen }">
           <div class="flex flex-wrap items-end gap-3">
             <div id="entries-advanced-project" />
             <div id="entries-advanced-model" />
@@ -961,8 +988,7 @@ function onDetailCloseAutoFocus(event: Event) {
             <div id="entries-advanced-machine" />
           </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
 
     <div v-if="!groupingEligible || filters.session_id" class="flex flex-wrap items-center gap-3">
       <p v-if="!groupingEligible" id="entries-grouping-notice" class="text-sm text-muted-foreground" role="status">
@@ -1026,8 +1052,8 @@ function onDetailCloseAutoFocus(event: Event) {
       </DialogContent>
     </Dialog>
 
-    <Card class="py-0">
-      <CardContent class="p-0">
+    <Card>
+      <CardContent>
         <div v-if="browseError" role="alert" class="flex items-center justify-center gap-3 p-6 text-sm">
           <p class="text-destructive">{{ t('entries.loadError') }}</p>
           <Button variant="outline" size="sm" @click="refresh">{{ t('entries.loadRetry') }}</Button>
@@ -1046,7 +1072,7 @@ function onDetailCloseAutoFocus(event: Event) {
               <div v-if="sessionNarratives.get(sessionId)" data-testid="session-narrative">
                 <p v-if="sessionNarratives.get(sessionId)!.goal">{{ t('engram.goal', { goal: sessionNarratives.get(sessionId)!.goal }) }}</p>
                 <p :class="expandedNarratives.has(sessionId) ? '' : 'line-clamp-6'" class="whitespace-pre-wrap">{{ narrativeBodyOf(sessionId) }}</p>
-                <Button v-if="narrativeHasMore(sessionId)" variant="ghost" class="min-h-11" @click="toggleNarrativeExpanded(sessionId)">{{ expandedNarratives.has(sessionId) ? t('engram.showLess') : t('engram.showMore') }}</Button>
+                <Button v-if="narrativeHasMore(sessionId)" no-hover variant="ghost" class="min-h-11" @click="toggleNarrativeExpanded(sessionId)">{{ expandedNarratives.has(sessionId) ? t('engram.showLess') : t('engram.showMore') }}</Button>
               </div>
             </template>
           </template>
@@ -1072,7 +1098,7 @@ function onDetailCloseAutoFocus(event: Event) {
             </TableRow>
             <TableRow v-else>
               <TableHead :aria-sort="sort === 'started_at' ? 'ascending' : sort === '-started_at' ? 'descending' : 'none'">
-                <Button variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('started_at')">
+                <Button no-hover variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('started_at')">
                   {{ t('common.started') }}
                   <ChevronDown v-if="sort.replace('-', '') === 'started_at'" class="size-3" :class="{ 'rotate-180': sort === 'started_at' }" aria-hidden="true" />
                 </Button>
@@ -1090,13 +1116,13 @@ function onDetailCloseAutoFocus(event: Event) {
               <TableHead>{{ t('common.status') }}</TableHead>
               <TableHead>{{ t('common.agent') }}</TableHead>
               <TableHead class="text-right" :aria-sort="sort === 'work_ms' ? 'ascending' : sort === '-work_ms' ? 'descending' : 'none'">
-                <Button variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('work_ms')">
+                <Button no-hover variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('work_ms')">
                   <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
                   <ChevronDown v-if="sort.replace('-', '') === 'work_ms'" class="size-3" :class="{ 'rotate-180': sort === 'work_ms' }" aria-hidden="true" />
                 </Button>
               </TableHead>
               <TableHead class="text-right" :aria-sort="sort === 'cost' ? 'ascending' : sort === '-cost' ? 'descending' : 'none'">
-                <Button variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('cost')">
+                <Button no-hover variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('cost')">
                   {{ t('common.cost') }}
                   <ChevronDown v-if="sort.replace('-', '') === 'cost'" class="size-3" :class="{ 'rotate-180': sort === 'cost' }" aria-hidden="true" />
                 </Button>
@@ -1121,7 +1147,7 @@ function onDetailCloseAutoFocus(event: Event) {
                    colspan-ed summary blob — numbers line up, and nothing
                    needs a "Tiempo:"/"Coste:" label to say what it is. -->
               <template v-for="row in sessionRows" :key="row.sessionId">
-                <TableRow data-testid="session-group-row" class="cursor-pointer bg-muted/40 hover:bg-muted/40" @click="toggleSession(row.sessionId)">
+                <TableRow data-testid="session-group-row" class="cursor-pointer bg-muted/40" @click="toggleSession(row.sessionId)">
                   <TableCell class="tabular-nums">
                     {{ formatCompactEntryDateTime(row.minStartedAt) }}
                   </TableCell>
@@ -1169,7 +1195,7 @@ function onDetailCloseAutoFocus(event: Event) {
                   <TableCell class="entries-expander">
                     <button
                       type="button"
-                      class="rounded p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      class="rounded p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-indicator"
                       :aria-label="t('entries.sessionGroup.entriesToggle')"
                       :aria-expanded="expandedSessions.has(row.sessionId)"
                       :aria-controls="`session-group-entries-${row.sessionId}`"
@@ -1204,6 +1230,7 @@ function onDetailCloseAutoFocus(event: Event) {
                       >{{ narrativeBodyOf(row.sessionId) }}</p>
                       <Button
                         v-if="narrativeHasMore(row.sessionId)"
+                        no-hover
                         size="sm" variant="ghost" class="mt-1 h-auto px-1.5 py-0.5 text-xs" @click.stop="toggleNarrativeExpanded(row.sessionId)"
                       >
                         {{ expandedNarratives.has(row.sessionId) ? t('engram.showLess') : t('engram.showMore') }}
@@ -1228,7 +1255,7 @@ function onDetailCloseAutoFocus(event: Event) {
                           <TableCell colspan="4">
                             <div class="flex items-center gap-2 text-sm text-destructive">
                               <span>{{ t('entries.sessionGroup.loadError') }}</span>
-                              <Button size="sm" variant="outline" @click.stop="loadSessionEntries(row.sessionId)">
+                              <Button no-hover size="sm" variant="outline" @click.stop="loadSessionEntries(row.sessionId)">
                                 {{ t('entries.sessionGroup.retry') }}
                               </Button>
                             </div>
@@ -1242,7 +1269,7 @@ function onDetailCloseAutoFocus(event: Event) {
                         <TableRow v-for="entry in sessionRowEntries.get(row.sessionId)?.items ?? []" :key="entry.id" class="cursor-pointer" @click="openDetail(entry, $event)">
                           <TableCell class="tabular-nums">
                             <input v-if="bulkEnabled && entry.session_id === filters.session_id" type="checkbox" class="mr-2" :checked="selectedIds.has(entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @click.stop @change="toggleEntry(entry.id)">
-                            <Button data-entry-detail variant="ghost" size="sm" class="h-auto px-0 font-normal tabular-nums" :aria-label="t('entries.detail.viewEntry', { context: `${entry.session_name || entry.id} · ${formatCompactEntryDateTime(entry.started_at)}` })" @click.stop="openDetail(entry, $event)">
+                            <Button no-hover data-entry-detail variant="ghost" size="sm" class="h-auto px-0 font-normal tabular-nums" :aria-label="t('entries.detail.viewEntry', { context: `${entry.session_name || entry.id} · ${formatCompactEntryDateTime(entry.started_at)}` })" @click.stop="openDetail(entry, $event)">
                               {{ formatCompactEntryDateTime(entry.started_at) }}
                             </Button>
                           </TableCell>
@@ -1268,7 +1295,7 @@ function onDetailCloseAutoFocus(event: Event) {
                      (TableHead forwards attrs to its root <th>), and the only
                      interactive control inside it is SessionMarker's own <button>,
                      which is already keyboard-reachable. -->
-                <TableRow v-if="dr.kind === 'header'" class="bg-muted/40 hover:bg-muted/40">
+                <TableRow v-if="dr.kind === 'header'" class="bg-muted/40">
                   <TableHead scope="colgroup" :colspan="columnCount" class="h-auto py-2 font-normal">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
                       <SessionMarker :session-id="dr.group.sessionId" :session-name="dr.group.sessionName" @click="filterToSession(dr.group.sessionId)" />
@@ -1288,7 +1315,7 @@ function onDetailCloseAutoFocus(event: Event) {
                 <TableRow v-else class="cursor-pointer" @click="openDetail(dr.entry, $event)">
                   <TableCell class="tabular-nums">
                     <input v-if="bulkEnabled && dr.entry.session_id === filters.session_id" type="checkbox" class="mr-2" :checked="selectedIds.has(dr.entry.id)" :disabled="bulkBusy" :aria-label="t('entries.bulk.selectEntry')" @click.stop @change="toggleEntry(dr.entry.id)">
-                    <Button data-entry-detail variant="ghost" size="sm" class="h-auto px-0 font-normal tabular-nums" :aria-label="t('entries.detail.viewEntry', { context: `${dr.entry.session_name || dr.entry.id} · ${formatCompactEntryDateTime(dr.entry.started_at)}` })" @click.stop="openDetail(dr.entry, $event)">
+                    <Button no-hover data-entry-detail variant="ghost" size="sm" class="h-auto px-0 font-normal tabular-nums" :aria-label="t('entries.detail.viewEntry', { context: `${dr.entry.session_name || dr.entry.id} · ${formatCompactEntryDateTime(dr.entry.started_at)}` })" @click.stop="openDetail(dr.entry, $event)">
                       {{ formatCompactEntryDateTime(dr.entry.started_at) }}
                     </Button>
                   </TableCell>
@@ -1378,13 +1405,13 @@ function onDetailCloseAutoFocus(event: Event) {
 @media (max-width: 767px) {
   [data-testid='entries-filter-controls'] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
   [data-testid='entries-filter-controls'] :deep(button),
-  [data-testid='entries-filter-controls'] :deep(input) { min-height: 44px; width: 100%; min-width: 0; }
+  [data-testid='entries-filter-controls'] :deep(input) { width: 100%; min-width: 0; }
   .entries-mode, .entries-more { grid-column: 1 / -1; }
   .entries-mode > button { flex: 1; }
-  [data-testid='entries-filter-actions'] :deep(button) { min-height: 44px; }
+  /* Ordinary actions inherit shared geometry; segmented children remain inset. */
   [data-testid='entries-filter-layout'] { border: 0; padding: 0; }
   [data-testid='entries-filter-layout'] :deep(label) { font-size: .875rem; }
-  #entries-advanced-filters :deep(input), #entries-advanced-filters :deep(button) { min-height: 44px; max-width: 100%; }
+  #entries-advanced-filters :deep(input), #entries-advanced-filters :deep(button) { max-width: 100%; }
   #entries-advanced-filters > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #entries-advanced-filters > div > div:empty { display: none; }
   #entries-advanced-filters :deep(.flex-col) { min-width: 0; }

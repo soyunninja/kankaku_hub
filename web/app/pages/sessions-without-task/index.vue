@@ -480,8 +480,8 @@ async function confirmIgnore() {
       </div>
     </div>
 
-    <Card class="py-0">
-      <CardContent class="p-0">
+    <Card>
+      <CardContent>
         <div v-if="loading" class="flex flex-col gap-2 p-4">
           <Skeleton class="h-10 w-full" />
           <Skeleton class="h-10 w-full" />
@@ -532,7 +532,7 @@ async function confirmIgnore() {
                 <div class="flex flex-col gap-0.5">
                   <button
                     type="button"
-                    class="max-w-48 truncate text-left hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+                    class="max-w-48 truncate text-left focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-focus-indicator"
                     :aria-label="t('sessionsQueue.detail.open', { session: sessionTitleFor(session) })"
                     @click.stop="openDetail(session)"
                   >
@@ -584,7 +584,7 @@ async function confirmIgnore() {
               <TableCell class="text-right">
                 <DropdownMenu v-if="canWrite">
                   <DropdownMenuTrigger as-child>
-                    <Button data-testid="write-action" size="icon-sm" variant="ghost" :aria-label="t('sessionsQueue.actionsAria', { session: sessionName(session) })">
+                    <Button no-hover data-testid="write-action" size="icon-sm" variant="ghost" :aria-label="t('sessionsQueue.actionsAria', { session: sessionName(session) })">
                       <MoreHorizontal class="size-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -672,7 +672,7 @@ async function confirmIgnore() {
         </DialogHeader>
 
         <div v-if="!attaching && !attachResult" class="flex flex-col gap-3">
-          <div class="flex items-center gap-2 rounded-md border border-input px-3">
+          <div class="control-size control-field flex items-center gap-2 focus-within:ring-3 focus-within:ring-focus-indicator">
             <Search class="size-4 text-muted-foreground" />
             <Input
               v-model="attachQuery"
@@ -680,7 +680,7 @@ async function confirmIgnore() {
               aria-controls="sq-attach-listbox"
               :aria-expanded="attachCandidates.length > 0"
               :placeholder="t('sessionsQueue.attachSearchPlaceholder')"
-              class="border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+              class="h-full rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
           </div>
           <div id="sq-attach-listbox" role="listbox" :aria-label="t('sessionsQueue.attachTitle')" class="max-h-64 overflow-y-auto rounded-md border border-border">

@@ -260,12 +260,9 @@ async function onRefreshFavicon() {
     <div class="flex flex-col gap-6">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-semibold tracking-tight">
+          <h1 class="text-xl font-semibold tracking-tight">
             {{ t('clients.title') }}
           </h1>
-          <p class="mt-1 text-sm text-muted-foreground">
-            {{ t(clients.length === 1 ? 'clients.countOne' : 'clients.count', { count: clients.length }) }}
-          </p>
         </div>
         <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
           <Plus class="size-4" />
@@ -285,16 +282,16 @@ async function onRefreshFavicon() {
             v-model="search"
             type="search"
             :aria-label="t('clients.search')"
-            :placeholder="t('clients.search')"
-            class="h-12 rounded-2xl bg-card pl-11"
+            :placeholder="t(clients.length === 1 ? 'clients.searchWithCountOne' : 'clients.searchWithCount', { count: clients.length })"
+            class="pl-11"
           />
         </div>
-        <div role="group" :aria-label="t('clients.viewLabel')" class="flex shrink-0 gap-1 self-start rounded-2xl bg-muted p-1 sm:self-auto">
-          <Button :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" class="rounded-xl" @click="view = 'list'">
+        <div role="group" :aria-label="t('clients.viewLabel')" class="control-group flex shrink-0 gap-1 self-start bg-muted sm:self-auto">
+          <Button size="segment" :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" @click="view = 'list'">
             <List aria-hidden="true" class="size-4" />
             {{ t('clients.listView') }}
           </Button>
-          <Button :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" class="rounded-xl" @click="view = 'grid'">
+          <Button size="segment" :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" @click="view = 'grid'">
             <LayoutGrid aria-hidden="true" class="size-4" />
             {{ t('clients.gridView') }}
           </Button>
@@ -306,7 +303,7 @@ async function onRefreshFavicon() {
           <div v-for="n in 4" :key="n" class="h-48 animate-pulse rounded-3xl bg-muted" />
         </div>
         <div v-else class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
-          <article v-for="c in filteredClients" :key="c.id" data-testid="client-card" class="flex min-w-0 flex-col gap-3 rounded-3xl border border-border/50 bg-card p-2 transition-colors hover:border-border sm:gap-5 sm:p-5">
+          <article v-for="c in filteredClients" :key="c.id" data-testid="client-card" class="flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 transition-colors sm:gap-5 sm:p-5">
             <div class="grid min-w-0 grid-cols-[auto_1fr] items-start gap-2 sm:gap-3">
               <ClientAvatar :client="c" size="md" class="size-7 shrink-0" />
               <div class="col-span-2 row-start-2 min-w-0">
@@ -315,7 +312,7 @@ async function onRefreshFavicon() {
                   <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.protected')" />
                   <Tooltip v-if="c.notes">
                     <TooltipTrigger as-child>
-                      <button type="button" :aria-label="t('clients.hasNotes')" class="shrink-0 rounded focus-visible:ring-2 focus-visible:ring-ring">
+                      <button type="button" :aria-label="t('clients.hasNotes')" class="shrink-0 rounded focus-visible:ring-2 focus-visible:ring-focus-indicator">
                         <StickyNote class="size-3.5 text-muted-foreground" />
                       </button>
                     </TooltipTrigger>
@@ -419,6 +416,7 @@ async function onRefreshFavicon() {
                 <TableCell class="text-right" @click.stop>
                   <RowActions
                     v-if="canWrite"
+                    no-hover
                     data-testid="write-action"
                     :actions="[
                       { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(c), disabled: c.unassigned },
@@ -547,7 +545,7 @@ async function onRefreshFavicon() {
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-              <div class="space-y-1 rounded-md border border-border p-3">
+              <div class="space-y-1 rounded-md p-3">
                 <p class="text-xs text-muted-foreground">
                   {{ t('clients.totalTime') }}
                 </p>
@@ -555,7 +553,7 @@ async function onRefreshFavicon() {
                   {{ formatDuration(totalsByClient[detailClient.id]?.workMs ?? 0) }}
                 </p>
               </div>
-              <div class="space-y-1 rounded-md border border-border p-3">
+              <div class="space-y-1 rounded-md p-3">
                 <p class="text-xs text-muted-foreground">
                   {{ t('clients.totalCost') }}
                 </p>

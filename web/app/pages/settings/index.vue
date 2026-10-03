@@ -84,7 +84,7 @@ onMounted(async () => {
         </div>
         <div class="flex justify-between">
           <span class="text-muted-foreground">{{ t('settings.website') }}</span>
-          <a href="https://kankaku.io" target="_blank" rel="noopener noreferrer" class="font-medium text-primary hover:underline">kankaku.io</a>
+          <a href="https://kankaku.io" target="_blank" rel="noopener noreferrer" class="font-medium text-primary dark:text-foreground hover:underline">kankaku.io</a>
         </div>
         <div class="flex justify-between">
           <span class="text-muted-foreground">{{ t('settings.signedInAs') }}</span>

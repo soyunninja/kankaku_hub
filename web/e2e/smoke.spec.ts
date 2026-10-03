@@ -13,7 +13,7 @@ import { login, setTheme, shoot } from './helpers'
 
 test('dashboard shows non-zero KPIs after login', async ({ page }) => {
   await login(page)
-  await expect(page.locator('h1')).toContainText(/Panel|Dashboard/)
+  await expect(page.locator('h1')).toContainText(/^(Hola|Hello|こんにちは)(?:[,、].+)?$/)
   await page.waitForTimeout(800)
 
   // The demo seed has 430 task_entries over the last 60 days, so the

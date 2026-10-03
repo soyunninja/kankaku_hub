@@ -10,6 +10,13 @@ const entries = ['aaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbb'].map((id, index) => ({
 
 test.beforeEach(async ({ page }) => {
   if (process.env.PW_BASE_URL !== 'http://127.0.0.1:3003' || pbOrigin() !== 'http://127.0.0.1:8093') throw new Error('Requires owned read-only stack')
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const allowed = request.method() === 'GET' || (request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime'))
+    if (!allowed) { await route.abort(); throw new Error(`Forbidden mutation: ${request.method()} ${path}`) }
+    await route.continue()
+  })
   await page.route('**/api/collections/*/records**', async route => {
     expect(route.request().method()).toBe('GET')
     await route.continue()
@@ -36,6 +43,9 @@ test('keyboard sorting and detail focus retain dense columns and viewer permissi
     return route.fulfill({ json: entries.find(entry => route.request().url().includes(entry.id)) })
   })
   await page.goto('/entries')
+  // A cold dev navigation can render the initial locale/loading frame first.
+  // Wait for the real flat entry control, then assert the unchanged columns.
+  await expect(page.getByRole('button', { name: /View entry details: Accessible entry 1/ })).toBeVisible({ timeout: 15_000 })
   await expect(page.locator('thead th')).toHaveCount(8)
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 })

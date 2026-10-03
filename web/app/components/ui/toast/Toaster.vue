@@ -46,7 +46,7 @@ const latestAssertive = computed(() => {
           v-for="t in toasts"
           :key="t.id"
           :class="cn(
-            'pointer-events-auto flex items-start justify-between gap-3 rounded-lg border p-3 shadow-lg',
+            'pointer-events-auto flex items-start justify-between gap-3 rounded-lg border p-3',
             t.variant === 'destructive' && 'border-destructive/40 bg-destructive text-destructive-foreground',
             t.variant === 'success' && 'border-success/40 bg-success text-success-foreground',
             (!t.variant || t.variant === 'default') && 'border-border bg-card text-card-foreground',

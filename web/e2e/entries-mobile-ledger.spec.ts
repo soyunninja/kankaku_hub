@@ -60,7 +60,7 @@ for (const theme of ['light', 'dark']) {
         firstRecordY: element.querySelector('.ledger-record')!.getBoundingClientRect().y,
         controls: [...document.querySelectorAll('[data-testid="entries-filter-layout"] button, [data-testid="entries-filter-actions"] button, .ledger-record button')].filter(el => el.getClientRects().length).slice(0, 9).map(el => {
           const rect = el.getBoundingClientRect()
-          return { label: el.textContent, width: rect.width, height: rect.height }
+          return { label: el.textContent, width: rect.width, height: rect.height, segment: el.getAttribute('data-size') === 'segment', groupHeight: el.closest('.control-group')?.getBoundingClientRect().height }
         }),
         metrics: [...element.querySelectorAll('.metric')].slice(0, 2).map(el => ({ text: el.textContent, width: el.clientWidth, scrollWidth: el.scrollWidth })),
       }), width))
@@ -68,7 +68,11 @@ for (const theme of ['light', 'dark']) {
       expect(measurements.at(-1)!.ledgerOverflow).toBe(0)
       for (const metric of measurements.at(-1)!.metrics) expect(metric.scrollWidth).toBeLessThanOrEqual(metric.width)
       for (const control of measurements.at(-1)!.controls) {
-        expect(control.height).toBeGreaterThanOrEqual(44)
+        if (control.segment) {
+          expect(control.height).toBe(36)
+          expect(control.groupHeight).toBe(44)
+        }
+        else expect(control.height).toBeGreaterThanOrEqual(44)
         expect(control.width).toBeGreaterThanOrEqual(44)
       }
       await page.screenshot({ path: testInfo.outputPath(`B-actual-${theme}-${width}.png`) })

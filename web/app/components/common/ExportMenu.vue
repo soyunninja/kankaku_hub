@@ -11,7 +11,7 @@ const { t } = useI18n()
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <Button type="button" variant="outline" :size="label ? 'sm' : 'icon-sm'" :disabled="disabled" :title="t('common.export')" :aria-label="t('common.export')">
+      <Button type="button" variant="toolbar" :size="label ? 'default' : 'icon'" :disabled="disabled" :title="t('common.export')" :aria-label="t('common.export')">
         <Download aria-hidden="true" />
         <span v-if="label">{{ label }}</span>
       </Button>

@@ -81,6 +81,8 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "greeting": "Hello",
+    "greetingWithName": "Hello, {name}",
     "period": "Period",
     "presets": {
       "today": "Today",
@@ -141,6 +143,8 @@
     "count": "{count} clients",
     "countOne": "{count} client",
     "search": "Search clients…",
+    "searchWithCount": "{count} clients, search clients…",
+    "searchWithCountOne": "{count} client, search clients…",
     "viewLabel": "Client view",
     "listView": "List",
     "gridView": "Grid",
@@ -194,6 +198,8 @@
     "count": "{count} projects",
     "countOne": "{count} project",
     "search": "Search projects by name, code or client…",
+    "searchWithCount": "{count} projects, search projects…",
+    "searchWithCountOne": "{count} project, search projects…",
     "viewLabel": "Project view",
     "listView": "List",
     "gridView": "Grid",
@@ -219,6 +225,7 @@
     "new": "New task",
     "edit": "Edit task",
     "board": "Board",
+    "viewLabel": "Task view",
     "list": "List",
     "history": {
       "title": "Completed history",

@@ -241,7 +241,7 @@ test.describe('tasks board', () => {
       await login(page)
       await page.goto('/tasks')
       await expect(page.locator('[role="button"]', { hasText: title })).toHaveCount(0)
-      await page.getByRole('tab', { name: 'Lista' }).click()
+      await page.getByRole('group', { name: 'Vista de tareas' }).getByRole('button', { name: 'Lista', exact: true }).click()
       await expect(page.locator('table tbody tr', { hasText: title })).toHaveCount(0)
       await page.getByRole('button', { name: 'Historial de completadas' }).click()
       const search = page.getByRole('searchbox', { name: 'Buscar títulos de tareas completadas…' })
@@ -254,7 +254,7 @@ test.describe('tasks board', () => {
       await dialog.getByRole('button', { name: 'Guardar' }).click()
       await expect(row).toHaveCount(0)
       await page.getByRole('button', { name: 'Historial de completadas' }).click()
-      await page.getByRole('tab', { name: 'Lista' }).click()
+      await page.getByRole('group', { name: 'Vista de tareas' }).getByRole('button', { name: 'Lista', exact: true }).click()
       await expect(page.locator('table tbody tr', { hasText: title })).toBeVisible()
     }
     finally {

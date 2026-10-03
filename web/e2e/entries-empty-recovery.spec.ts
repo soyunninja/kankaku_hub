@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
+import { resolvePreset } from '../app/lib/period'
 import { comboboxList, comboboxTrigger, loginAs, pbOrigin, selectCombobox, VIEWER_EMAIL, VIEWER_PASSWORD } from './helpers'
 
 const entry = {
@@ -11,6 +12,13 @@ const entry = {
 
 test.beforeEach(async ({ page }) => {
   if (process.env.PW_BASE_URL !== 'http://127.0.0.1:3003' || pbOrigin() !== 'http://127.0.0.1:8093') throw new Error('Requires owned :3003/:8093 stack')
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const allowed = request.method() === 'GET' || (request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime'))
+    if (!allowed) { await route.abort(); throw new Error(`Forbidden mutation: ${request.method()} ${path}`) }
+    await route.continue()
+  })
   await page.route('**/api/collections/*/records**', async route => {
     expect(route.request().method()).toBe('GET')
     await route.continue()
@@ -58,7 +66,14 @@ for (const grouped of [false, true]) {
     expect(new URL(page.url()).hash).toBe('#ledger')
     await expect(page.getByRole('button', { name: grouped ? 'Sessions' : 'Entries', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Remove session filter' })).toHaveCount(0)
-    if (!grouped) expect(reads.at(-1)?.searchParams.get('filter') || '').toBe('')
+    if (!grouped) {
+      expect(reads.at(-1)?.searchParams.get('filter')).toContain('started_at >=')
+      expect(reads.at(-1)?.searchParams.get('filter')).toContain('started_at <=')
+    }
+    await page.reload()
+    await expect(page.getByTestId('entries-pagination-count')).toHaveText('0')
+    const period = resolvePreset('30d')
+    await expect(page.locator('#entries-date-range')).toHaveAccessibleName(`Date range: ${period.start} → ${period.end}`)
     await page.screenshot({ path: testInfo.outputPath('empty-after.png') })
     await writeFile(testInfo.outputPath('reset-context.json'), JSON.stringify({ url: page.url(), query: Object.fromEntries(new URL(page.url()).searchParams), lastBrowse: reads.at(-1)?.href }, null, 2))
   })
@@ -77,7 +92,7 @@ test('advanced filters clear together without changing sort or disclosure', asyn
     await route.fulfill({ json: { page: 1, totalItems: 0, totalPages: 0, items: [] } })
   })
   await loginAs(page, VIEWER_EMAIL, VIEWER_PASSWORD)
-  await page.goto('/entries?quality=costUnknown&agent=pi&dateStart=2026-01-01&dateEnd=2026-01-02&session_id=empty&client=bookmark-client&project=bookmark-project&task=bookmark-task&status=completed&model=bookmark-model&machine=bookmark-machine&search=bookmark-search&keep=yes#ledger')
+  await page.goto('/entries?quality=costUnknown&agent=pi&dateStart=2026-01-01&dateEnd=2026-01-02&session_id=empty&client=bookmark-client&project=bookmark-project&task=bookmark-task&status=completed&model=bookmark-model&machine=bookmark-machine&search=bookmark-search&dateRange=all&keep=yes#ledger')
   for (const name of ['Client', 'Project']) {
     await comboboxTrigger(page, name).click()
     await comboboxList(page, name).getByRole('option').nth(1).click()
@@ -96,11 +111,18 @@ test('advanced filters clear together without changing sort or disclosure', asyn
   await expect(page.getByRole('button', { name: 'Sessions', exact: true })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Entries', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByTestId('entries-pagination-count')).toHaveText('0')
-  expect(reads.at(-1)?.searchParams.get('filter') || '').toBe('')
+  expect(reads.at(-1)?.searchParams.get('filter')).toContain('started_at >=')
+  expect(reads.at(-1)?.searchParams.get('filter')).toContain('started_at <=')
   expect(reads.at(-1)?.searchParams.get('sort')).toBe('-cost')
   expect(new URL(page.url()).search).toBe('?keep=yes')
   expect(new URL(page.url()).hash).toBe('#ledger')
   for (const name of ['Client', 'Project', 'Status', 'Agent', 'Measurement quality']) await expect(comboboxTrigger(page, name)).toHaveText('All')
+  await page.reload()
+  await expect(page.getByTestId('entries-pagination-count')).toHaveText('0')
+  expect(new URL(page.url()).search).toBe('?keep=yes')
+  await expect(page.locator('#entries-date-range')).toHaveAccessibleName(`Date range: ${resolvePreset('30d').start} → ${resolvePreset('30d').end}`)
+  // Reload resets the page-local sort; reapply the same explicit choice for export.
+  await page.getByRole('columnheader').filter({ hasText: 'Cost' }).getByRole('button').click()
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export', exact: true }).click()
   await page.getByRole('menuitem', { name: 'CSV', exact: true }).click()
@@ -108,11 +130,16 @@ test('advanced filters clear together without changing sort or disclosure', asyn
   if (!stream) throw new Error('Missing CSV download stream')
   let csv = ''
   for await (const chunk of stream) csv += chunk.toString()
-  for (const key of ['client', 'project', 'task', 'status', 'agent', 'quality', 'model', 'machine', 'dateStart', 'dateEnd', 'search', 'session_id']) {
+  for (const key of ['client', 'project', 'task', 'status', 'agent', 'quality', 'model', 'machine', 'search', 'session_id']) {
     expect(csv).toContain(`"metadata","${key}","",`)
   }
+  const period = resolvePreset('30d')
+  expect(csv).toContain(`"metadata","dateStart","${period.start}",`)
+  expect(csv).toContain(`"metadata","dateEnd","${period.end}",`)
+  expect(csv).not.toContain('"metadata","dateRange"')
   expect(csv).toContain('"metadata","sort","\'-cost",')
-  expect(reads.at(-1)?.searchParams.get('filter') || '').toBe('')
+  expect(reads.at(-1)?.searchParams.get('filter')).toContain('started_at >=')
+  expect(reads.at(-1)?.searchParams.get('filter')).toContain('started_at <=')
   expect(reads.at(-1)?.searchParams.get('sort')).toBe('-cost')
 })
 
@@ -156,7 +183,7 @@ test('late pre-clear response cannot overwrite clean results or steal subsequent
     if (url.searchParams.get('perPage') === '1') return route.continue()
     const filter = url.searchParams.get('filter') || ''
     if (filter.includes('old-machine')) { pending = true; await gate }
-    const items = filter ? [] : [entry]
+    const items = /quality|machine/.test(filter) ? [] : [entry]
     await route.fulfill({ json: { page: 1, perPage: 25, totalItems: items.length, totalPages: items.length, items } })
   })
   try {

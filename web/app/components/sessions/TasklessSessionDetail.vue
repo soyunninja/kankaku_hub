@@ -164,7 +164,7 @@ function back() {
           <div class="flex flex-col gap-2">
             <button
               v-for="(item, index) in entries" :key="item.id" type="button"
-              class="rounded-md border p-3 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              class="rounded-md border p-3 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-focus-indicator"
               @click="selectEntry(item.id)"
             >
               <span class="block font-medium">{{ t('sessionsQueue.detail.entryNumber', { number: index + 1 }) }} · {{ formatDateTime(item.started_at) }}</span>

@@ -24,17 +24,17 @@ function setupFilter() {
 
 describe('Clients index localized count', () => {
   const locales = [
-    { locale: 'en', messages: en, expected: ['0 clients', '1 client', '2 clients'] },
-    { locale: 'es', messages: es, expected: ['0 clientes', '1 cliente', '2 clientes'] },
-    { locale: 'ja', messages: ja, expected: ['0件のクライアント', '1件のクライアント', '2件のクライアント'] },
+    { locale: 'en', messages: en, expected: ['0 clients, search clients…', '1 client, search clients…', '2 clients, search clients…'] },
+    { locale: 'es', messages: es, expected: ['0 clientes, buscar clientes…', '1 cliente, buscar clientes…', '2 clientes, buscar clientes…'] },
+    { locale: 'ja', messages: ja, expected: ['クライアント0件、クライアントを検索…', 'クライアント1件、クライアントを検索…', 'クライアント2件、クライアントを検索…'] },
   ]
 
   it.each(locales)('selects localized count copy for 0/1/2 in $locale', ({ messages, expected }) => {
-    const expression = source.match(/\{\{ (t\(clients\.length === 1[^\n]+) \}\}/)?.[1]
+    const expression = source.match(/:placeholder="(t\(clients\.length === 1[^"\n]+)"/)?.[1]
     expect(expression).toBeTruthy()
     const render = new Function('clients', 't', `return ${expression}`)
     const t = (key: string, { count }: { count: number }) => {
-      const message = messages.clients[key.split('.')[1] as 'count' | 'countOne']
+      const message = messages.clients[key.split('.')[1] as 'searchWithCount' | 'searchWithCountOne']
       return message.replace('{count}', String(count))
     }
     expect([0, 1, 2].map(length => render({ length }, t))).toEqual(expected)
@@ -43,7 +43,7 @@ describe('Clients index localized count', () => {
   it('keeps client locale keys and count placeholders in parity', () => {
     for (const { messages } of locales) {
       expect(Object.keys(messages.clients).sort()).toEqual(Object.keys(en.clients).sort())
-      for (const key of ['count', 'countOne'] as const) {
+      for (const key of ['count', 'countOne', 'searchWithCount', 'searchWithCountOne'] as const) {
         expect(messages.clients[key].match(/\{\w+\}/g)).toEqual(['{count}'])
       }
     }

@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test'
 import { loginAs, pbOrigin, VIEWER_EMAIL, VIEWER_PASSWORD } from './helpers'
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const allowed = request.method() === 'GET' || (request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime'))
+    if (!allowed) { await route.abort(); throw new Error(`Forbidden mutation: ${request.method()} ${path}`) }
+    await route.continue()
+  })
+})
+
 // Read-only viewer, synthetic responses, isolated stacks only.
 for (const failure of ['list', 'grouped', 'fallback', 'catalog', 'agent'] as const) {
   test(`${failure} failure retries the current Entries view without rejected promises`, async ({ page }) => {

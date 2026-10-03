@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiLogin, assertIsolatedFixtureStack, comboboxTrigger, findClients, login, pbUrl, selectCombobox, setTheme, toastText } from './helpers'
+import { apiLogin, assertIsolatedFixtureStack, comboboxTrigger, findClients, login, pbUrl, selectCombobox, toastText } from './helpers'
 
 /**
  * Targeted regression checks for the visual/UX polish pass (see
@@ -242,6 +242,8 @@ test.describe('mobile viewport (390px) never overflows horizontally', () => {
 
     await page.goto('/projects')
     await page.waitForLoadState('networkidle')
+    await page.getByRole('group', { name: /Vista de proyectos|Project view/ }).getByRole('button', { name: /Lista|List/, exact: true }).click()
+    await expect(page.locator('table tbody tr').first()).toBeVisible()
     await page.locator('table tbody tr').first().click()
     await page.waitForURL(/\/projects\/.+/)
     const projectDetailUrl = page.url()
@@ -249,6 +251,19 @@ test.describe('mobile viewport (390px) never overflows horizontally', () => {
     for (const path of ['/clients', '/projects', projectDetailUrl, '/tasks']) {
       await page.goto(path)
       await page.waitForLoadState('networkidle')
+      if (path === '/clients' || path === '/projects') {
+        await page.getByRole('group', { name: /Vista de clientes|Client view|Vista de proyectos|Project view/ }).getByRole('button', { name: /Lista|List/, exact: true }).click()
+      }
+      if (path === '/tasks') await page.getByRole('group', { name: /Vista de tareas|Task view/ }).getByRole('button', { name: /Lista|List/, exact: true }).click()
+      await expect(page.locator('table').first()).toBeVisible()
+      await expect(page.locator('table tbody tr').first()).toBeVisible()
+      const control = page.locator('table button, table a').first()
+      if (await control.count()) {
+        await control.focus()
+        await expect(control).toBeFocused()
+        const bounds = await control.boundingBox()
+        expect(bounds!.width).toBeLessThanOrEqual(390)
+      }
       await page.waitForTimeout(200)
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
@@ -261,7 +276,7 @@ test.describe('mobile viewport (390px) never overflows horizontally', () => {
     // (a plain <table>, the pattern this check targets) and re-check.
     await page.goto('/tasks')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('tab', { name: /Lista|List/ }).click()
+    await page.getByRole('group', { name: /Vista de tareas|Task view/ }).getByRole('button', { name: /Lista|List/, exact: true }).click()
     await page.waitForTimeout(200)
     const { scrollWidth, innerWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
@@ -314,7 +329,7 @@ test.describe('mobile sidebar sheet', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    await page.locator('header button.md\\:hidden').click()
+    await page.getByTestId('mobile-menu-trigger').click()
     const sheet = page.locator('[data-slot="sheet-content"]')
     await expect(sheet).toBeVisible()
 
@@ -333,6 +348,7 @@ test.describe('mobile sidebar sheet', () => {
 
     await page.keyboard.press('Escape')
     await expect(sheet).toBeHidden()
+    await expect(page.getByTestId('mobile-menu-trigger')).toBeFocused()
   })
 })
 
@@ -341,9 +357,10 @@ test.describe('theme', () => {
     await page.goto('/login')
     await expect(page.locator('html')).toHaveClass('dark')
     await login(page)
-    await setTheme(page, 'light')
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Claro', exact: true }).click()
     await expect(page.locator('html')).toHaveClass('light')
-    await setTheme(page, 'system')
+    await page.getByRole('button', { name: 'Sistema', exact: true }).click()
     await expect(page.locator('html')).toHaveClass(/dark|light/)
   })
 })

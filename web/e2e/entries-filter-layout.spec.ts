@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test'
+import { resolvePreset } from '../app/lib/period'
 import { loginAs, pbOrigin, VIEWER_EMAIL, VIEWER_PASSWORD } from './helpers'
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const allowed = request.method() === 'GET' || (request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime'))
+    if (!allowed) { await route.abort(); throw new Error(`Forbidden mutation: ${request.method()} ${path}`) }
+    await route.continue()
+  })
+})
 
 // Read-only: authenticate the seeded viewer; never create or update PB records.
 for (const width of [1440, 390]) {
@@ -19,7 +30,8 @@ for (const width of [1440, 390]) {
     const actions = page.getByTestId('entries-filter-actions')
     const exportButton = actions.getByRole('button', { name: 'Export', exact: true })
     await expect(exportButton).toBeEnabled()
-    const range = controls.getByRole('button', { name: 'Date range: All time', exact: true })
+    const period = resolvePreset('30d')
+    const range = controls.getByRole('button', { name: `Date range: ${period.start} → ${period.end}`, exact: true })
     await expect(range).toHaveCount(1)
     await expect(controls.locator('label[for="entries-date-range"]')).toHaveText('Date range')
     await expect(page.getByLabel('Start', { exact: true })).toHaveCount(0)
@@ -57,7 +69,7 @@ for (const width of [1440, 390]) {
     expect(exportBox.x + exportBox.width).toBeCloseTo(actionBox.x + actionBox.width, 0)
     if (width === 1440) {
       expect(actionBox.x - (filterBox.x + filterBox.width)).toBeGreaterThanOrEqual(12)
-      expect(await actions.evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth))).toBeGreaterThan(0)
+      expect(await actions.evaluate(el => parseFloat(getComputedStyle(el).borderLeftWidth))).toBe(0)
     }
     else {
       expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(filterBox.y)

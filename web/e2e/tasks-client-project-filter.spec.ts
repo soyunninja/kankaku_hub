@@ -66,7 +66,7 @@ test('tasks client and project filters constrain board, list and server-paged hi
   const activeInSecondProject = tasks.filter(t => t.status !== 'done' && t.project === secondProject.id)
   const cards = page.locator('[role="button"][draggable="true"]')
   await expect.poll(() => cards.count()).toBe(activeInSecondProject.length)
-  await page.getByRole('tab', { name: 'List' }).click()
+  await page.getByRole('group', { name: 'Task view' }).getByRole('button', { name: 'List', exact: true }).click()
   await expect(page.locator('table tbody tr')).toHaveCount(activeInSecondProject.length)
 
   await page.getByRole('button', { name: 'Completed history' }).click()

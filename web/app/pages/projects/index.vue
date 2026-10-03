@@ -156,10 +156,7 @@ async function toggleArchive(project: ProjectRecord) {
     <div class="flex flex-col gap-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 class="text-3xl font-semibold tracking-tight">{{ t('projects.title') }}</h1>
-          <p class="mt-1 text-sm text-muted-foreground">
-            {{ t(projects.length === 1 ? 'projects.countOne' : 'projects.count', { count: projects.length }) }}
-          </p>
+          <h1 class="text-xl font-semibold tracking-tight">{{ t('projects.title') }}</h1>
         </div>
         <div class="flex items-center gap-2">
           <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
@@ -176,11 +173,11 @@ async function toggleArchive(project: ProjectRecord) {
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div class="relative min-w-0 flex-1">
           <Search aria-hidden="true" class="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input id="project-search" v-model="search" type="search" :aria-label="t('projects.search')" :placeholder="t('projects.search')" class="h-12 rounded-2xl bg-card pl-11" />
+          <Input id="project-search" v-model="search" type="search" :aria-label="t('projects.search')" :placeholder="t(projects.length === 1 ? 'projects.searchWithCountOne' : 'projects.searchWithCount', { count: projects.length })" class="pl-11" />
         </div>
         <div class="flex min-w-0 flex-col gap-1 sm:w-48">
           <Label for="project-client-filter" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('projects.filterByClient') }}</Label>
-          <Select id="project-client-filter" v-model="filterClient" :aria-label="t('projects.filterByClient')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]">
+          <Select id="project-client-filter" v-model="filterClient" class="border-0 bg-muted dark:bg-muted" :aria-label="t('projects.filterByClient')" :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]">
             <template #option="{ option }">
               <span class="flex min-w-0 items-center gap-2">
                 <ClientAvatar v-if="option.value && clientById(option.value)" :client="clientById(option.value)!" size="xs" aria-hidden="true" />
@@ -195,11 +192,11 @@ async function toggleArchive(project: ProjectRecord) {
             </template>
           </Select>
         </div>
-        <div role="group" :aria-label="t('projects.viewLabel')" class="flex shrink-0 gap-1 self-start rounded-2xl bg-muted p-1 sm:self-auto">
-          <Button :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" class="rounded-xl" @click="view = 'list'">
+        <div role="group" :aria-label="t('projects.viewLabel')" class="control-group flex shrink-0 gap-1 self-start bg-muted sm:self-auto">
+          <Button size="segment" :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" @click="view = 'list'">
             <List aria-hidden="true" class="size-4" />{{ t('projects.listView') }}
           </Button>
-          <Button :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" class="rounded-xl" @click="view = 'grid'">
+          <Button size="segment" :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" @click="view = 'grid'">
             <LayoutGrid aria-hidden="true" class="size-4" />{{ t('projects.gridView') }}
           </Button>
         </div>
@@ -210,7 +207,7 @@ async function toggleArchive(project: ProjectRecord) {
           <div v-for="n in 6" :key="n" class="h-48 animate-pulse rounded-3xl bg-muted" />
         </div>
         <div v-else class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
-          <article v-for="p in filtered" :key="p.id" data-testid="project-card" class="flex min-w-0 flex-col gap-3 rounded-3xl border border-border/50 bg-card p-2 transition-colors hover:border-border sm:gap-5 sm:p-5">
+          <article v-for="p in filtered" :key="p.id" data-testid="project-card" class="flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 transition-colors sm:gap-5 sm:p-5">
             <div class="flex min-w-0 flex-col gap-2">
               <div class="flex min-w-0 items-start justify-between gap-1">
                 <h2 class="min-w-0 flex-1 text-sm font-semibold [overflow-wrap:anywhere] sm:text-base">{{ p.name }}</h2>
@@ -261,7 +258,7 @@ async function toggleArchive(project: ProjectRecord) {
                   :aria-sort="sortKey === key ? sortDirection === 'asc' ? 'ascending' : 'descending' : undefined"
                 >
                   <button
-                    type="button" class="inline-flex items-center gap-1 rounded-sm text-inherit hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    type="button" class="inline-flex items-center gap-1 rounded-sm text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-indicator"
                     :aria-label="nextSortLabel(key, t(`common.${key}`))"
                     @click="activateSort(key)"
                   >
@@ -279,7 +276,7 @@ async function toggleArchive(project: ProjectRecord) {
               <SkeletonRows v-if="loading && projects.length === 0" :rows="4" :cols="6" />
               <TableRow v-for="p in filtered" :key="p.id" class="cursor-pointer" @click="navigateTo(`/projects/${p.id}`)">
                 <TableCell class="font-medium">
-                  <NuxtLink :to="`/projects/${p.id}`" class="rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring" @click.stop>{{ p.name }}</NuxtLink>
+                  <NuxtLink :to="`/projects/${p.id}`" class="rounded-sm focus-visible:outline-2 focus-visible:outline-focus-indicator" @click.stop>{{ p.name }}</NuxtLink>
                 </TableCell>
                 <TableCell class="text-muted-foreground">
                   <ClientName v-if="clientById(p.client)" :client="clientById(p.client)!" size="xs" class="max-w-40" />
@@ -299,6 +296,7 @@ async function toggleArchive(project: ProjectRecord) {
                 <TableCell class="text-right" @click.stop>
                   <RowActions
                     v-if="canWrite"
+                    no-hover
                     data-testid="write-action"
                     :actions="[
                       { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(p) },

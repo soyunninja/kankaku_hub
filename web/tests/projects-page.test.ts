@@ -171,14 +171,14 @@ describe('Projects view contract', () => {
 
 describe('Projects localized count', () => {
   it.each([
-    { messages: en, expected: ['0 projects', '1 project', '2 projects'] },
-    { messages: es, expected: ['0 proyectos', '1 proyecto', '2 proyectos'] },
-    { messages: ja, expected: ['0件のプロジェクト', '1件のプロジェクト', '2件のプロジェクト'] },
+    { messages: en, expected: ['0 projects, search projects…', '1 project, search projects…', '2 projects, search projects…'] },
+    { messages: es, expected: ['0 proyectos, buscar en proyectos…', '1 proyecto, buscar en proyectos…', '2 proyectos, buscar en proyectos…'] },
+    { messages: ja, expected: ['プロジェクト0件、プロジェクトを検索…', 'プロジェクト1件、プロジェクトを検索…', 'プロジェクト2件、プロジェクトを検索…'] },
   ])('selects singular/plural count and mirrors project keys', ({ messages, expected }) => {
-    const expression = source.match(/\{\{ (t\(projects\.length === 1[^\n]+) \}\}/)?.[1]
+    const expression = source.match(/:placeholder="(t\(projects\.length === 1[^"\n]+)"/)?.[1]
     expect(expression).toBeTruthy()
     const render = new Function('projects', 't', `return ${expression}`)
-    const t = (key: string, { count }: { count: number }) => messages.projects[key.split('.')[1] as 'count' | 'countOne'].replace('{count}', String(count))
+    const t = (key: string, { count }: { count: number }) => messages.projects[key.split('.')[1] as 'searchWithCount' | 'searchWithCountOne'].replace('{count}', String(count))
     expect([0, 1, 2].map(length => render({ length }, t))).toEqual(expected)
     expect(Object.keys(messages.projects).sort()).toEqual(Object.keys(en.projects).sort())
     expect(messages.projects.openDetail).toContain('{name}')

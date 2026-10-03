@@ -52,6 +52,16 @@ function parseCsv(content: string): string[][] {
   return rows
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const allowed = request.method() === 'GET' || (request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime'))
+    if (!allowed) { await route.abort(); throw new Error(`Forbidden mutation: ${request.method()} ${path}`) }
+    await route.continue()
+  })
+})
+
 interface Client { id: string, name: string, active: boolean }
 interface Project { id: string, name: string, client: string, active: boolean }
 
@@ -104,7 +114,8 @@ test('Entries exports all matching identities in CSV and XLSX across browse pres
     localStorage.setItem('kankaku-entries-group-by-session', '0')
   })
   await loginAs(page, VIEWER_EMAIL, VIEWER_PASSWORD)
-  await page.goto('/entries')
+  // This identity-completeness scenario explicitly requests all history.
+  await page.goto('/entries?dateRange=all')
   await selectCombobox(comboboxTrigger(page, 'Client'), client.name)
   await selectCombobox(comboboxTrigger(page, 'Project'), project!.name)
   await page.getByRole('button', { name: 'More filters · 0', exact: true }).click()
@@ -147,6 +158,7 @@ test('Entries exports all matching identities in CSV and XLSX across browse pres
     const metadata = Object.fromEntries(rows.filter(r => r.section === 'metadata').map(r => [r.metadata_key, r.metadata_value]))
     expect(metadata).toMatchObject({ export_kind: 'entries_detail', client: client.id, project: project!.id,
       status: 'completed', sort: 'started_at', exported_rows: '1001', total_matching_rows: '1001', truncated: 'false', row_limit: '5000' })
+    expect(metadata).not.toHaveProperty('dateRange')
     expect(Number.isNaN(Date.parse(metadata.generated_at!))).toBe(false)
     expect(download.suggestedFilename()).toBe(`entries-${metadata.generated_at!.slice(0, 10)}.${format}`)
     const details = rows.filter(r => r.section === 'task_entry')

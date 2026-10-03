@@ -99,6 +99,15 @@ task, never for computing a total.
     automatically enabling it. Supported filters and date bounds SHALL
     survive presentation changes. This does not expand the totals API.
 
+19. `ENTRIES-REQ-019` — With no explicit bounds or All-time marker, Entries
+    SHALL resolve the shared last-30-local-days preset before its first main
+    flat or grouped browse. Explicit dates SHALL take precedence, including
+    one-sided bounds. All time SHALL persist through `dateRange=all` route
+    metadata, never a thirteenth filter. Date commits SHALL navigate atomically.
+    Reset SHALL remove all twelve canonical query keys and the marker, restore
+    the implicit period, preserve unrelated query/hash and live mode/sort, and
+    never change a pending export's captured filter snapshot.
+
 ## Scenarios
 
 ### Scenario: a prompt search with special characters does not break the filter (`ENTRIES-REQ-003`)
@@ -111,7 +120,7 @@ task, never for computing a total.
 
 - **Given** `dateStart`/`dateEnd` are set
 - **When** the list is fetched
-- **Then** only rows with `started_at` inside `[dateStart 00:00:00.000Z, dateEnd 23:59:59.999Z]` are returned
+- **Then** only rows with `started_at` inside the inclusive local calendar-day bounds converted to UTC by the shared date helpers are returned
 
 ### Scenario: the detail drawer clearly warns against summing work_records (`ENTRIES-REQ-005`)
 
@@ -185,6 +194,18 @@ task, never for computing a total.
 - **Then** grouping becomes available again, with supported filters and
   dates retained
 
+## Default period and explicit All time
+
+Without explicit date bounds or `dateRange=all`, Entries resolves the shared
+`30d` preset before its first browse: today and the preceding 29 inclusive
+local calendar days. Explicit bounds retain one-sided or bounded intent and
+take precedence over the All-time marker. Date choices are committed as one
+router navigation, preserving unrelated query parameters and the hash.
+`dateRange=all` is route metadata, not an explorer filter or export field.
+Reset intentionally returns to the implicit 30-day baseline rather than the
+older All-time reset behavior. The implicit period does not add to the
+advanced-filter count. Exports retain their click-time filter snapshot.
+
 ## Configuration
 
 None beyond the shared PocketBase connection.
@@ -216,6 +237,7 @@ None beyond the shared PocketBase connection.
 
 | Requirement | Proof | Status |
 |---|---|---|
+| `ENTRIES-REQ-019` | `web/e2e/entries-date-range.spec.ts`, `entries-empty-recovery.spec.ts`, `entries-partial-export.spec.ts`, `day-boundary.spec.ts` (read-only isolated stack) | browser regression coverage |
 | `ENTRIES-REQ-018` | `web/tests/entries-session-filters.test.ts`, `web/e2e/entries-grouped-filter-consistency.spec.ts` (isolated stack) | unit and browser covered |
 | `ENTRIES-REQ-001` | `web/e2e/smoke.spec.ts` | covered |
 | `ENTRIES-REQ-002` | `web/e2e/smoke.spec.ts` | covered |

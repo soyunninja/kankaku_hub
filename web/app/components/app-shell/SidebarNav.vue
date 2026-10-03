@@ -70,14 +70,12 @@ function isActive(to: string) {
       v-for="item in nav"
       :key="item.to"
       :to="item.to"
-      class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
-      :class="isActive(item.to)
-        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-        : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'"
+      :aria-current="isActive(item.to) ? 'page' : undefined"
+      class="group/nav-item flex items-center gap-3 rounded-md bg-transparent px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-muted hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-indicator focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
       @click="$emit('navigate')"
     >
-      <component :is="item.icon" class="size-4 shrink-0" />
-      <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+      <component :is="item.icon" class="size-4 shrink-0" :class="isActive(item.to) ? 'text-sidebar-primary' : 'text-sidebar-foreground'" />
+      <span class="min-w-0 flex-1 truncate" :class="{ 'text-sidebar-primary dark:text-sidebar-foreground': isActive(item.to), 'group-hover/nav-item:text-sidebar-foreground': isActive(item.to) }">{{ item.label }}</span>
       <Badge v-if="item.badge" variant="secondary" class="ml-auto shrink-0 tabular-nums">
         {{ item.badge }}
       </Badge>

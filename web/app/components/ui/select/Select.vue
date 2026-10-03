@@ -58,7 +58,7 @@ function select(value: unknown) {
         <button
           v-bind="attrs" type="button" role="combobox" data-slot="combobox-trigger" :aria-label="ariaLabel ?? placeholder" :disabled="disabled"
           :class="cn(
-            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+            'control-size control-field flex w-full items-center justify-between gap-2 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-focus-indicator aria-invalid:ring-3 aria-invalid:ring-destructive aria-invalid:focus-visible:ring-destructive disabled:cursor-not-allowed disabled:opacity-50',
             props.class,
           )"
         >

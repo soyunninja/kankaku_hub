@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { History, Keyboard, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { Columns3, History, List, Pencil, Plus, Trash2 } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import RowActions from '@/components/common/RowActions.vue'
@@ -12,9 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { groupByKey } from '@/lib/aggregate'
 import { listCompletedTasks } from '@/lib/task-history'
 import { loadTaskTotalsPages } from '@/lib/task-totals-pages'
@@ -490,11 +489,11 @@ async function onDelete(task: TaskRecord) {
         <h1 class="text-xl font-semibold tracking-tight">
           {{ t('tasks.title') }}
         </h1>
-        <div class="flex items-end gap-2">
+        <div data-testid="tasks-toolbar" class="flex min-w-0 w-full flex-wrap items-end gap-2 xl:w-auto">
           <div class="flex flex-col gap-1">
             <Label for="tasks-filter-client" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('common.client') }}</Label>
             <Select
-              id="tasks-filter-client" :model-value="filterClient" class="w-48" :aria-label="t('common.client')" :placeholder="t('common.client')"
+              id="tasks-filter-client" :model-value="filterClient" class="min-w-0 w-48 max-w-full border-0 bg-muted dark:bg-muted" :aria-label="t('common.client')" :placeholder="t('common.client')"
               :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
               @update:model-value="selectClient"
             >
@@ -515,33 +514,21 @@ async function onDelete(task: TaskRecord) {
           <div class="flex flex-col gap-1">
             <Label for="tasks-filter-project" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('common.project') }}</Label>
             <Select
-              id="tasks-filter-project" v-model="filterProject" class="w-48" :aria-label="t('common.project')" :placeholder="t('common.project')"
+              id="tasks-filter-project" v-model="filterProject" class="min-w-0 w-48 max-w-full border-0 bg-muted dark:bg-muted" :aria-label="t('common.project')" :placeholder="t('common.project')"
               :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]"
             />
           </div>
-          <Tabs v-model="view">
-            <TabsList>
-              <TabsTrigger value="board">
-                {{ t('tasks.board') }}
-              </TabsTrigger>
-              <TabsTrigger value="list">
-                {{ t('tasks.list') }}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Button ref="historyControl" variant="outline" :aria-pressed="view === 'history'" @click="view = view === 'history' ? 'board' : 'history'">
+          <div role="group" :aria-label="t('tasks.viewLabel')" class="control-group flex shrink-0 gap-1 self-start bg-muted sm:self-auto">
+            <Button size="segment" :variant="view === 'board' ? 'secondary' : 'ghost'" :aria-pressed="view === 'board'" @click="view = 'board'">
+              <Columns3 class="size-4" aria-hidden="true" />{{ t('tasks.board') }}
+            </Button>
+            <Button size="segment" :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" @click="view = 'list'">
+              <List class="size-4" aria-hidden="true" />{{ t('tasks.list') }}
+            </Button>
+          </div>
+          <Button ref="historyControl" variant="toolbar" :aria-pressed="view === 'history'" @click="view = view === 'history' ? 'board' : 'history'">
             {{ t('tasks.history.title') }}
           </Button>
-          <Tooltip v-if="view === 'board'">
-            <TooltipTrigger as-child>
-              <Button size="icon" variant="outline" :aria-label="t('tasks.keyboardHint.label')">
-                <Keyboard class="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {{ t('tasks.keyboardHint.text') }}
-            </TooltipContent>
-          </Tooltip>
           <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
             <Plus class="size-4" />
             {{ t('tasks.new') }}
@@ -590,7 +577,7 @@ async function onDelete(task: TaskRecord) {
               v-for="task in byStatus(status)" :key="task.id"
               :ref="(el) => setCardEl(task.id, el)"
               :draggable="canWrite"
-              class="gap-0 py-0 touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="gap-0 py-0 touch-none outline-none focus-visible:ring-2 focus-visible:ring-focus-indicator"
               :class="[canWrite ? 'cursor-grab active:cursor-grabbing' : '', draggingTaskId === task.id ? 'opacity-50' : '']"
               role="button"
               tabindex="0"
@@ -634,7 +621,8 @@ async function onDelete(task: TaskRecord) {
       </div>
 
       <Card v-if="view === 'list' || (view === 'history' && !!historyResult?.items.length)">
-        <CardContent class="p-0">
+        <CardContent>
+          <div class="relative w-full overflow-auto">
           <table class="w-full text-sm">
             <thead class="border-b border-border text-left text-xs text-muted-foreground">
               <tr>
@@ -680,6 +668,7 @@ async function onDelete(task: TaskRecord) {
                 <td class="p-3 text-right">
                   <RowActions
                     v-if="canWrite"
+                    no-hover
                     data-testid="write-action"
                     :actions="[
                       { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(task) },
@@ -690,6 +679,7 @@ async function onDelete(task: TaskRecord) {
               </tr>
             </tbody>
           </table>
+          </div>
           <EmptyState v-if="view === 'list' && !loading && filtered.length === 0" :title="t('tasks.empty')" class="m-4" />
         </CardContent>
       </Card>

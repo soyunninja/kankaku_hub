@@ -81,6 +81,8 @@
   },
   "dashboard": {
     "title": "ダッシュボード",
+    "greeting": "こんにちは",
+    "greetingWithName": "こんにちは、{name}",
     "period": "期間",
     "presets": {
       "today": "今日",
@@ -141,6 +143,8 @@
     "count": "{count}件のクライアント",
     "countOne": "{count}件のクライアント",
     "search": "クライアントを検索…",
+    "searchWithCount": "クライアント{count}件、クライアントを検索…",
+    "searchWithCountOne": "クライアント{count}件、クライアントを検索…",
     "viewLabel": "クライアントの表示形式",
     "listView": "リスト",
     "gridView": "グリッド",
@@ -194,6 +198,8 @@
     "count": "{count}件のプロジェクト",
     "countOne": "{count}件のプロジェクト",
     "search": "名前、コード、クライアントでプロジェクトを検索…",
+    "searchWithCount": "プロジェクト{count}件、プロジェクトを検索…",
+    "searchWithCountOne": "プロジェクト{count}件、プロジェクトを検索…",
     "viewLabel": "プロジェクト表示",
     "listView": "リスト",
     "gridView": "グリッド",
@@ -219,6 +225,7 @@
     "new": "新規タスク",
     "edit": "タスクを編集",
     "board": "ボード",
+    "viewLabel": "タスクの表示形式",
     "list": "リスト",
     "history": {
       "title": "完了履歴",

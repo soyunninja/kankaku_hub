@@ -383,8 +383,8 @@ async function confirmAssign() {
       </Button>
     </div>
 
-    <Card class="py-0">
-      <CardContent class="p-0">
+    <Card>
+      <CardContent>
         <div v-if="loading" class="flex flex-col gap-2 p-4">
           <Skeleton class="h-10 w-full" />
           <Skeleton class="h-10 w-full" />
@@ -464,7 +464,7 @@ async function confirmAssign() {
                   {{ formatCost(g.cost) }}
                 </TableCell>
                 <TableCell class="text-right">
-                  <Button v-if="canWrite" data-testid="write-action" size="sm" variant="outline" @click="openAssignGroup(g)">
+                  <Button v-if="canWrite" no-hover data-testid="write-action" variant="toolbar" @click="openAssignGroup(g)">
                     {{ t('unassigned.assignGroup') }}
                   </Button>
                 </TableCell>
@@ -530,6 +530,7 @@ async function confirmAssign() {
                           <Button
                             size="icon"
                             variant="outline"
+                            no-hover
                             :disabled="expansionState(g).page <= 1"
                             :aria-label="t('entries.pagination.previous')"
                             :title="t('entries.pagination.previous')"
@@ -540,6 +541,7 @@ async function confirmAssign() {
                           <Button
                             size="icon"
                             variant="outline"
+                            no-hover
                             :disabled="expansionState(g).page >= expansionState(g).totalPages"
                             :aria-label="t('entries.pagination.next')"
                             :title="t('entries.pagination.next')"

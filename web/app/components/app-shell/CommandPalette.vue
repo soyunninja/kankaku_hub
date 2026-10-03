@@ -146,7 +146,7 @@ function onKeydown(e: KeyboardEvent) {
       <DialogTitle class="sr-only">
         {{ t('palette.title') }}
       </DialogTitle>
-      <div class="flex items-center gap-2 rounded-md border border-input px-3">
+      <div class="control-size control-field flex items-center gap-2 focus-within:ring-3 focus-within:ring-focus-indicator">
         <Search class="size-4 text-muted-foreground" />
         <Input
           v-model="query"
@@ -157,7 +157,7 @@ function onKeydown(e: KeyboardEvent) {
           :aria-expanded="items.length > 0"
           :aria-activedescendant="activeOptionId"
           :placeholder="t('palette.placeholder')"
-          class="border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+          class="h-full rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
           @keydown="onInputKeydown"
         />
       </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Translation as I18nT } from 'vue-i18n'
 import { onBeforeUnmount, onMounted } from 'vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
 import ClientName from '@/components/clients/ClientName.vue'
@@ -34,6 +35,8 @@ import {
 import { TotalsRouteUnavailableError, type TotalsFilters } from '@/composables/useTotals'
 
 const { t } = useI18n()
+const { user } = useAuth()
+const displayName = computed(() => user.value?.name?.trim() ?? '')
 const toast = useToast()
 useHead({ title: computed(() => t('dashboard.title')) })
 const { formatCost, formatDuration, formatPercent, formatTokensCompact } = useFormatters()
@@ -595,8 +598,11 @@ watch(stackBy, () => {
 <template>
   <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-xl font-semibold tracking-tight">
-        {{ t('dashboard.title') }}
+      <h1 class="min-w-0 text-xl font-semibold tracking-tight wrap-anywhere">
+        <I18nT v-if="displayName" keypath="dashboard.greetingWithName" tag="span">
+          <template #name><span class="text-2xl font-extrabold">{{ displayName }}</span></template>
+        </I18nT>
+        <template v-else>{{ t('dashboard.greeting') }}</template>
       </h1>
       <div class="flex flex-wrap items-center gap-3">
         <label class="flex items-center gap-2 text-sm text-muted-foreground">
@@ -619,7 +625,7 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
       <Button variant="outline" size="sm" @click="load">{{ t('dashboard.chart.retry') }}</Button>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
       <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')">
         <p v-if="workTimeQuality.upperBoundCount > 0" class="mt-1 text-xs text-muted-foreground">
           <NuxtLink :to="workTimeUpperBoundDrilldown" class="underline decoration-dotted underline-offset-2 hover:text-foreground">
@@ -688,7 +694,7 @@ v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :optio
       </CardContent>
     </Card>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card data-testid="breakdown-by-client">
         <CardHeader><CardTitle class="text-sm font-medium text-foreground">
           {{ t('dashboard.byClient') }}

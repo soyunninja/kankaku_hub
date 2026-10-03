@@ -4,6 +4,13 @@ import { comboboxTrigger, loginAs, pbOrigin, selectCombobox, VIEWER_EMAIL, VIEWE
 
 test.beforeEach(async ({ page }) => {
   if (process.env.PW_BASE_URL !== 'http://127.0.0.1:3003' || pbOrigin() !== 'http://127.0.0.1:8093') throw new Error('Requires the owned read-only :3003/:8093 stack')
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const allowed = request.method() === 'GET' || (request.method() === 'POST' && (/\/auth-(with-password|refresh)$/.test(path) || path === '/api/kankaku/totals' || path === '/api/realtime'))
+    if (!allowed) { await route.abort(); throw new Error(`Forbidden mutation: ${request.method()} ${path}`) }
+    await route.continue()
+  })
   await page.route('**/api/collections/*/records**', async route => {
     expect(route.request().method()).toBe('GET')
     await route.continue()
@@ -136,13 +143,20 @@ test('breakpoint relocation restores only valid filter focus and preserves value
   await expect(page.locator('#entries-more-filters')).toBeFocused()
   await page.setViewportSize({ width: 767, height: 1000 })
   await expect(page.locator('#entries-more-filters')).toBeFocused()
-  const outside = page.getByRole('button', { name: 'Theme', exact: true })
+  await page.getByRole('button', { name: 'Open menu', exact: true }).click()
+  const outside = page.locator('[data-testid="sidebar-footer"] [data-footer-control="search"]')
   await outside.focus()
   await page.setViewportSize({ width: 768, height: 1000 })
-  await expect(outside).toBeFocused()
-  await outside.evaluate(el => (el as HTMLElement).blur())
+  // Wait for the actual new footer, not the still-focused outgoing Sheet.
+  const desktopSearch = page.locator('aside [data-testid="sidebar-footer"] [data-footer-control="search"]')
+  await expect(desktopSearch).toBeVisible()
+  await expect(desktopSearch).toBeFocused()
+  await expect(page.locator('[data-slot="sheet-content"]')).toHaveCount(0)
+  await desktopSearch.evaluate(el => (el as HTMLElement).blur())
   await page.setViewportSize({ width: 767, height: 1000 })
+  await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+  await expect(page.locator('[data-slot="sheet-content"]')).toHaveCount(0)
 })
 
 for (const [locale, theme, width, rich = false] of [

@@ -7,6 +7,7 @@
       "background": {
         "role": "neutral",
         "displayName": "Background",
+        "primitive": "oklch(0.982117640 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -21,6 +22,7 @@
       "foreground": {
         "role": "neutral",
         "displayName": "Foreground",
+        "primitive": "oklch(0.145 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -35,6 +37,7 @@
       "card": {
         "role": "neutral",
         "displayName": "Card",
+        "primitive": "oklch(1 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -49,6 +52,7 @@
       "card-foreground": {
         "role": "neutral",
         "displayName": "Card Foreground",
+        "primitive": "oklch(0.145 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -63,6 +67,7 @@
       "popover": {
         "role": "neutral",
         "displayName": "Popover",
+        "primitive": "oklch(1 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -77,6 +82,7 @@
       "popover-foreground": {
         "role": "neutral",
         "displayName": "Popover Foreground",
+        "primitive": "oklch(0.145 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -91,6 +97,7 @@
       "primary": {
         "role": "primary",
         "displayName": "Primary",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
           "oklch(0.150 0.228 1)",
           "oklch(0.264 0.228 1)",
@@ -105,6 +112,7 @@
       "primary-foreground": {
         "role": "primary",
         "displayName": "Primary Foreground",
+        "primitive": "oklch(0.98 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -119,6 +127,7 @@
       "secondary": {
         "role": "neutral",
         "displayName": "Secondary",
+        "primitive": "oklch(0.96 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -133,6 +142,7 @@
       "secondary-foreground": {
         "role": "neutral",
         "displayName": "Secondary Foreground",
+        "primitive": "oklch(0.205 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -147,6 +157,7 @@
       "muted": {
         "role": "neutral",
         "displayName": "Muted",
+        "primitive": "oklch(0.96 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -161,6 +172,7 @@
       "muted-foreground": {
         "role": "neutral",
         "displayName": "Muted Foreground",
+        "primitive": "oklch(0.5 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -175,6 +187,7 @@
       "accent": {
         "role": "primary",
         "displayName": "Accent",
+        "primitive": "oklch(0.94 0.03 1)",
         "tonalRamp": [
           "oklch(0.150 0.03 1)",
           "oklch(0.264 0.03 1)",
@@ -189,6 +202,7 @@
       "accent-foreground": {
         "role": "primary",
         "displayName": "Accent Foreground",
+        "primitive": "oklch(0.519 0.201 9)",
         "tonalRamp": [
           "oklch(0.150 0.201 9)",
           "oklch(0.264 0.201 9)",
@@ -203,6 +217,7 @@
       "destructive": {
         "role": "status",
         "displayName": "Destructive",
+        "primitive": "oklch(0.567 0.245 27.325)",
         "tonalRamp": [
           "oklch(0.150 0.245 27.325)",
           "oklch(0.264 0.245 27.325)",
@@ -217,6 +232,7 @@
       "destructive-foreground": {
         "role": "status",
         "displayName": "Destructive Foreground",
+        "primitive": "oklch(0.98 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -231,6 +247,7 @@
       "success": {
         "role": "status",
         "displayName": "Success",
+        "primitive": "oklch(0.53 0.14 150)",
         "tonalRamp": [
           "oklch(0.150 0.14 150)",
           "oklch(0.264 0.14 150)",
@@ -245,6 +262,7 @@
       "success-foreground": {
         "role": "status",
         "displayName": "Success Foreground",
+        "primitive": "oklch(0.98 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -259,6 +277,7 @@
       "warning": {
         "role": "status",
         "displayName": "Warning",
+        "primitive": "oklch(0.75 0.15 80)",
         "tonalRamp": [
           "oklch(0.150 0.15 80)",
           "oklch(0.264 0.15 80)",
@@ -273,6 +292,7 @@
       "warning-foreground": {
         "role": "status",
         "displayName": "Warning Foreground",
+        "primitive": "oklch(0.2 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -287,6 +307,7 @@
       "border": {
         "role": "neutral",
         "displayName": "Border",
+        "primitive": "oklch(0.9 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -301,6 +322,7 @@
       "input": {
         "role": "neutral",
         "displayName": "Input",
+        "primitive": "oklch(0.9 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -315,6 +337,7 @@
       "ring": {
         "role": "primary",
         "displayName": "Ring",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
           "oklch(0.150 0.228 1)",
           "oklch(0.264 0.228 1)",
@@ -329,6 +352,7 @@
       "chart-1": {
         "role": "data",
         "displayName": "Chart 1",
+        "primitive": "oklch(0.650 0.228 1)",
         "tonalRamp": [
           "oklch(0.150 0.228 1)",
           "oklch(0.264 0.228 1)",
@@ -343,6 +367,7 @@
       "chart-2": {
         "role": "data",
         "displayName": "Chart 2",
+        "primitive": "oklch(0.65 0.15 40)",
         "tonalRamp": [
           "oklch(0.150 0.15 40)",
           "oklch(0.264 0.15 40)",
@@ -357,6 +382,7 @@
       "chart-3": {
         "role": "data",
         "displayName": "Chart 3",
+        "primitive": "oklch(0.6 0.1 280)",
         "tonalRamp": [
           "oklch(0.150 0.1 280)",
           "oklch(0.264 0.1 280)",
@@ -371,6 +397,7 @@
       "chart-4": {
         "role": "data",
         "displayName": "Chart 4",
+        "primitive": "oklch(0.7 0.14 140)",
         "tonalRamp": [
           "oklch(0.150 0.14 140)",
           "oklch(0.264 0.14 140)",
@@ -385,6 +412,7 @@
       "chart-5": {
         "role": "data",
         "displayName": "Chart 5",
+        "primitive": "oklch(0.824 0.097 88)",
         "tonalRamp": [
           "oklch(0.150 0.097 88)",
           "oklch(0.264 0.097 88)",
@@ -399,6 +427,7 @@
       "avatar-foreground": {
         "role": "neutral",
         "displayName": "Avatar Foreground",
+        "primitive": "oklch(0.145 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -413,6 +442,7 @@
       "sidebar": {
         "role": "neutral",
         "displayName": "Sidebar",
+        "primitive": "oklch(0.985 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -427,6 +457,7 @@
       "sidebar-foreground": {
         "role": "neutral",
         "displayName": "Sidebar Foreground",
+        "primitive": "oklch(0.145 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -441,6 +472,7 @@
       "sidebar-primary": {
         "role": "primary",
         "displayName": "Sidebar Primary",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
           "oklch(0.150 0.228 1)",
           "oklch(0.264 0.228 1)",
@@ -455,6 +487,7 @@
       "sidebar-primary-foreground": {
         "role": "primary",
         "displayName": "Sidebar Primary Foreground",
+        "primitive": "oklch(0.98 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -469,6 +502,7 @@
       "sidebar-accent": {
         "role": "primary",
         "displayName": "Sidebar Accent",
+        "primitive": "oklch(0.94 0.03 1)",
         "tonalRamp": [
           "oklch(0.150 0.03 1)",
           "oklch(0.264 0.03 1)",
@@ -483,6 +517,7 @@
       "sidebar-accent-foreground": {
         "role": "primary",
         "displayName": "Sidebar Accent Foreground",
+        "primitive": "oklch(0.519 0.201 9)",
         "tonalRamp": [
           "oklch(0.150 0.201 9)",
           "oklch(0.264 0.201 9)",
@@ -497,6 +532,7 @@
       "sidebar-border": {
         "role": "neutral",
         "displayName": "Sidebar Border",
+        "primitive": "oklch(0.9 0 0)",
         "tonalRamp": [
           "oklch(0.150 0 0)",
           "oklch(0.264 0 0)",
@@ -511,6 +547,7 @@
       "sidebar-ring": {
         "role": "primary",
         "displayName": "Sidebar Ring",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
           "oklch(0.150 0.228 1)",
           "oklch(0.264 0.228 1)",
@@ -525,20 +562,23 @@
       "dark-background": {
         "role": "neutral",
         "displayName": "Dark Background",
+        "primitive": "oklch(0.191251 0 0)",
+        "approximateHex": "#141414",
         "tonalRamp": [
-          "oklch(0.150 0.011 316)",
-          "oklch(0.264 0.011 316)",
-          "oklch(0.379 0.011 316)",
-          "oklch(0.493 0.011 316)",
-          "oklch(0.607 0.011 316)",
-          "oklch(0.721 0.011 316)",
-          "oklch(0.836 0.011 316)",
-          "oklch(0.950 0.011 316)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-foreground": {
         "role": "neutral",
         "displayName": "Dark Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
           "oklch(0.150 0.009 342)",
           "oklch(0.264 0.009 342)",
@@ -553,20 +593,23 @@
       "dark-card": {
         "role": "neutral",
         "displayName": "Dark Card",
+        "primitive": "oklch(0.226450 0 0)",
+        "approximateHex": "#1C1C1C",
         "tonalRamp": [
-          "oklch(0.150 0.014 332)",
-          "oklch(0.264 0.014 332)",
-          "oklch(0.379 0.014 332)",
-          "oklch(0.493 0.014 332)",
-          "oklch(0.607 0.014 332)",
-          "oklch(0.721 0.014 332)",
-          "oklch(0.836 0.014 332)",
-          "oklch(0.950 0.014 332)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-card-foreground": {
         "role": "neutral",
         "displayName": "Dark Card Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
           "oklch(0.150 0.009 342)",
           "oklch(0.264 0.009 342)",
@@ -581,20 +624,23 @@
       "dark-popover": {
         "role": "neutral",
         "displayName": "Dark Popover",
+        "primitive": "oklch(0.280940 0 0)",
+        "approximateHex": "#292929",
         "tonalRamp": [
-          "oklch(0.150 0.007 315)",
-          "oklch(0.264 0.007 315)",
-          "oklch(0.379 0.007 315)",
-          "oklch(0.493 0.007 315)",
-          "oklch(0.607 0.007 315)",
-          "oklch(0.721 0.007 315)",
-          "oklch(0.836 0.007 315)",
-          "oklch(0.950 0.007 315)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-popover-foreground": {
         "role": "neutral",
         "displayName": "Dark Popover Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
           "oklch(0.150 0.009 342)",
           "oklch(0.264 0.009 342)",
@@ -609,48 +655,53 @@
       "dark-primary": {
         "role": "primary",
         "displayName": "Dark Primary",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
-          "oklch(0.150 0.125 346)",
-          "oklch(0.264 0.125 346)",
-          "oklch(0.379 0.125 346)",
-          "oklch(0.493 0.125 346)",
-          "oklch(0.607 0.125 346)",
-          "oklch(0.721 0.125 346)",
-          "oklch(0.836 0.125 346)",
-          "oklch(0.950 0.125 346)"
+          "oklch(0.150 0.228 1)",
+          "oklch(0.264 0.228 1)",
+          "oklch(0.379 0.228 1)",
+          "oklch(0.493 0.228 1)",
+          "oklch(0.607 0.228 1)",
+          "oklch(0.721 0.228 1)",
+          "oklch(0.836 0.228 1)",
+          "oklch(0.950 0.228 1)"
         ]
       },
       "dark-primary-foreground": {
         "role": "primary",
         "displayName": "Dark Primary Foreground",
+        "primitive": "oklch(0.98 0 0)",
         "tonalRamp": [
-          "oklch(0.150 0.011 316)",
-          "oklch(0.264 0.011 316)",
-          "oklch(0.379 0.011 316)",
-          "oklch(0.493 0.011 316)",
-          "oklch(0.607 0.011 316)",
-          "oklch(0.721 0.011 316)",
-          "oklch(0.836 0.011 316)",
-          "oklch(0.950 0.011 316)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-secondary": {
         "role": "neutral",
         "displayName": "Dark Secondary",
+        "primitive": "oklch(0.280940 0 0)",
+        "approximateHex": "#292929",
         "tonalRamp": [
-          "oklch(0.150 0.026 332)",
-          "oklch(0.264 0.026 332)",
-          "oklch(0.379 0.026 332)",
-          "oklch(0.493 0.026 332)",
-          "oklch(0.607 0.026 332)",
-          "oklch(0.721 0.026 332)",
-          "oklch(0.836 0.026 332)",
-          "oklch(0.950 0.026 332)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-secondary-foreground": {
         "role": "neutral",
         "displayName": "Dark Secondary Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
           "oklch(0.150 0.009 342)",
           "oklch(0.264 0.009 342)",
@@ -665,62 +716,69 @@
       "dark-muted": {
         "role": "neutral",
         "displayName": "Dark Muted",
+        "primitive": "oklch(0.226450 0 0)",
+        "approximateHex": "#1C1C1C",
         "tonalRamp": [
-          "oklch(0.150 0.017 335)",
-          "oklch(0.264 0.017 335)",
-          "oklch(0.379 0.017 335)",
-          "oklch(0.493 0.017 335)",
-          "oklch(0.607 0.017 335)",
-          "oklch(0.721 0.017 335)",
-          "oklch(0.836 0.017 335)",
-          "oklch(0.950 0.017 335)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-muted-foreground": {
         "role": "neutral",
         "displayName": "Dark Muted Foreground",
+        "primitive": "oklch(0.810 0 0)",
+        "approximateHex": "#C1C1C1",
         "tonalRamp": [
-          "oklch(0.150 0.035 345)",
-          "oklch(0.264 0.035 345)",
-          "oklch(0.379 0.035 345)",
-          "oklch(0.493 0.035 345)",
-          "oklch(0.607 0.035 345)",
-          "oklch(0.721 0.035 345)",
-          "oklch(0.836 0.035 345)",
-          "oklch(0.950 0.035 345)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-accent": {
-        "role": "primary",
+        "role": "neutral",
         "displayName": "Dark Accent",
+        "primitive": "oklch(0.280940 0 0)",
         "tonalRamp": [
-          "oklch(0.150 0.041 347)",
-          "oklch(0.264 0.041 347)",
-          "oklch(0.379 0.041 347)",
-          "oklch(0.493 0.041 347)",
-          "oklch(0.607 0.041 347)",
-          "oklch(0.721 0.041 347)",
-          "oklch(0.836 0.041 347)",
-          "oklch(0.950 0.041 347)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-accent-foreground": {
-        "role": "primary",
+        "role": "neutral",
         "displayName": "Dark Accent Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
-          "oklch(0.150 0.106 345)",
-          "oklch(0.264 0.106 345)",
-          "oklch(0.379 0.106 345)",
-          "oklch(0.493 0.106 345)",
-          "oklch(0.607 0.106 345)",
-          "oklch(0.721 0.106 345)",
-          "oklch(0.836 0.106 345)",
-          "oklch(0.950 0.106 345)"
+          "oklch(0.150 0.009 342)",
+          "oklch(0.264 0.009 342)",
+          "oklch(0.379 0.009 342)",
+          "oklch(0.493 0.009 342)",
+          "oklch(0.607 0.009 342)",
+          "oklch(0.721 0.009 342)",
+          "oklch(0.836 0.009 342)",
+          "oklch(0.950 0.009 342)"
         ]
       },
       "dark-destructive": {
         "role": "status",
         "displayName": "Dark Destructive",
+        "primitive": "oklch(0.727 0.174 9.4)",
         "tonalRamp": [
           "oklch(0.150 0.174 9.4)",
           "oklch(0.264 0.174 9.4)",
@@ -735,6 +793,7 @@
       "dark-destructive-foreground": {
         "role": "status",
         "displayName": "Dark Destructive Foreground",
+        "primitive": "oklch(0.113 0.011 316)",
         "tonalRamp": [
           "oklch(0.150 0.011 316)",
           "oklch(0.264 0.011 316)",
@@ -749,6 +808,7 @@
       "dark-success": {
         "role": "status",
         "displayName": "Dark Success",
+        "primitive": "oklch(0.884 0.068 157)",
         "tonalRamp": [
           "oklch(0.150 0.068 157)",
           "oklch(0.264 0.068 157)",
@@ -763,6 +823,7 @@
       "dark-success-foreground": {
         "role": "status",
         "displayName": "Dark Success Foreground",
+        "primitive": "oklch(0.113 0.011 316)",
         "tonalRamp": [
           "oklch(0.150 0.011 316)",
           "oklch(0.264 0.011 316)",
@@ -777,6 +838,7 @@
       "dark-warning": {
         "role": "status",
         "displayName": "Dark Warning",
+        "primitive": "oklch(0.820 0.114 72)",
         "tonalRamp": [
           "oklch(0.150 0.114 72)",
           "oklch(0.264 0.114 72)",
@@ -791,6 +853,7 @@
       "dark-warning-foreground": {
         "role": "status",
         "displayName": "Dark Warning Foreground",
+        "primitive": "oklch(0.113 0.011 316)",
         "tonalRamp": [
           "oklch(0.150 0.011 316)",
           "oklch(0.264 0.011 316)",
@@ -805,62 +868,69 @@
       "dark-border": {
         "role": "neutral",
         "displayName": "Dark Border",
+        "primitive": "oklch(0.340697 0 0)",
+        "approximateHex": "#383838",
         "tonalRamp": [
-          "oklch(0.150 0.060 354 / 55%)",
-          "oklch(0.264 0.060 354 / 55%)",
-          "oklch(0.379 0.060 354 / 55%)",
-          "oklch(0.493 0.060 354 / 55%)",
-          "oklch(0.607 0.060 354 / 55%)",
-          "oklch(0.721 0.060 354 / 55%)",
-          "oklch(0.836 0.060 354 / 55%)",
-          "oklch(0.950 0.060 354 / 55%)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-input": {
         "role": "neutral",
         "displayName": "Dark Input",
+        "primitive": "oklch(0.680 0 0)",
+        "approximateHex": "#989898",
         "tonalRamp": [
-          "oklch(0.150 0.060 354 / 75%)",
-          "oklch(0.264 0.060 354 / 75%)",
-          "oklch(0.379 0.060 354 / 75%)",
-          "oklch(0.493 0.060 354 / 75%)",
-          "oklch(0.607 0.060 354 / 75%)",
-          "oklch(0.721 0.060 354 / 75%)",
-          "oklch(0.836 0.060 354 / 75%)",
-          "oklch(0.950 0.060 354 / 75%)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-ring": {
         "role": "primary",
         "displayName": "Dark Ring",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
-          "oklch(0.150 0.125 346)",
-          "oklch(0.264 0.125 346)",
-          "oklch(0.379 0.125 346)",
-          "oklch(0.493 0.125 346)",
-          "oklch(0.607 0.125 346)",
-          "oklch(0.721 0.125 346)",
-          "oklch(0.836 0.125 346)",
-          "oklch(0.950 0.125 346)"
+          "oklch(0.150 0.228 1)",
+          "oklch(0.264 0.228 1)",
+          "oklch(0.379 0.228 1)",
+          "oklch(0.493 0.228 1)",
+          "oklch(0.607 0.228 1)",
+          "oklch(0.721 0.228 1)",
+          "oklch(0.836 0.228 1)",
+          "oklch(0.950 0.228 1)"
         ]
       },
       "dark-chart-1": {
         "role": "data",
         "displayName": "Dark Chart 1",
+        "primitive": "oklch(0.650 0.228 1)",
         "tonalRamp": [
-          "oklch(0.150 0.125 346)",
-          "oklch(0.264 0.125 346)",
-          "oklch(0.379 0.125 346)",
-          "oklch(0.493 0.125 346)",
-          "oklch(0.607 0.125 346)",
-          "oklch(0.721 0.125 346)",
-          "oklch(0.836 0.125 346)",
-          "oklch(0.950 0.125 346)"
+          "oklch(0.150 0.228 1)",
+          "oklch(0.264 0.228 1)",
+          "oklch(0.379 0.228 1)",
+          "oklch(0.493 0.228 1)",
+          "oklch(0.607 0.228 1)",
+          "oklch(0.721 0.228 1)",
+          "oklch(0.836 0.228 1)",
+          "oklch(0.950 0.228 1)"
         ]
       },
       "dark-chart-2": {
         "role": "data",
         "displayName": "Dark Chart 2",
+        "primitive": "oklch(0.824 0.097 88)",
         "tonalRamp": [
           "oklch(0.150 0.097 88)",
           "oklch(0.264 0.097 88)",
@@ -875,6 +945,7 @@
       "dark-chart-3": {
         "role": "data",
         "displayName": "Dark Chart 3",
+        "primitive": "oklch(0.821 0.064 255)",
         "tonalRamp": [
           "oklch(0.150 0.064 255)",
           "oklch(0.264 0.064 255)",
@@ -889,6 +960,7 @@
       "dark-chart-4": {
         "role": "data",
         "displayName": "Dark Chart 4",
+        "primitive": "oklch(0.884 0.068 157)",
         "tonalRamp": [
           "oklch(0.150 0.068 157)",
           "oklch(0.264 0.068 157)",
@@ -903,6 +975,7 @@
       "dark-chart-5": {
         "role": "data",
         "displayName": "Dark Chart 5",
+        "primitive": "oklch(0.820 0.114 72)",
         "tonalRamp": [
           "oklch(0.150 0.114 72)",
           "oklch(0.264 0.114 72)",
@@ -917,20 +990,23 @@
       "dark-sidebar": {
         "role": "neutral",
         "displayName": "Dark Sidebar",
+        "primitive": "oklch(0.226450 0 0)",
+        "approximateHex": "#1C1C1C",
         "tonalRamp": [
-          "oklch(0.150 0.014 332)",
-          "oklch(0.264 0.014 332)",
-          "oklch(0.379 0.014 332)",
-          "oklch(0.493 0.014 332)",
-          "oklch(0.607 0.014 332)",
-          "oklch(0.721 0.014 332)",
-          "oklch(0.836 0.014 332)",
-          "oklch(0.950 0.014 332)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-sidebar-foreground": {
         "role": "neutral",
         "displayName": "Dark Sidebar Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
           "oklch(0.150 0.009 342)",
           "oklch(0.264 0.009 342)",
@@ -945,109 +1021,119 @@
       "dark-sidebar-primary": {
         "role": "primary",
         "displayName": "Dark Sidebar Primary",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
-          "oklch(0.150 0.125 346)",
-          "oklch(0.264 0.125 346)",
-          "oklch(0.379 0.125 346)",
-          "oklch(0.493 0.125 346)",
-          "oklch(0.607 0.125 346)",
-          "oklch(0.721 0.125 346)",
-          "oklch(0.836 0.125 346)",
-          "oklch(0.950 0.125 346)"
+          "oklch(0.150 0.228 1)",
+          "oklch(0.264 0.228 1)",
+          "oklch(0.379 0.228 1)",
+          "oklch(0.493 0.228 1)",
+          "oklch(0.607 0.228 1)",
+          "oklch(0.721 0.228 1)",
+          "oklch(0.836 0.228 1)",
+          "oklch(0.950 0.228 1)"
         ]
       },
       "dark-sidebar-primary-foreground": {
         "role": "primary",
         "displayName": "Dark Sidebar Primary Foreground",
+        "primitive": "oklch(0.98 0 0)",
         "tonalRamp": [
-          "oklch(0.150 0.011 316)",
-          "oklch(0.264 0.011 316)",
-          "oklch(0.379 0.011 316)",
-          "oklch(0.493 0.011 316)",
-          "oklch(0.607 0.011 316)",
-          "oklch(0.721 0.011 316)",
-          "oklch(0.836 0.011 316)",
-          "oklch(0.950 0.011 316)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-sidebar-accent": {
-        "role": "primary",
+        "role": "neutral",
         "displayName": "Dark Sidebar Accent",
+        "primitive": "oklch(0.280940 0 0)",
         "tonalRamp": [
-          "oklch(0.150 0.041 347)",
-          "oklch(0.264 0.041 347)",
-          "oklch(0.379 0.041 347)",
-          "oklch(0.493 0.041 347)",
-          "oklch(0.607 0.041 347)",
-          "oklch(0.721 0.041 347)",
-          "oklch(0.836 0.041 347)",
-          "oklch(0.950 0.041 347)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-sidebar-accent-foreground": {
-        "role": "primary",
+        "role": "neutral",
         "displayName": "Dark Sidebar Accent Foreground",
+        "primitive": "oklch(0.959 0.009 342)",
         "tonalRamp": [
-          "oklch(0.150 0.106 345)",
-          "oklch(0.264 0.106 345)",
-          "oklch(0.379 0.106 345)",
-          "oklch(0.493 0.106 345)",
-          "oklch(0.607 0.106 345)",
-          "oklch(0.721 0.106 345)",
-          "oklch(0.836 0.106 345)",
-          "oklch(0.950 0.106 345)"
+          "oklch(0.150 0.009 342)",
+          "oklch(0.264 0.009 342)",
+          "oklch(0.379 0.009 342)",
+          "oklch(0.493 0.009 342)",
+          "oklch(0.607 0.009 342)",
+          "oklch(0.721 0.009 342)",
+          "oklch(0.836 0.009 342)",
+          "oklch(0.950 0.009 342)"
         ]
       },
       "dark-sidebar-border": {
         "role": "neutral",
         "displayName": "Dark Sidebar Border",
+        "primitive": "oklch(0.340697 0 0)",
+        "approximateHex": "#383838",
         "tonalRamp": [
-          "oklch(0.150 0.034 350)",
-          "oklch(0.264 0.034 350)",
-          "oklch(0.379 0.034 350)",
-          "oklch(0.493 0.034 350)",
-          "oklch(0.607 0.034 350)",
-          "oklch(0.721 0.034 350)",
-          "oklch(0.836 0.034 350)",
-          "oklch(0.950 0.034 350)"
+          "oklch(0.150 0 0)",
+          "oklch(0.264 0 0)",
+          "oklch(0.379 0 0)",
+          "oklch(0.493 0 0)",
+          "oklch(0.607 0 0)",
+          "oklch(0.721 0 0)",
+          "oklch(0.836 0 0)",
+          "oklch(0.950 0 0)"
         ]
       },
       "dark-sidebar-ring": {
         "role": "primary",
         "displayName": "Dark Sidebar Ring",
+        "primitive": "oklch(0.580 0.228 1)",
         "tonalRamp": [
-          "oklch(0.150 0.125 346)",
-          "oklch(0.264 0.125 346)",
-          "oklch(0.379 0.125 346)",
-          "oklch(0.493 0.125 346)",
-          "oklch(0.607 0.125 346)",
-          "oklch(0.721 0.125 346)",
-          "oklch(0.836 0.125 346)",
-          "oklch(0.950 0.125 346)"
+          "oklch(0.150 0.228 1)",
+          "oklch(0.264 0.228 1)",
+          "oklch(0.379 0.228 1)",
+          "oklch(0.493 0.228 1)",
+          "oklch(0.607 0.228 1)",
+          "oklch(0.721 0.228 1)",
+          "oklch(0.836 0.228 1)",
+          "oklch(0.950 0.228 1)"
         ]
       }
     },
     "metadata": {
       "mode": "scan",
       "source": "web/app/assets/css/tailwind.css",
+      "charcoalProvenance": "Approved charcoal surfaces remain unchanged. All 73 primitive values match DESIGN.md and CSS. Dark brand pink and chart-1 match corresponding light roles; light primitives, body text, status and chart-2..5 remain unchanged. Chromium foreground checks passed at light/dark 320/390/1280.",
+      "focusPaint": "Semantic alias outside primitive declarations: light var(--ring), dark var(--foreground). Explicit focus classes opt in; opaque destructive invalid focus retains priority. Dark selected calendar graphics use existing neutral foreground because exact brand pink is 2.986:1 on #292929. No threshold rounding or new primitive pair.",
       "tonalRampProvenance": "Generated preview only: eight stepped lightness values with source chroma, hue, and alpha preserved. Not normative project colors; browser gamut mapping may affect appearance.",
-      "darkPreview": "Tokens inherit through shadow DOM. Set data-theme=\"dark\" on outline/ghost buttons and inputs for their explicit dark-only opacity overrides. Light literals are fallbacks only."
+      "darkPreview": "Tokens and focus alias inherit through shadow DOM. Set data-theme=\"dark\" on outline/ghost buttons and inputs for explicit dark-only overrides, and on Sidebar Navigation for neutral active labels. Light literals are fallbacks only. Focus preview uses the inherited semantic alias, not a brand-token override.",
+      "shellLayout": "Headerless authenticated shell: borderless rounded desktop sidebar inset 24px, with independently scrolling navigation above a non-shrinking footer and search/read-only status above the bottom account row. Theme and language remain exclusively on the existing Settings page. The mobile navigation Sheet also has no right border. Mobile uses an ordinary-flow Open menu trigger and the same footer in the left Sheet. Sidebar Navigation previews the inset frame and utility-before-account order, not functional shell interactions."
     },
     "shadows": [
       {
         "name": "control-xs",
-        "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-        "purpose": "Outlined buttons and inputs."
+        "value": "none",
+        "purpose": "Controls have no decorative elevation; focus and invalid rings remain."
       },
       {
         "name": "card-sm",
-        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-        "purpose": "Default Card."
+        "value": "none",
+        "purpose": "Borderless default Card; surface tone supplies hierarchy."
       },
       {
         "name": "overlay-lg",
-        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-        "purpose": "Dialogs and sheets."
+        "value": "none",
+        "purpose": "Dialogs, sheets, menus, popovers, and toasts retain borders without decorative elevation."
       }
     ],
     "motion": [
@@ -1094,7 +1180,7 @@
       "refersTo": "button-primary",
       "description": "Standard text-only primary variant; active-theme variables supply both themes.",
       "html": "<button class=\"ds-button-primary\">View measurements</button><button class=\"ds-button-primary\" disabled>Unavailable</button>",
-      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:var(--primary, oklch(0.580 0.228 1));color:var(--primary-foreground, oklch(0.98 0 0));}.ds-button-primary:hover{background:color-mix(in oklab, var(--primary, oklch(0.580 0.228 1)) 90%, transparent);}.ds-button-primary:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-primary:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-primary[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-primary[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}"
+      "css": ".ds-button-primary{height:44px!important;border-radius:16px!important;padding-inline:12px!important;font-size:16px!important}.ds-button-primary:focus-visible{box-shadow:0 0 0 3px var(--focus-indicator, var(--ring))!important}.ds-button-primary[aria-invalid=true]{box-shadow:0 0 0 3px var(--destructive)!important}@media(min-width:768px){.ds-button-primary{font-size:14px!important}}.ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:var(--primary, oklch(0.580 0.228 1));color:var(--primary-foreground, oklch(0.98 0 0));}.ds-button-primary:hover{background:var(--primary, oklch(0.580 0.228 1));}.ds-button-primary:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-primary:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-primary[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-primary[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}"
     },
     {
       "name": "Secondary Button",
@@ -1102,15 +1188,15 @@
       "refersTo": "button-secondary",
       "description": "Standard text-only secondary variant; active-theme variables supply both themes.",
       "html": "<button class=\"ds-button-secondary\">View measurements</button><button class=\"ds-button-secondary\" disabled>Unavailable</button>",
-      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:var(--secondary, oklch(0.96 0 0));color:var(--secondary-foreground, oklch(0.205 0 0));}.ds-button-secondary:hover{background:color-mix(in oklab, var(--secondary, oklch(0.96 0 0)) 80%, transparent);}.ds-button-secondary:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-secondary:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-secondary[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-secondary[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}"
+      "css": ".ds-button-secondary{height:44px!important;border-radius:16px!important;padding-inline:12px!important;font-size:16px!important}.ds-button-secondary:focus-visible{box-shadow:0 0 0 3px var(--focus-indicator, var(--ring))!important}.ds-button-secondary[aria-invalid=true]{box-shadow:0 0 0 3px var(--destructive)!important}@media(min-width:768px){.ds-button-secondary{font-size:14px!important}}.ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:var(--secondary, oklch(0.96 0 0));color:var(--secondary-foreground, oklch(0.205 0 0));}.ds-button-secondary:hover{background:color-mix(in oklab, var(--secondary, oklch(0.96 0 0)) 80%, transparent);}.ds-button-secondary:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-secondary:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-secondary[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-secondary[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}"
     },
     {
       "name": "Outline Button",
       "kind": "button",
       "refersTo": "button-outline",
-      "description": "Standard text-only outline variant; set data-theme=\"dark\" for the source dark opacity override.",
+      "description": "Borderless legacy outline action variant; dark input fill and focus/invalid rings remain.",
       "html": "<button class=\"ds-button-outline\">View measurements</button><button class=\"ds-button-outline\" disabled>Unavailable</button>",
-      "css": ".ds-button-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:var(--background, oklch(1 0 0));color:var(--foreground, oklch(0.145 0 0));border-width:1px;border-color:var(--border, oklch(0.9 0 0));box-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);}.ds-button-outline:hover{background:var(--accent, oklch(0.94 0.03 1));color:var(--accent-foreground, oklch(0.519 0.201 9));}.ds-button-outline:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-outline:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-outline[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-outline:where([data-theme=\"dark\"])[aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}.ds-button-outline:where([data-theme=\"dark\"]){background:color-mix(in oklab, var(--input, oklch(0.9 0 0)) 30%, transparent);border-color:var(--input, oklch(0.9 0 0));}.ds-button-outline:where([data-theme=\"dark\"]):hover{background:color-mix(in oklab, var(--input, oklch(0.9 0 0)) 50%, transparent);}"
+      "css": ".ds-button-outline{height:44px!important;border-radius:16px!important;padding-inline:12px!important;font-size:16px!important}.ds-button-outline:focus-visible{box-shadow:0 0 0 3px var(--focus-indicator, var(--ring))!important}.ds-button-outline[aria-invalid=true]{box-shadow:0 0 0 3px var(--destructive)!important}@media(min-width:768px){.ds-button-outline{font-size:14px!important}}.ds-button-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:var(--background, oklch(0.982117640 0 0));color:var(--foreground, oklch(0.145 0 0));box-shadow:none;}.ds-button-outline:hover{background:var(--accent, oklch(0.94 0.03 1));color:var(--accent-foreground, oklch(0.519 0.201 9));}.ds-button-outline:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-outline:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-outline[aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-outline:where([data-theme=\"dark\"])[aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}.ds-button-outline:where([data-theme=\"dark\"]){background:color-mix(in oklab, var(--input, oklch(0.9 0 0)) 30%, transparent);}.ds-button-outline:where([data-theme=\"dark\"]):hover{background:var(--accent, oklch(0.94 0.03 1));}"
     },
     {
       "name": "Ghost Button",
@@ -1118,7 +1204,7 @@
       "refersTo": "button-ghost",
       "description": "Standard text-only ghost variant; set data-theme=\"dark\" for the source dark opacity override.",
       "html": "<button class=\"ds-button-ghost\">View measurements</button><button class=\"ds-button-ghost\" disabled>Unavailable</button>",
-      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:transparent;color:var(--foreground, oklch(0.145 0 0));}.ds-button-ghost:hover{background:var(--accent, oklch(0.94 0.03 1));color:var(--accent-foreground, oklch(0.519 0.201 9));}.ds-button-ghost:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-ghost:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-ghost[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-ghost[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}.ds-button-ghost[data-theme=\"dark\"]:hover{background:color-mix(in oklab, var(--accent, oklch(0.94 0.03 1)) 50%, transparent);}"
+      "css": ".ds-button-ghost{height:44px!important;border-radius:16px!important;padding-inline:12px!important;font-size:16px!important}.ds-button-ghost:focus-visible{box-shadow:0 0 0 3px var(--focus-indicator, var(--ring))!important}.ds-button-ghost[aria-invalid=true]{box-shadow:0 0 0 3px var(--destructive)!important}@media(min-width:768px){.ds-button-ghost{font-size:14px!important}}.ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0;border:0 solid transparent;border-radius:var(--radius-md, 8px);font-size:14px;font-weight:500;line-height:20px;height:36px;padding:8px 16px;cursor:pointer;transition:all 150ms cubic-bezier(0.4,0,0.2,1);font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);background:transparent;color:var(--foreground, oklch(0.145 0 0));}.ds-button-ghost:hover{background:var(--accent, oklch(0.94 0.03 1));color:var(--accent-foreground, oklch(0.519 0.201 9));}.ds-button-ghost:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-button-ghost:disabled{pointer-events:none;opacity:0.5;cursor:default;}.ds-button-ghost[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-button-ghost[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}.ds-button-ghost[data-theme=\"dark\"]:hover{background:color-mix(in oklab, var(--accent, oklch(0.94 0.03 1)) 50%, transparent);}"
     },
     {
       "name": "Input",
@@ -1126,7 +1212,7 @@
       "refersTo": "input",
       "description": "Responsive field with source focus, invalid, and disabled states; set data-theme=\"dark\" for dark overrides.",
       "html": "<input class=\"ds-input\" aria-label=\"Filter measurements\" placeholder=\"Filter measurements\">",
-      "css": ".ds-input{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);height:36px;width:100%;min-width:0;border:1px solid var(--input, oklch(0.9 0 0));border-radius:var(--radius-md, 8px);background:transparent;color:var(--foreground, oklch(0.145 0 0));padding:4px 12px;font-size:16px;line-height:24px;box-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);transition:color 150ms,box-shadow 150ms;}.ds-input::placeholder{color:var(--muted-foreground, oklch(0.5 0 0));}.ds-input::selection{background:var(--primary, oklch(0.580 0.228 1));color:var(--primary-foreground, oklch(0.98 0 0));}.ds-input:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-input[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-input:disabled{pointer-events:none;cursor:not-allowed;opacity:0.5;}.ds-input[data-theme=\"dark\"]{background:color-mix(in oklab, var(--input, oklch(0.9 0 0)) 30%, transparent);}.ds-input[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}@media(min-width:768px){.ds-input{font-size:14px;line-height:20px;}}"
+      "css": ".ds-input{height:44px!important;border:0!important;border-radius:16px!important;background:var(--muted)!important}.ds-input:focus-visible{box-shadow:0 0 0 3px var(--focus-indicator, var(--ring))!important}.ds-input[aria-invalid=true]{box-shadow:0 0 0 3px var(--destructive)!important}.ds-input{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);height:36px;width:100%;min-width:0;border:1px solid var(--input, oklch(0.9 0 0));border-radius:var(--radius-md, 8px);background:transparent;color:var(--foreground, oklch(0.145 0 0));padding:4px 12px;font-size:16px;line-height:24px;box-shadow:none;transition:color 150ms,box-shadow 150ms;}.ds-input::placeholder{color:var(--muted-foreground, oklch(0.5 0 0));}.ds-input::selection{background:var(--primary, oklch(0.580 0.228 1));color:var(--primary-foreground, oklch(0.98 0 0));}.ds-input:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}.ds-input[aria-invalid=\"true\"]{border-color:var(--destructive, oklch(0.567 0.245 27.325));box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 20%, transparent);}.ds-input:disabled{pointer-events:none;cursor:not-allowed;opacity:0.5;}.ds-input[data-theme=\"dark\"]{background:color-mix(in oklab, var(--input, oklch(0.9 0 0)) 30%, transparent);}.ds-input[data-theme=\"dark\"][aria-invalid=\"true\"]{box-shadow:0 0 0 3px color-mix(in oklab, var(--destructive, oklch(0.567 0.245 27.325)) 40%, transparent);}@media(min-width:768px){.ds-input{font-size:14px;line-height:20px;}}"
     },
     {
       "name": "Success Badge",
@@ -1134,7 +1220,7 @@
       "refersTo": "badge-success",
       "description": "Non-interactive status label; linked badges alone have hover behavior.",
       "html": "<span class=\"ds-badge\">Active</span>",
-      "css": ".ds-badge{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);display:inline-flex;align-items:center;justify-content:center;gap:4px;width:fit-content;white-space:nowrap;overflow:hidden;border:1px solid transparent;border-radius:9999px;padding:2px 8px;font-size:12px;line-height:16px;font-weight:500;background:var(--success, oklch(0.53 0.14 150));color:var(--success-foreground, oklch(0.98 0 0));transition:color 150ms,box-shadow 150ms;}a.ds-badge:hover{background:color-mix(in oklab, var(--success, oklch(0.53 0.14 150)) 90%, transparent);}.ds-badge:focus-visible{outline:none;border-color:var(--ring, oklch(0.580 0.228 1));box-shadow:0 0 0 3px color-mix(in oklab, var(--ring, oklch(0.580 0.228 1)) 50%, transparent);}"
+      "css": ".ds-badge{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);display:inline-flex;align-items:center;justify-content:center;gap:4px;width:fit-content;white-space:nowrap;overflow:hidden;border:1px solid transparent;border-radius:9999px;padding:2px 8px;font-size:12px;line-height:16px;font-weight:500;background:var(--success, oklch(0.53 0.14 150));color:var(--success-foreground, oklch(0.98 0 0));transition:color 150ms,box-shadow 150ms;}a.ds-badge:hover{background:color-mix(in oklab, var(--success, oklch(0.53 0.14 150)) 90%, transparent);}.ds-badge:focus-visible{outline:none;border-color:var(--focus-indicator, var(--ring));box-shadow:0 0 0 3px var(--focus-indicator, var(--ring));}.ds-badge[aria-invalid=true]:focus-visible{border-color:var(--destructive);box-shadow:0 0 0 3px var(--destructive);}"
     },
     {
       "name": "Card",
@@ -1142,20 +1228,20 @@
       "refersTo": "card",
       "description": "Default Card with a separately inset content slot, not the zero-padding table override.",
       "html": "<section class=\"ds-card\"><div class=\"ds-card-content\">Measurement summary</div></section>",
-      "css": ".ds-card{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);display:flex;min-width:0;flex-direction:column;gap:24px;border:1px solid var(--border, oklch(0.9 0 0));border-radius:var(--radius-xl, 14px);padding:24px 0;background:var(--card, oklch(1 0 0));color:var(--card-foreground, oklch(0.145 0 0));box-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1),0 1px 2px -1px rgb(0 0 0 / 0.1);font-size:16px;line-height:24px;}.ds-card-content{padding:0 24px;}"
+      "css": ".ds-card{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);display:flex;min-width:0;flex-direction:column;gap:24px;border:none;border-radius:var(--radius-xl, 14px);padding:24px 0;background:var(--card, oklch(1 0 0));color:var(--card-foreground, oklch(0.145 0 0));box-shadow:none;font-size:16px;line-height:24px;}.ds-card-content{padding:0 24px;}"
     },
     {
       "name": "Sidebar Navigation",
       "kind": "nav",
       "refersTo": "sidebar-nav-active",
-      "description": "Active and inactive links; native focus outline, no invented custom focus ring.",
-      "html": "<nav class=\"ds-nav\" aria-label=\"Main\"><a class=\"ds-nav-link\" href=\"#\" aria-current=\"page\">Measurements</a><a class=\"ds-nav-link\" href=\"#\">Projects</a></nav>",
-      "css": ".ds-nav{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--sidebar, oklch(0.985 0 0));}.ds-nav-link{display:flex;align-items:center;gap:12px;border-radius:var(--radius-md, 8px);padding:8px 12px;font-size:14px;line-height:20px;font-weight:500;text-decoration:none;color:color-mix(in oklab, var(--sidebar-foreground, oklch(0.145 0 0)) 80%, transparent);transition:color 150ms,background-color 150ms;}.ds-nav-link:hover,.ds-nav-link[aria-current=\"page\"]{background:var(--sidebar-accent, oklch(0.94 0.03 1));color:var(--sidebar-accent-foreground, oklch(0.519 0.201 9));}.ds-nav-link:focus-visible{outline:auto;}"
+      "description": "Active icon stays exact primary pink. Light active labels stay pink; set data-theme=dark on the nav for neutral dark labels. Hover fills remain neutral and focus uses the separate semantic focus alias with current-page semantics.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main\" style=\"margin:24px;border:0;border-radius:24px;min-height:280px\"><a class=\"ds-nav-link\" href=\"#\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/></svg><span>Measurements</span></a><a class=\"ds-nav-link\" href=\"#\">Projects</a><div style=\"margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:8px\"><span>Search · Read only</span><span>Account</span></div></nav>",
+      "css": ".ds-nav{font-family:var(--font-sans, \"Inter\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif);display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--sidebar, oklch(0.985 0 0));}.ds-nav-link{display:flex;align-items:center;gap:12px;border-radius:var(--radius-md, 8px);padding:8px 12px;font-size:14px;line-height:20px;font-weight:500;text-decoration:none;color:color-mix(in oklab, var(--sidebar-foreground, oklch(0.145 0 0)) 80%, transparent);transition:color 150ms,background-color 150ms;}.ds-nav-link{background:transparent;}.ds-nav-link:hover{background:var(--muted, oklch(0.96 0 0));color:var(--sidebar-foreground, oklch(0.145 0 0));}.ds-nav-link[aria-current=\"page\"]{color:var(--sidebar-primary, oklch(0.580 0.228 1));}.ds-nav[data-theme=\"dark\"] .ds-nav-link[aria-current=\"page\"]{color:var(--sidebar-foreground);}.ds-nav-link svg{color:var(--sidebar-foreground, oklch(0.145 0 0));}.ds-nav-link[aria-current=\"page\"] svg{color:var(--sidebar-primary, oklch(0.580 0.228 1));}.ds-nav-link:focus-visible{outline:none;box-shadow:0 0 0 2px var(--sidebar, oklch(0.985 0 0)),0 0 0 4px var(--focus-indicator, var(--sidebar-ring));}"
     }
   ],
   "narrative": {
     "northStar": "The Measurement Ledger",
-    "overview": "The Measurement Ledger describes the incumbent kankaku-hub dashboard, not a new product brand. Its mood is discreet, precise, and legible: measurements and their reporting context lead, while pink provides a recognizable signal on neutral ground.\n\nSoft and precise components sit in discreet functional layers. Borders and tonal separation carry everyday hierarchy; stronger overlay shadows distinguish temporary surfaces. Compact tables coexist with more open summary and catalog cards without forcing one density onto every surface.",
+    "overview": "The Measurement Ledger describes the incumbent kankaku-hub dashboard, not a new product brand. Its mood is discreet, precise, and legible: measurements and their reporting context lead, while pink provides a recognizable signal on neutral ground.\n\nSoft and precise components sit in discreet functional layers. Tonal separation carries flat surface hierarchy; control borders and table dividers retain functional boundaries without decorative shadows. Compact tables coexist with more open summary and catalog cards without forcing one density onto every surface.",
     "keyCharacteristics": [
       "Discreet, precise, legible.",
       "Pink signal on neutral ground in light and dark themes.",
@@ -1175,7 +1261,7 @@
     ],
     "donts": [
       "Don't substitute chart-series colors for status semantics.",
-      "Don't restore default card padding to tables that intentionally override it.",
+      "Don't replace measurement-table default gutters with full-bleed padding overrides or duplicate those gutters inside the table.",
       "Don't describe missing or uncertain measurements as confirmed zero."
     ]
   }

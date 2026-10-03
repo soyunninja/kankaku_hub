@@ -39,7 +39,7 @@ const fullIdTitle = computed(() => t('entries.sessionMarker.fullId', { id: props
   <button
     v-if="sessionId"
     type="button"
-    class="inline-flex max-w-40 items-center gap-1.5 rounded px-1 py-0.5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    class="inline-flex max-w-40 items-center gap-1.5 rounded px-1 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-indicator"
     :title="fullIdTitle"
     :aria-label="`${label} — ${fullIdTitle} — ${t('entries.sessionMarker.filterAria')}`"
     @click.stop="emit('click')"

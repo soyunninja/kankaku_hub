@@ -81,6 +81,8 @@
   },
   "dashboard": {
     "title": "Panel",
+    "greeting": "Hola",
+    "greetingWithName": "Hola, {name}",
     "period": "Periodo",
     "presets": {
       "today": "Hoy",
@@ -141,6 +143,8 @@
     "count": "{count} clientes",
     "countOne": "{count} cliente",
     "search": "Buscar clientes…",
+    "searchWithCount": "{count} clientes, buscar clientes…",
+    "searchWithCountOne": "{count} cliente, buscar clientes…",
     "viewLabel": "Vista de clientes",
     "listView": "Lista",
     "gridView": "Cuadrícula",
@@ -194,6 +198,8 @@
     "count": "{count} proyectos",
     "countOne": "{count} proyecto",
     "search": "Buscar proyectos por nombre, código o cliente…",
+    "searchWithCount": "{count} proyectos, buscar en proyectos…",
+    "searchWithCountOne": "{count} proyecto, buscar en proyectos…",
     "viewLabel": "Vista de proyectos",
     "listView": "Lista",
     "gridView": "Cuadrícula",
@@ -219,6 +225,7 @@
     "new": "Nueva tarea",
     "edit": "Editar tarea",
     "board": "Tablero",
+    "viewLabel": "Vista de tareas",
     "list": "Lista",
     "history": {
       "title": "Historial de completadas",
