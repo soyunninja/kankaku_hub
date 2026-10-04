@@ -60,7 +60,7 @@ Authored exactly three granted files. Nuxt config delta is only appVersion liter
 - [x] Close the mobile Entries readiness test correction and independently verify the toolbar delta.
 - [x] Map and freeze an explicit delivery file allowlist, preserving unrelated local work.
 - [x] Bump the hub package to 0.3.9 and verify release metadata/build/checks.
-- [ ] Commit only authorized verified work, push the delivery branch, and record commit/remote evidence.
+- [x] Commit only authorized verified work, push the delivery branch, and record commit/remote evidence.
 
 ## Evidence and limits
 
@@ -125,4 +125,13 @@ Both units are supported by the full final 51-case read-only runtime harness and
 - Created `5385a17fb7d0d8c74380497a4f337de8480a0e18` with the first work-unit message above. Its exact 94 committed paths and file SHA256 values equal the independently verified candidate.
 - Intermediate committed package/runtime versions both remain 0.3.8; the paired release work unit follows, avoiding a mismatched intermediate snapshot.
 - The configured commit hook passed its three supplied TypeScript files. This limited hook result is not native review closure or a substitute for the full independent verification.
-- Package/runtime release commit and Git push are still pending at this record's preparation point.
+- At the preparation checkpoint above, the paired release commit and push were still pending; the actual delivery receipt follows.
+
+## Git delivery receipt
+
+- Feature commit: `5385a17fb7d0d8c74380497a4f337de8480a0e18`.
+- Paired version commit: `0c25d43221950c8f18b7ffeeb228eacea4bc73ff` (`chore(release): prepare kankaku-hub 0.3.9`); exact four-file release scope.
+- Both source commits contain exactly the 98 authorized paths. All 97 non-record committed blobs equal the independently verified freeze; release-record-only additions document actual results and delivery.
+- `git push --set-upstream origin feat/hub-0.3.9-visual-polish` succeeded. A fresh `git ls-remote --heads` confirmed the remote branch at `0c25d43221950c8f18b7ffeeb228eacea4bc73ff`, equal to local HEAD at this source-delivery checkpoint.
+- Both package and runtime config are 0.3.9. No merge to main, tag, PR creation, or npm publication occurred. Excluded local artifacts remain outside the commits.
+- This closing record is an evidence-only documentation work unit. Runtime harness: N/A because it changes no executable behavior; the independently verified 97 non-record paths remain unchanged. Rollback boundary is this record alone. Its commit identity and final remote equality are recorded in the parent handoff under `/tmp/kankaku-release-0.3.9-delivery/` to avoid a self-referential commit hash.
