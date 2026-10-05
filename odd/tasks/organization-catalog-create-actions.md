@@ -6,9 +6,9 @@ Owner requests a creation button to the right of List/Grid controls in Organizat
 Owner explicitly requests version **0.4.1**, commit and push. Include the previously authorized 83-file publication scope; do not publish its intermediate 0.4.0 candidate first. Existing main is `d030f860ffdc0197283bad534064c267b068ddb7`.
 
 ## Tasks
-- [x] T1 (done): Observe meaningful tests RED, add embedded catalog actions matching Tasks, and observe focused GREEN.
+- [x] T1 (done): Add embedded catalog actions matching Tasks; observe focused GREEN and meaningful post-implementation old-page regression sensitivity (not historical test-first RED).
 - [x] T2 (done): Align root/public version at 0.4.1 without changing other metadata or private-preview settings.
-- [ ] T3 (in_progress): Independently verify the combined candidate, commit with normal hooks, and push main safely; publish final closure.
+- [x] T3 (functional release done): Independently verify the combined candidate, commit with normal hooks, and push main safely. Final documentation publication and primary synchronization remain parent-owned delivery bookkeeping.
 
 ## Allowed implementation surfaces
 - `web/app/pages/clients/index.vue`
@@ -56,4 +56,18 @@ Artifacts: `/var/folders/fs/pmybks3s0hq1dvxxfzt_r5_m0000gp/T/kankaku-organizatio
 
 Parent separately reconciled that runtime observation read-only against prior diagnosis (Engram4080) and `docs/architecture/kankaku-extension.md:48,66`: inflight records are crash-recovery/lifecycle state. The same path previously appeared/disappeared. Exact removal cause remains unattributed; no byte-level guarantee for all private dynamic runtime files is claimed. No restoration, deletion, cleanup or original runtime change is performed. This outside-candidate inventory fluctuation is retained as a limitation, not treated as evidence of source damage; verified source/metadata/cache identities remain intact.
 
-T1 and T2 are complete. T3 transfers the exact combined candidate, performs fresh final checks, normal commits and guarded main push, while preserving the runtime uncertainty above.
+T1 and T2 are complete. At this historical checkpoint, T3 still required exact combined-candidate transfer, fresh final checks, normal commits and guarded main push, while preserving the runtime uncertainty above.
+
+## Final functional closure — Organization actions in 0.4.1
+
+**T1–T3 functional work is complete.** Root/public **0.4.1** and the embedded New client/New project actions shipped with all 89 authorized project paths in work unit **`2e0a6edae5cc794bba1a4cff9eff3fea5bc48aff`** (`feat: release dashboard and catalog updates in 0.4.1`). Parent observed a successful guarded normal fast-forward push and fresh local main = origin/main = GitHub main at that commit. Full publication/integrity/incident evidence is canonical in [Publish all remaining local project changes](publish-all-local-changes.md#final-functional-closure--041-published-to-git-main).
+
+Final independent verifier `muvk3cki-2j-siub` observed preparation/typecheck exit 0, focused 332 across 21 files, full 859 passed / 38 live-configured skipped across 64 files (one skipped file), manifest 12, hooks 155 and seed 19. Earlier corrected mounted coverage passed **40/40**; old pages produced **37 pass / 3 meaningful failures** after implementation. Historical renderer failures and the missing pre-implementation RED remain recorded above; this is not a retroactive TDD claim.
+
+Twelve rendered Organization checks covered light/dark at 320/390/1280 widths, embedded/standalone writer/viewer UI interception, immediate List/Grid-group DOM sibling placement, actual desktop rightward/mobile wrapping rectangles and overflow, unique enabled writer action, existing dialog opening/Escape, unchanged search/view/client filters and standalone heading/header actions. No Save or business-record creation was invoked; viewer UI checks do not establish backend ACLs. An initial external driver had 6 pass / 6 fail from the wrong nearest-DIV/H1 assumption; retained traces and a separate header-ancestor driver document all 12 passing without repository test weakening.
+
+Together with Dashboard 12, alternative HTTPS Card 6, health 1 and original card structure 1, there were **32 distinct browser checks**. The six authored isolated Card cases remain unrun because 3003/8093 were unavailable, with guards unchanged. Live PocketBase cases lacked the configured URL; no backend fixtures were written. Exact 89-path hashes/modes and 683 indexed identities matched. The original final-proof exit 1 remains preserved; separate read-only telemetry diagnosis cleared its worklog-protection blocker without rerun, rebaseline or private runtime repair. Dynamic private-runtime byte immutability and exact old inflight-removal attribution are not claimed.
+
+Normal GGA 2.10.1 Codex hook passed for three static TypeScript files, not Vue/tests. RDD was off; native ASSESS was unassessable and independent high fallback verification was satisfied, not native approval. No build/pack/npm publication/tag/deployment, real Save/backend viewer ACL, physical-phone/accessibility audit or reboot is claimed; production integration remains separately blocked.
+
+**Remaining parent delivery operations:** one final documentation commit/push and the source-compatible primary switch to main. Primary still has its feature-branch/release8857 state and preserved local changes; these unexecuted bookkeeping/synchronization outcomes and a final documentation SHA are not marked complete. They do not reopen the completed functional UI/version/main-push work.
