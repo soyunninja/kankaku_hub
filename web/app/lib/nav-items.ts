@@ -11,13 +11,15 @@
 export interface NavItem {
   to: string
   labelKey: string
+  sectionKey?: string
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', labelKey: 'nav.dashboard' },
-  { to: '/clients', labelKey: 'nav.clients' },
-  { to: '/projects', labelKey: 'nav.projects' },
-  { to: '/tasks', labelKey: 'nav.tasks' },
+  { to: '/organizacion', labelKey: 'nav.organization', sectionKey: 'nav.organization' },
+  { to: '/clients', labelKey: 'nav.clients', sectionKey: 'nav.organization' },
+  { to: '/projects', labelKey: 'nav.projects', sectionKey: 'nav.organization' },
+  { to: '/tasks', labelKey: 'nav.tasks', sectionKey: 'nav.organization' },
   { to: '/unassigned', labelKey: 'nav.unassigned' },
   { to: '/sessions-without-task', labelKey: 'nav.sessionsQueue' },
   { to: '/entries', labelKey: 'nav.entries' },
@@ -37,11 +39,16 @@ const BREADCRUMB_LABEL_OVERRIDES: Record<string, string> = {
 }
 
 /** Path segment (no leading slash) -> i18n label key, derived from `NAV_ITEMS` plus the breadcrumb-only overrides above. */
-export const SEGMENT_LABELS: Record<string, string> = Object.fromEntries(
-  NAV_ITEMS
-    .filter(item => item.to !== '/')
-    .map(item => [item.to.slice(1), BREADCRUMB_LABEL_OVERRIDES[item.to.slice(1)] ?? item.labelKey]),
-)
+export const SEGMENT_LABELS: Record<string, string> = {
+  ...Object.fromEntries(
+    NAV_ITEMS
+      .filter(item => item.to !== '/')
+      .map(item => [item.to.slice(1), BREADCRUMB_LABEL_OVERRIDES[item.to.slice(1)] ?? item.labelKey]),
+  ),
+  proyectos: 'nav.projects',
+  clientes: 'nav.clients',
+  tareas: 'nav.tasks',
+}
 
 /**
  * Resolves a route path into its breadcrumb label strings. Pure and
@@ -60,7 +67,13 @@ export function resolveBreadcrumbLabels(path: string, t: (key: string) => string
   if (parts.length === 0) return [t('nav.dashboard')]
 
   const labels: string[] = []
-  for (const part of parts) {
+  for (const [index, part] of parts.entries()) {
+    // Record IDs occupy fixed positions in canonical Organization routes.
+    // An ID matching a catalog slug must not become an extra breadcrumb.
+    if (parts[0] === 'organizacion'
+      && ((index === 2 && ['clientes', 'proyectos', 'tareas'].includes(parts[1]!))
+        || (index === 4 && parts[1] === 'clientes' && parts[3] === 'proyectos')
+        || (index === 6 && parts[1] === 'clientes' && parts[3] === 'proyectos' && parts[5] === 'tareas'))) continue
     const key = SEGMENT_LABELS[part]
     if (key) {
       labels.push(t(key))

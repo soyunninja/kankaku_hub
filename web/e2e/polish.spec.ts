@@ -245,7 +245,7 @@ test.describe('mobile viewport (390px) never overflows horizontally', () => {
     await page.getByRole('group', { name: /Vista de proyectos|Project view/ }).getByRole('button', { name: /Lista|List/, exact: true }).click()
     await expect(page.locator('table tbody tr').first()).toBeVisible()
     await page.locator('table tbody tr').first().click()
-    await page.waitForURL(/\/projects\/.+/)
+    await page.waitForURL(/\/organizacion\/clientes\/[^/]+\/proyectos\/.+/)
     const projectDetailUrl = page.url()
 
     for (const path of ['/clients', '/projects', projectDetailUrl, '/tasks']) {

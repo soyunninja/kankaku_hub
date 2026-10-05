@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NAV_ITEMS } from '@/lib/nav-items'
+import { taskDetailRoute } from '@/lib/task-detail-route'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 
 const open = defineModel<boolean>('open', { default: false })
@@ -37,6 +38,7 @@ interface Entry { id: string, label: string, to: string, icon: typeof Users, cli
 // registry (app/lib/nav-items.ts).
 const ICONS: Record<string, typeof Users> = {
   '/': Gauge,
+  '/organizacion': Boxes,
   '/clients': Users,
   '/projects': Boxes,
   '/tasks': ListTodo,
@@ -65,9 +67,9 @@ const items = computed<Entry[]>(() => {
   if (!q) return pages.value
   const all: Entry[] = [
     ...pages.value,
-    ...clients.value.map(c => ({ id: c.id, label: c.name, to: `/clients?highlight=${c.id}`, icon: Users, client: c })),
-    ...projects.value.map(p => ({ id: p.id, label: p.name, to: `/projects/${p.id}`, icon: Boxes })),
-    ...tasks.value.map(t2 => ({ id: t2.id, label: t2.title, to: `/tasks?highlight=${t2.id}`, icon: ListTodo })),
+    ...clients.value.map(c => ({ id: c.id, label: c.name, to: `/organizacion/clientes/${c.id}`, icon: Users, client: c })),
+    ...projects.value.map(p => ({ id: p.id, label: p.name, to: `/organizacion/clientes/${p.client}/proyectos/${p.id}`, icon: Boxes })),
+    ...tasks.value.map(t2 => ({ id: t2.id, label: t2.title, to: taskDetailRoute(t2, projects.value), icon: ListTodo })),
   ]
   return all.filter(e => e.label.toLowerCase().includes(q)).slice(0, 20)
 })

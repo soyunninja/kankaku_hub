@@ -8,7 +8,7 @@ import { apiLogin, assertIsolatedFixtureStack, assertPbWritesAllowed, comboboxTr
  * `TASKS-REQ-010` refetch wiring on the sessions-without-task queue's
  * attach action) — added when the owner asked to remove the board's
  * "Mover a" buttons in favor of a status control inside the task detail
- * sheet and keyboard shortcuts on a focused card (see the reversal note
+ * page and keyboard shortcuts on a focused card (see the reversal note
  * on `TASKS-REQ-004`). Every fixture is a disposable task/session
  * created directly via the API, cleaned up in a `finally` block.
  */
@@ -120,7 +120,7 @@ test.describe('tasks board', () => {
     projectId = projBody.items[0].id
   })
 
-  test('the sheet status control moves a card, and the move survives closing the sheet without a reload (TASKS-REQ-011)', async ({ page, request }) => {
+  test('the detail page status control moves a card, and the move survives returning to the board without a reload (TASKS-REQ-011)', async ({ page, request }) => {
     test.setTimeout(60_000)
     const title = `E2E Status Control ${Date.now()}`
     const created = await createTask(request, token, projectId, title, 'open')
@@ -134,21 +134,19 @@ test.describe('tasks board', () => {
       await expect(card).toBeVisible()
       await card.click()
 
-      const sheet = page.getByRole('dialog')
-      await expect(sheet).toBeVisible()
-      const doingTab = sheet.getByRole('tab', { name: 'En curso' })
+      await expect(page).toHaveURL(`/organizacion/clientes/${clientId}/proyectos/${projectId}/tareas/${created.id}`)
+      const detail = page.locator('main')
+      const doingTab = detail.getByRole('tab', { name: 'En curso' })
       await expect(doingTab).toBeVisible()
       await doingTab.click()
       await page.waitForTimeout(500)
 
-      // The board's own reactive state already reflects the move while
-      // the sheet is still open (single shared `tasks` store).
-      await expect(page.locator('[role="button"][aria-label*="En curso"]', { hasText: title })).toBeVisible()
+      await expect(doingTab).toHaveAttribute('aria-selected', 'true')
+      await detail.getByRole('button', { name: 'Volver', exact: true }).click()
+      await expect(page).toHaveURL(`/organizacion/clientes/${clientId}/proyectos/${projectId}`)
+      await page.goto('/organizacion?tab=tasks')
 
-      await page.keyboard.press('Escape')
-      await expect(sheet).toBeHidden()
-
-      // Still in the "doing" column after closing, no reload performed.
+      // Shared task state retains the change on SPA return, without a reload.
       await expect(page.locator('[role="button"][aria-label*="En curso"]', { hasText: title })).toBeVisible()
       await expect(page.locator('[role="button"][aria-label*="Abierta"]', { hasText: title })).toHaveCount(0)
 
@@ -206,7 +204,7 @@ test.describe('tasks board', () => {
     }
   })
 
-  test('Enter/Space on a focused card opens the same detail sheet a click would (TASKS-REQ-012)', async ({ page, request }) => {
+  test('Enter/Space on a focused card opens the same detail page a click would (TASKS-REQ-012)', async ({ page, request }) => {
     test.setTimeout(60_000)
     const title = `E2E Keyboard Open ${Date.now()}`
     const created = await createTask(request, token, projectId, title, 'open')
@@ -219,14 +217,15 @@ test.describe('tasks board', () => {
       const card = page.locator('[role="button"][aria-label*="Abierta"]', { hasText: title })
       await card.focus()
       await page.keyboard.press('Enter')
-      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page).toHaveURL(`/organizacion/clientes/${clientId}/proyectos/${projectId}/tareas/${created.id}`)
       await expect(page.getByTestId('task-detail-title')).toHaveText(title)
-      await page.keyboard.press('Escape')
-      await expect(page.getByRole('dialog')).toBeHidden()
+      await page.getByRole('button', { name: 'Volver', exact: true }).click()
+      await expect(page).toHaveURL(`/organizacion/clientes/${clientId}/proyectos/${projectId}`)
+      await page.goto('/organizacion?tab=tasks')
 
       await card.focus()
       await page.keyboard.press(' ')
-      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page).toHaveURL(`/organizacion/clientes/${clientId}/proyectos/${projectId}/tareas/${created.id}`)
       await expect(page.getByTestId('task-detail-title')).toHaveText(title)
     }
     finally {

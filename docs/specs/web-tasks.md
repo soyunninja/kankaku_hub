@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
-| Code | `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/composables/useTotals.ts`, `web/app/lib/totals-map.ts`, `web/app/components/tasks/TaskDetailSheet.vue`, `pocketbase/pb_hooks/totals.pb.js` |
-| Tests | `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts`, `web/tests/totals-map.test.ts`, `web/tests/totals-equivalence.test.ts` |
+| Code | `web/app/pages/organizacion/tareas/[id].vue`, `web/app/composables/useTaskDetail.ts`, `web/app/composables/useTaskEditor.ts`, `web/app/components/tasks/TaskEditDialog.vue`, `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/composables/useTotals.ts`, `web/app/lib/totals-map.ts`, `web/app/components/tasks/TaskDetailSheet.vue`, `pocketbase/pb_hooks/totals.pb.js` |
+| Tests | `web/tests/task-detail-page.test.ts`, `web/tests/use-task-detail.test.ts`, `web/e2e/organization-child-details.spec.ts`, `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts`, `web/tests/totals-map.test.ts`, `web/tests/totals-equivalence.test.ts` |
 
 ## Purpose
 
@@ -34,7 +34,7 @@ the future.
    button is removed from the board — it read as visual clutter once the
    board had many cards. The accessible, non-drag alternative it
    satisfied is no longer a single button but two paths, `TASKS-REQ-011`
-   (a status control inside the task detail sheet) and `TASKS-REQ-012`
+   (a status control inside the task detail page) and `TASKS-REQ-012`
    (keyboard shortcuts on a focused board card) — drag-and-drop itself is
    unaffected. The id is kept so history stays traceable.)
 5. `TASKS-REQ-005` — A list view SHALL be available as an alternative to
@@ -49,19 +49,27 @@ the future.
    single worst unbounded fetch in the web (no date filter, grows with
    every prompt the owner ever runs) — see this feature's final report
    for the measured before/after.
-7. `TASKS-REQ-007` — Clicking a board card SHALL open a task detail sheet
-   showing the task's title/project/status and every kankaku session that
-   touched it, grouped by `session_id` from that task's `task_entries`
-   rows (never `work_records`) — see
+7. `TASKS-REQ-007` — Clicking a board card or list title SHALL navigate to
+   `/organizacion/clientes/:id/proyectos/:projectId/tareas/:taskId`, a full
+   task detail page showing the task's title, description, external
+   reference, project, status and linked sessions. The client/project/task
+   ownership chain SHALL be validated before publishing task data or
+   reading sessions. Direct loads, reloads and by-ID route changes SHALL
+   load independently of the catalog. An accessible Back action SHALL
+   return to the owning project. The compatibility URL
+   `/organizacion/tareas/:id` SHALL resolve actual ownership and redirect
+   with replacement, preserving query values and hash. Loading,
+   unavailable and denied/network states SHALL remain distinct. Sessions
+   use consolidated `task_entries` only, never `work_records` — see
    [`web-sessions.md`](web-sessions.md).
-8. `TASKS-REQ-008` — Each session listed in the task detail sheet SHALL
+8. `TASKS-REQ-008` — Each session listed in the task detail page SHALL
    show its per-session totals (work/wall/waiting time, cost, entry
    count, machine, agent) and its derived resume command, or an
    unsupported-agent notice when none can be derived.
 9. `TASKS-REQ-009` — Each board card SHALL show a chip with the count of
    distinct sessions linked to that task, so the owner can tell at a
    glance which tasks have session activity without opening the detail
-   sheet.
+   page.
 10. `TASKS-REQ-010` — The `open` → `doing` transition SHALL happen
     automatically, server-side, when a `task_entries` row is created with,
     or updated to, a non-empty `task` (`pocketbase/pb_hooks/task-auto-doing.pb.js`,
@@ -72,15 +80,16 @@ the future.
     status it last wrote is still current. `done` SHALL never be set
     automatically by this mechanism and a `done` task SHALL never be
     reopened by it.
-11. `TASKS-REQ-011` — The task detail sheet SHALL offer a status control
+11. `TASKS-REQ-011` — The task detail page SHALL offer a status control
     (open/doing/done) that calls the same `useTasks().moveStatus()` the
     board's drag-and-drop uses (optimistic update, rollback on failure).
-    Changing status through this control SHALL be reflected on the board
-    immediately and SHALL remain reflected after the sheet is closed,
-    without a page reload — the sheet and the board read the same shared
-    reactive task list, never two independent copies.
+    The selected status SHALL update locally and remain reflected on SPA
+    return to the board without a reload. Detail and board use the same
+    reactive task list. Viewers SHALL have no status/edit controls and
+    their mutation handlers SHALL reject writes. Edit SHALL retain the
+    existing dialog fields, required title and update semantics.
 12. `TASKS-REQ-012` — A focused board card SHALL support, without a
-    mouse: `Enter`/`Space` to open its detail sheet (same as a click);
+    mouse: `Enter`/`Space` to open its detail page (same as a click);
     `ArrowLeft`/`ArrowRight` (aliased to `[`/`]`) to move it to the
     previous/next status column via the same `moveStatus()`, clamped at
     the `open`/`done` ends (no-op, never wrapping). Focus SHALL remain on
@@ -98,18 +107,16 @@ the future.
 ### Scenario: keyboard users can change status without drag-and-drop (`TASKS-REQ-004`, reversed — superseded by `TASKS-REQ-011`/`TASKS-REQ-012`)
 
 - **Given** a user navigating by keyboard
-- **When** they open the task's detail sheet and select "Doing" in the
+- **When** they open the task's detail page and select "Doing" in the
   status control (`TASKS-REQ-011`), or focus the card on the board and
   press `ArrowRight`/`]` (`TASKS-REQ-012`)
 - **Then** the task moves to "doing" the same way a successful drag would
 
-### Scenario: the sheet's status control keeps the board in sync after closing (`TASKS-REQ-011`)
+### Scenario: the detail status control keeps the board in sync on return (`TASKS-REQ-011`)
 
-- **Given** a task detail sheet is open for an "open" task
-- **When** the owner selects "Doing" in the sheet's status control and
-  then closes the sheet
-- **Then** the board card is already showing under "Doing" while the
-  sheet is still open, and stays there after closing it — no page reload
+- **Given** the detail page is open for an "open" task
+- **When** the owner selects "Doing" and uses Back to return to Tasks
+- **Then** the board card shows under "Doing" without a page reload
 
 ### Scenario: keyboard shortcuts move a focused card and keep focus on it (`TASKS-REQ-012`)
 
@@ -149,10 +156,23 @@ the future.
 - **Given** a task has two sessions linked to it, one from `pi` and one
   whose entries disagree on `agent`
 - **When** the owner clicks the board card
-- **Then** the detail sheet lists both sessions with their totals, the
+- **Then** the detail page lists both sessions with their totals, the
   `pi` session shows a copyable resume command, and the mixed-agent
   session shows a best-effort resume command per
   [`web-sessions.md`](web-sessions.md) (`SESSIONS-REQ-008`)
+
+### Detail session loading
+
+`useTaskDetail` requests one totals page of at most 50 sessions and one
+representative entry per session for the immediately visible resume
+command. Only unavailable totals trigger the existing row-level fallback;
+other session errors are surfaced without hiding the task. Expanding a
+session requests one newest-first page of 50 entries, with truncation
+shown when more exist. Loaded, empty and in-flight entry results remain
+cached across by-ID changes within the page lifetime; classification
+against the current task remains live. Failed resume/disclosure reads do
+not prevent sessions from rendering. Cross-route catalog filter retention
+is not promised.
 
 ## Configuration
 
@@ -187,9 +207,9 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-004` | reversed 2026-09-20 — see the note on the requirement and `TASKS-REQ-011`/`TASKS-REQ-012` | reversed |
 | `TASKS-REQ-005` | `web/e2e/smoke.spec.ts` | covered |
 | `TASKS-REQ-006` | `web/tests/aggregate.test.ts` (fallback path), `web/tests/totals-map.test.ts` + `pocketbase/pb_hooks/lib/totals-query.test.js` (server path), `web/tests/totals-equivalence.test.ts` (both agree); `web/e2e/task-status.spec.ts` exercises the board rendering these totals end-to-end | covered |
-| `TASKS-REQ-007` | `web/e2e/session-resume.spec.ts` ("task detail sheet lists its sessions") | covered |
+| `TASKS-REQ-007` | `web/e2e/session-resume.spec.ts` ("task detail page lists its sessions") | covered |
 | `TASKS-REQ-008` | `web/e2e/session-resume.spec.ts` (session totals + resume command asserted) | covered |
 | `TASKS-REQ-009` | code review (`pages/tasks/index.vue#sessionCountByTask`); the chip itself is not asserted by the e2e spec above | not covered by an automated test found in this pass |
 | `TASKS-REQ-010` | `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`), `web/e2e/task-status.spec.ts` (the sessions-without-task queue's attach action reflects the hook on the board via `useTasks().refreshOne`, for an `open` and a `done` target task) | covered |
-| `TASKS-REQ-011` | `web/e2e/task-status.spec.ts` ("the sheet status control moves a card...") | covered |
+| `TASKS-REQ-011` | `web/e2e/task-status.spec.ts` ("the detail page status control moves a card...") | covered |
 | `TASKS-REQ-012` | `web/e2e/task-status.spec.ts` ("ArrowLeft/ArrowRight (and [ / ]) move the focused card...", "Enter/Space on a focused card opens...") | covered |

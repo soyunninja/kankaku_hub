@@ -63,7 +63,7 @@ const initials = computed(() => clientInitials(props.client.name))
       sizeClass[size],
       props.class,
     )"
-    :style="showImage ? undefined : { background: backgroundVar, color: AVATAR_FOREGROUND_VAR }"
+    :style="showImage ? { background: '#fff', padding: '5px' } : { background: backgroundVar, color: AVATAR_FOREGROUND_VAR }"
   >
     <img
       v-if="showImage"

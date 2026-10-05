@@ -73,6 +73,24 @@ describe('Clients index local search', () => {
   })
 })
 
+describe('Clients shared editor and detail layout', () => {
+  it('shares the editor rather than duplicating catalog form behavior', () => {
+    expect(source).toContain('useClientEditor()')
+    expect(source).toContain('<ClientEditDialog :editor="editor"')
+    expect(source).not.toContain('function onSubmit()')
+    const detail = readFileSync('app/pages/organizacion/clientes/[id]/index.vue', 'utf8')
+    expect(detail).not.toContain('max-w-4xl')
+    expect(detail).toContain('lg:grid-cols-[minmax(0,1fr)_19rem]')
+    expect(detail).toContain('data-testid="client-sidebar"')
+    expect(detail).toContain('data-testid="client-actions" class="flex flex-wrap justify-end gap-2"')
+    expect(detail).toContain('editor.openEdit(detailClient)')
+    expect(detail).toContain('editor.toggleArchive(detailClient)')
+    const aside = detail.slice(detail.indexOf('<aside'))
+    expect(aside.indexOf('common.edit')).toBeLessThan(aside.indexOf('contactTitle'))
+    expect(aside.indexOf('contactTitle')).toBeLessThan(aside.indexOf("t('clients.notes')"))
+  })
+})
+
 describe('Clients index view contract', () => {
   it('defaults to grid and shares filtered records with the preserved table', () => {
     expect(source).toContain("const view = ref<'grid' | 'list'>('grid')")

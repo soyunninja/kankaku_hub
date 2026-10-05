@@ -365,7 +365,7 @@ defineOptions({ inheritAttrs: false })
               {{ t('common.project') }}
             </dt>
             <dd class="min-w-0 truncate text-right">
-              <NuxtLink v-if="projectRelation.state === 'resolved'" :to="`/projects/${projectRelation.id}`" class="hover:underline">
+              <NuxtLink v-if="projectRelation.state === 'resolved' && entry.expand?.project?.client" :to="`/organizacion/clientes/${entry.expand.project.client}/proyectos/${projectRelation.id}`" class="hover:underline">
                 {{ projectRelation.name }}
               </NuxtLink>
               <span v-else-if="projectRelation.state === 'deleted'" class="text-muted-foreground italic">{{ t('entries.detail.relationDeleted') }}</span>

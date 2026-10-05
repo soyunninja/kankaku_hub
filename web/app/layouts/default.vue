@@ -72,7 +72,7 @@ onBeforeUnmount(() => media?.removeEventListener('change', onBreakpoint))
 
 <template>
   <div class="flex h-dvh bg-background">
-    <aside v-show="desktop" class="m-6 flex h-[calc(100dvh-3rem)] w-60 shrink-0 flex-col rounded-3xl bg-sidebar">
+    <aside v-show="desktop" class="m-6 flex h-[calc(100dvh-3rem)] w-60 shrink-0 flex-col rounded-3xl bg-sidebar dark:rounded-none dark:bg-transparent">
       <div class="flex h-14 shrink-0 items-center gap-2 px-4">
         <Gauge class="size-5 text-primary" />
         <span class="font-semibold tracking-tight">{{ t('app.name') }}</span>

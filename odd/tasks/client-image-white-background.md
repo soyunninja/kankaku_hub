@@ -1,0 +1,37 @@
+# Client image white background
+
+## Goal and authorization
+Owner requests background #fff and padding 5px on client images throughout the application, including dark mode. Explicit selection favicon_images_only: initials keep their current colored fallback. Existing shared ClientAvatar covers callers; no new data reads or caller-by-caller styles.
+
+## Exploration
+Parent mapped ClientAvatar.vue image state currently has no inline background/padding; initials use avatarColorVar and AVATAR_FOREGROUND_VAR. Read-only scout muv74ine-1v-vq5r found helper tests in client-avatar.test.ts but no dedicated renderer test. Existing client-avatars.spec.ts refreshes favicon via a real backend write and must not execute. organization-child-details.spec.ts has read-only write blocking and record interception; use it for image/theme/dimension/error checks. Preserve image failure fallback and reset on changed favicon URL, cache busting, alt/aria attributes and caller size overrides.
+
+## Acceptance
+Actual image state uses background #fff and exactly 5px padding for all sizes/callers in light and dark. Outer sizes xs20/sm24/md40 and 28px override stay unchanged. No mobile overflow. Normal initials and failed-image fallback retain existing colored background/foreground and zero new padding. Changed image URL can recover from error. No helper palette/token changes or extra data reads. No actual favicon refresh/upload/backend record writes.
+
+## Tasks
+- [x] T1 (done): Test-first shared renderer styling and mocked image/fallback regression checks.
+- [x] T2 (done): Independent read-only cross-context/theme/size/fallback verification and functional checks.
+
+## Allowed edit surfaces
+web/app/components/clients/ClientAvatar.vue
+web/tests/client-avatar-renderer.test.ts
+web/e2e/organization-child-details.spec.ts
+
+## Work routing and constraints
+Queued behind active single writer muv6qw72-1u-wm7f (task detail styling and project task-card green status); no parallel source writer. Parent owns documents/mirrors/todo and independent verification. Preserve unrelated dirty/untracked and all historical artifacts. No source outside these exact surfaces, no dependencies/config/process/Tailscale changes/deletion/build/generate/install/backend or fixture writes/TLS bypass. Existing prohibited mutation E2Es remain unexecuted. Read-only totals/auth-refresh allowed. Owner newly authorizes version0.4.0 and one final commit AFTER every pending refinement passes verification; this task writer must not stage/commit/version/push/publish/deploy. Initial source/renderer tests meaningful RED, focused GREEN (client-avatar/helper/filter contracts plus established task/project/client regressions), typecheck/full Vitest and readonly Organization browser specs with fresh external mktemp artifacts. Existing live-configured 38 tests may remain skipped; no native approval invented.
+
+## Implementation transition
+Task page style and green doing card unit writerGREEN276focused837full38skip/typecheck83browser. Current solewriter finished; start this isolated three-surface image unit next. Existing final independent UIverification pending until sourcewrites stop. Focused command adds client-avatar.test.ts, filter-client-avatar-contract.test.ts and new client-avatar-renderer.test.ts to prior14 files. Preserve all83 browser cases and add read-only computed image/fallback/theme/dimension checks. Nativeassessment highfallback independentverifier required; parent owns tracking and final singlecommit only after allworkverifies.
+
+## T1 writer GREEN
+Worker muv80at9-1y-rnwl changed only shared ClientAvatar.vue conditional image style, new actual-SFC client-avatar-renderer.test.ts and Organization child browser spec. Meaningful RED: three intended missingwhite/padding/recovery failures,308passes before sourceedit. Finalfocused311passed17files, typecheck passed, full846passed38existing skips, browser87/87passed(all83priorcasesretainedplus4imagecases). Nine actualmountedSFC cases cover missingfavicon/PBURLexception/errorfallback/sameURLfailure retention/changedfilename-updated recovery/cachebust/accessibility/loading/sizeoverride. Happy-dom literalCSS #fffserialization assertion corrected, not weakeningbrowserrgb checks. Initialbrowser discovery failure (firstclienthadnoprojects) fixed usingactualexistingprojectowner; oldartifactretained.
+Computed light/dark1440/390px imagewhite rgb(255,255,255), fourpadding5px, outer20/28/40px, object-fitcover unchanged, no mobileoverflow; fallbackpadding0/nonwhite background. sm24verifiedbyrendererclasses, not a newbrowsermeasurement. Same-mountedURLrecovery actualreactiveunit, browserrecovery viareload. Fresheartifacts tmp.9iwB7bBEuE/results including avatar-390-dark.png andthreemoreviewport/theme screenshots; initialtmp.rRwsW2TR3M/results preserved. No helper/token/callerchanges/backendwrites/stage/commit/version/environmentchanges.
+NativeASSESSunassessable/RDDoff independentVerifier=true. T2pending jointindependentverification after nextsidebar sourceunit completes; review remaining shared-avatarcontexts/sm24 limit honestly. No nativeapproval claimed.
+
+## Joint independent verification transition
+Sidebar sourcewriter finishedGREEN316focused851full38skip/typecheck89browser, allsourcewriters stopped. Jointreadonly independent verification nowinprogress across taskpage/greenbadges/clientimages/sidebar/routing/controller regressions; metadata remains0.3.9 and finalcommitpending. Parent also corrected TASKS-REQ-007 in docs/specs/web-tasks.md to actualnestedroute/ownership/owningprojectBack/legacyqueryhashredirect. Passive documentation correction has no meaningful behaviorRED; verify structurally and againstfunctionalroute tests.
+
+## T2 independently verified completion
+Independent joint verifier muv96d79-23-b1l7 executed316focused18files/typecheck/851full38skip(63suitespass1skip)/89of89readonlyOrganizationbrowser6.5min/diffchecktwice/health200/HTTPS200TLS0; nofeatureblocker found. All10same-routeownershiprestoration/cacheidentityregressions passed, guards/editorauthorization/resume/status preserved. Nestedownership/legacyqueryhash/projectBack/specTASKSREQ007 match. Page20pxh1/fullwidth24pxgap/radius/20-8cardpadding/mobilelongtitlesboth themes; actualtask/avatar/badge screenshots inspected, wrappedtitlesno horizontalclipping/fullwidthroundedcards/whiteavatar darkbacking. Additional elementcaptures show below-internalscroll doinggreen/mint badges in390lightdark.
+Freshsuite tmp.hhpsEctd4y/results, extra /var/folders/fs/pmybks3s0hq1dvxxfzt_r5_m0000gp/T/joint-t2-badge-toceSO/doing-390-{light,dark}.png; historicalartifactsretained. Parentreadlast-runpassed/no failedTests. Sharedimage callers structurallycovered notexhaustiveimage-mode screenshots; sm24unitclassonly, reactiveURLrecoveryunit/browserreload. TaskDetailSheetdrawercompatibilitytemplateonly(no livecaller), separateentrydrawerbrowserdoesnotproveitsliveusage. RoleinterceptionnotbackendACL;38liveconfiguredskipmissingTOTALS_LIVE_PB_URL, noactualmutation/build/formala11y/phone/reboot/deployment; boundedreadsnontransactional. HistoricalREDrecordednotindependentlyreplayed. Source/testinventoriesstable, indexempty/rootversion0.3.9duringverification, parentdocbookkeepingseparate; runtime75019inflightdisappearanceunattributednotapp-sourceharm/byteproof. NativeASSESSunassessableRDDoff independentfallbackonly, no nativeapprovalreceipt. UIfeaturetasksdone, finaluserauthorized0.4.0metadata/snapshotchecks/singlecommit next; no stage/version/commitbyverifier.

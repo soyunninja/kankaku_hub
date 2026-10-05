@@ -23,9 +23,10 @@ import type { ProjectRecord } from '@/lib/pocketbase-types'
 import { totalsByGroupKey } from '@/lib/totals-map'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
+const props = defineProps<{ embedded?: boolean }>()
 const { t, locale } = useI18n()
 const { formatCost, formatDuration } = useFormatters()
-useHead({ title: computed(() => t('projects.title')) })
+if (!props.embedded) useHead({ title: computed(() => t('projects.title')) })
 
 const { clients, ensureLoaded: ensureClients } = useClients()
 const { projects, loading, ensureLoaded, create, update } = useProjects()
@@ -156,7 +157,7 @@ async function toggleArchive(project: ProjectRecord) {
     <div class="flex flex-col gap-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 class="text-xl font-semibold tracking-tight">{{ t('projects.title') }}</h1>
+          <component :is="props.embedded ? 'h2' : 'h1'" class="text-xl font-semibold tracking-tight">{{ t('projects.title') }}</component>
         </div>
         <div class="flex items-center gap-2">
           <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
@@ -238,7 +239,7 @@ async function toggleArchive(project: ProjectRecord) {
             </dl>
             <div class="mt-auto flex flex-wrap items-center justify-between gap-1">
               <Badge :variant="p.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{{ p.active ? t('common.active') : t('common.inactive') }}</Badge>
-              <Button variant="ghost" size="icon" class="shrink-0 rounded-full text-muted-foreground" :aria-label="t('projects.openDetail', { name: p.name })" @click="navigateTo(`/projects/${p.id}`)">
+              <Button variant="ghost" size="icon" class="shrink-0 rounded-full text-muted-foreground" :aria-label="t('projects.openDetail', { name: p.name })" @click="navigateTo(`/organizacion/clientes/${p.client}/proyectos/${p.id}`)">
                 <ArrowRight aria-hidden="true" class="size-5" />
               </Button>
             </div>
@@ -274,9 +275,9 @@ async function toggleArchive(project: ProjectRecord) {
             </TableHeader>
             <TableBody>
               <SkeletonRows v-if="loading && projects.length === 0" :rows="4" :cols="6" />
-              <TableRow v-for="p in filtered" :key="p.id" class="cursor-pointer" @click="navigateTo(`/projects/${p.id}`)">
+              <TableRow v-for="p in filtered" :key="p.id" class="cursor-pointer" @click="navigateTo(`/organizacion/clientes/${p.client}/proyectos/${p.id}`)">
                 <TableCell class="font-medium">
-                  <NuxtLink :to="`/projects/${p.id}`" class="rounded-sm focus-visible:outline-2 focus-visible:outline-focus-indicator" @click.stop>{{ p.name }}</NuxtLink>
+                  <NuxtLink :to="`/organizacion/clientes/${p.client}/proyectos/${p.id}`" class="rounded-sm focus-visible:outline-2 focus-visible:outline-focus-indicator" @click.stop>{{ p.name }}</NuxtLink>
                 </TableCell>
                 <TableCell class="text-muted-foreground">
                   <ClientName v-if="clientById(p.client)" :client="clientById(p.client)!" size="xs" class="max-w-40" />

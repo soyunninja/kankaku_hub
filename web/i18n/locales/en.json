@@ -4,6 +4,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "organization": "Organization",
     "clients": "Clients",
     "projects": "Projects",
     "tasks": "Tasks",
@@ -12,6 +13,9 @@
     "entries": "Entries",
     "settings": "Settings",
     "logout": "Log out"
+  },
+  "organizationTabs": {
+    "description": "Clients, projects, and tasks. Switch tabs without losing your filters."
   },
   "theme": {
     "label": "Theme",
@@ -187,7 +191,11 @@
       "noContactPhone": "No contact phone",
       "noNotes": "No notes",
       "projectsTitle": "Projects",
-      "noProjects": "No projects"
+      "noProjects": "No projects",
+      "costShare": "{project}: available token cost {projectCost} of available client cost {clientCost} ({percent}%)",
+      "costShareZero": "{project}: available token cost {projectCost} of available client cost {clientCost}; no cost to compare",
+      "costShareUnavailable": "{project}: no cost data",
+       "notFound": "Client not found or unavailable"
     }
   },
   "projects": {
@@ -213,8 +221,14 @@
     "removePath": "Remove path",
     "empty": "No projects yet.",
     "detail": {
+      "notFound": "Project not found or unavailable",
       "trend": "Trend",
       "tasksTitle": "Tasks",
+       "period": "Last 30 days: {start} – {end}",
+       "unnamedTask": "Unnamed task",
+       "totalSessions": "Total sessions",
+       "metricsUnavailable": "Unavailable",
+       "openTask": "Open {name}",
       "entriesTitle": "Entries",
       "topPrompts": "Most expensive prompts",
       "byModel": "By model"
@@ -252,6 +266,7 @@
       "text": "Keyboard shortcuts: Enter/Space opens the task. ←/→ (or [ / ]) changes status; completing a task moves focus to Completed history."
     },
     "detail": {
+      "notFound": "Task not found or unavailable",
       "sessions": {
         "title": "Sessions",
         "empty": "No sessions yet.",

@@ -28,6 +28,7 @@ describe('NAV_ITEMS', () => {
     const paths = NAV_ITEMS.map(item => item.to)
     expect(paths).toEqual([
       '/',
+      '/organizacion',
       '/clients',
       '/projects',
       '/tasks',
@@ -57,6 +58,36 @@ describe('NAV_ITEMS', () => {
 })
 
 describe('resolveBreadcrumbLabels', () => {
+  it('registers canonical tabs in Organization with a translated breadcrumb', () => {
+    expect(NAV_ITEMS.find(item => item.to === '/organizacion')).toEqual({
+      to: '/organizacion', labelKey: 'nav.organization', sectionKey: 'nav.organization',
+    })
+    expect(resolveBreadcrumbLabels('/organizacion', translator(es))).toEqual(['Organización'])
+  })
+  it('labels canonical project children without exposing record identifiers', () => {
+    expect(resolveBreadcrumbLabels('/organizacion/proyectos/abc123', translator(es))).toEqual(['Organización', 'Proyectos'])
+    expect(resolveBreadcrumbLabels('/organizacion/proyectos/abc123', translator(en))).toEqual([en.nav.organization, en.nav.projects])
+  })
+  it('labels nested client projects without treating IDs as route labels', () => {
+    for (const [, dict] of LOCALES) {
+      expect(resolveBreadcrumbLabels('/organizacion/clientes/projects/proyectos/tasks', translator(dict))).toEqual([dict.nav.organization, dict.nav.clients, dict.nav.projects])
+    }
+  })
+  it('does not interpret nested task IDs as breadcrumb labels', () => {
+    for (const [, dict] of LOCALES) {
+      expect(resolveBreadcrumbLabels('/organizacion/clientes/tasks/proyectos/clients/tareas/projects', translator(dict))).toEqual([dict.nav.organization, dict.nav.clients, dict.nav.projects, dict.nav.tasks])
+    }
+  })
+  it('labels canonical task children in every locale', () => {
+    for (const [, dict] of LOCALES) {
+      expect(resolveBreadcrumbLabels('/organizacion/tareas/abc123', translator(dict))).toEqual([dict.nav.organization, dict.nav.tasks])
+    }
+  })
+  it('does not register the retired prototype route or breadcrumb', () => {
+    expect(NAV_ITEMS.some(item => item.to === '/prueba')).toBe(false)
+    expect(SEGMENT_LABELS).not.toHaveProperty('prueba')
+    expect(resolveBreadcrumbLabels('/prueba', translator(es))).toEqual([es.nav.dashboard])
+  })
   for (const [name, dict] of LOCALES) {
     const t = translator(dict)
 

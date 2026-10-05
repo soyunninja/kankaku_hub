@@ -7,7 +7,7 @@ import path from 'node:path'
  * End-to-end coverage for "resume session" (ADR 0024 / session-resume.ts,
  * session-aggregate.ts): the resume command block + copy button on the
  * entry detail sheet (EntryDetailSheet.vue), and the sessions list on the
- * task detail sheet (TaskDetailSheet.vue). Every fixture below is a
+ * task detail page (TaskDetailSheet.vue in page mode). Every fixture below is a
  * disposable row created directly via the API (agent: "pi", so
  * `buildResumeCommand` always resolves — see app/lib/session-resume.ts,
  * only the "pi" agent has a resume builder today), never the random seed
@@ -178,7 +178,7 @@ test.describe('resume session block on the entry detail sheet', () => {
   })
 })
 
-test.describe('task detail sheet lists its sessions', () => {
+test.describe('task detail page lists its sessions', () => {
   let token: string
   let clientId: string
   let projectId: string
@@ -232,7 +232,8 @@ test.describe('task detail sheet lists its sessions', () => {
     const card = page.getByRole('button', { name: new RegExp(taskTitle) })
     await expect(card).toBeVisible({ timeout: 10_000 })
     await card.click()
-    await page.waitForTimeout(400)
+    await expect(page).toHaveURL(`/organizacion/clientes/${clientId}/proyectos/${projectId}/tareas/${taskId}`)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(taskTitle)
   }
 
   test('lists the task session with a working resume command', async ({ page }) => {
@@ -240,15 +241,15 @@ test.describe('task detail sheet lists its sessions', () => {
     await login(page)
     await openTaskCard(page)
 
-    const sheet = page.locator('[data-slot="sheet-content"]')
-    await expect(sheet.getByText('Sesiones')).toBeVisible()
-    await expect(sheet.getByText('E2E shared session')).toBeVisible()
+    const detail = page.locator('main')
+    await expect(detail.getByText('Sesiones')).toBeVisible()
+    await expect(detail.getByText('E2E shared session')).toBeVisible()
     // Two entries share the same session_id, so the session card shows a
     // single grouped row (entry count = 2), not two separate rows.
-    await expect(sheet.locator('li', { hasText: 'E2E shared session' })).toHaveCount(1)
+    await expect(detail.locator('li', { hasText: 'E2E shared session' })).toHaveCount(1)
 
     const expectedCommand = `cd '${entryA.repoProject}' && pi --session '${entryA.sessionId}'`
-    const pre = sheet.locator('pre', { hasText: 'pi --session' })
+    const pre = detail.locator('pre', { hasText: 'pi --session' })
     await expect(pre).toHaveText(expectedCommand)
   })
 
@@ -258,7 +259,7 @@ test.describe('task detail sheet lists its sessions', () => {
     for (const theme of ['dark', 'light'] as const) {
       await setTheme(page, theme)
       await openTaskCard(page)
-      await shootTo(page, `task-detail-sheet-${theme}`)
+      await shootTo(page, `task-detail-page-${theme}`)
     }
   })
 })

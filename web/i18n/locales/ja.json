@@ -4,6 +4,7 @@
   },
   "nav": {
     "dashboard": "ダッシュボード",
+    "organization": "組織",
     "clients": "クライアント",
     "projects": "プロジェクト",
     "tasks": "タスク",
@@ -12,6 +13,9 @@
     "entries": "エントリー",
     "settings": "設定",
     "logout": "ログアウト"
+  },
+  "organizationTabs": {
+    "description": "クライアント、プロジェクト、タスク。フィルターを保持したままタブを切り替えられます。"
   },
   "theme": {
     "label": "テーマ",
@@ -187,7 +191,11 @@
       "noContactPhone": "連絡先電話番号なし",
       "noNotes": "メモなし",
       "projectsTitle": "プロジェクト",
-      "noProjects": "プロジェクトなし"
+      "noProjects": "プロジェクトなし",
+      "costShare": "{project}：利用可能なトークンコスト {projectCost}、利用可能なクライアントコスト {clientCost} に対する割合 {percent}%",
+      "costShareZero": "{project}：利用可能なトークンコスト {projectCost}、利用可能なクライアントコスト {clientCost}。比較するコストはありません",
+      "costShareUnavailable": "{project}：コストデータなし",
+       "notFound": "クライアントが見つからないか利用できません"
     }
   },
   "projects": {
@@ -213,8 +221,14 @@
     "removePath": "パスを削除",
     "empty": "プロジェクトはまだありません。",
     "detail": {
+      "notFound": "プロジェクトが見つからないか利用できません",
       "trend": "推移",
       "tasksTitle": "タスク",
+       "period": "過去30日間: {start} – {end}",
+       "unnamedTask": "名前のないタスク",
+       "totalSessions": "総セッション数",
+       "metricsUnavailable": "利用できません",
+       "openTask": "{name}を開く",
       "entriesTitle": "エントリー",
       "topPrompts": "コストの高いプロンプト",
       "byModel": "モデル別"
@@ -252,6 +266,7 @@
       "text": "キーボードショートカット: Enter/Spaceでタスクを開きます。←/→（または[ / ]）で状態を変更します。完了時は完了履歴にフォーカスが移ります。"
     },
     "detail": {
+      "notFound": "タスクが見つからないか利用できません",
       "sessions": {
         "title": "セッション",
         "empty": "まだセッションがありません。",

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Content of the task detail sheet on the tasks board
- * (app/pages/tasks/index.vue) — header (title, project, a Tabs-based
+ * Shared task detail presentation, retained under its original component
+ * name. The canonical task page uses explicit `pageMode`; optional sheet
+ * callers retain the compact heading, padding and focus exposure. Header (title, project, a Tabs-based
  * status control for open/doing/done — the touch/keyboard-accessible
  * replacement for the board's old "Mover a" buttons, TASKS-REQ-011 — and
  * an "Edit" action back to the existing edit dialog) and a "Sessions"
@@ -9,8 +10,7 @@
  * from `useSessions().fetchSessionTotals` (server-summed, falling back
  * to the row-level `fetchSessionsForTask` — already-consolidated
  * `task_entries` rows either way, D6, never `work_records`). The page
- * keeps the `<Sheet>`/`<SheetContent>` wrapper (padding, scroll
- * container, open state, session fetching) and owns the edit dialog;
+ * owns session fetching through `useTaskDetail` and the edit dialog;
  * this component is the presentational body, built following the same
  * pattern as `components/entries/EntryDetailSheet.vue` (focus exposure,
  * resume command block, `<CopyButton>`) — it never talks to PocketBase
@@ -37,23 +37,19 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { TaskEntryRecord, TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
+import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
+import type { SessionEntriesState } from '@/composables/useTaskDetail'
+export type { SessionEntriesState } from '@/composables/useTaskDetail'
 import { MIXED, type TaskSessionRow } from '@/lib/session-aggregate'
 import { toSessionEntryRow } from '@/lib/session-entries'
 import { buildResumeCommand } from '@/lib/session-resume'
 
 /** Fetch state for one session's expanded entries list, keyed by
- * `sessionId` — owned and populated by the page (`app/pages/tasks/index.vue`),
+ * `sessionId` — owned and populated by `useTaskDetail`,
  * this component only reads it. `undefined` for a session never expanded
  * (or not yet fetched) — the loading skeleton/list distinguish
  * "loading" from "loaded with 0 rows" via `items.length`, never `undefined`
  * vs. present. */
-export interface SessionEntriesState {
-  loading: boolean
-  items: TaskEntryRecord[]
-  totalItems: number
-}
-
 const props = withDefaults(defineProps<{
   task: TaskRecord
   projectName: string
@@ -64,6 +60,8 @@ const props = withDefaults(defineProps<{
    * "Edit" button below (odd/tasks/viewer-role.md T2). Defaults to
    * `true` so any other, older caller behaves exactly as before. */
   canWrite?: boolean
+  /** Reuse the existing presentation without a Sheet wrapper or injection. */
+  pageMode?: boolean
 }>(), {
   canWrite: true,
 })
@@ -77,6 +75,7 @@ const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus]; expandS
 // this component never talks to PocketBase directly, same as `edit`.
 const STATUSES: TaskStatus[] = ['open', 'doing', 'done']
 function onStatusTabChange(value: string | number) {
+  if (!props.canWrite || !STATUSES.includes(value as TaskStatus)) return
   emit('statusChange', value as TaskStatus)
 }
 
@@ -161,20 +160,31 @@ defineOptions({ inheritAttrs: false })
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pt-8 pb-6">
+  <div data-testid="task-detail-body" class="flex min-h-0 flex-1 flex-col gap-6" :class="pageMode ? 'w-full min-w-0' : 'overflow-y-auto px-6 pt-8 pb-6'">
     <!-- Header -->
-    <div class="flex flex-col gap-3 pr-8">
-      <h2
+    <div class="flex flex-col gap-3" :class="pageMode ? 'min-w-0' : 'pr-8'">
+      <div :data-testid="pageMode ? 'task-detail-header' : undefined" :class="pageMode ? 'flex min-w-0 items-center gap-3' : ''">
+        <slot v-if="pageMode" name="back" />
+        <div :class="pageMode ? 'min-w-0 flex-1' : ''">
+      <component
+        :is="pageMode ? 'h1' : 'h2'"
         ref="titleEl"
         data-testid="task-detail-title"
         tabindex="-1"
-        class="text-base leading-snug font-semibold break-words outline-none"
+        class="font-semibold outline-none"
+        :class="pageMode ? 'text-xl tracking-tight [overflow-wrap:anywhere]' : 'text-base leading-snug break-words'"
       >
         {{ task.title }}
-      </h2>
-      <div class="flex flex-wrap items-center gap-2">
+      </component>
+      <p v-if="pageMode" class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ projectName }}</p>
+        </div>
+      </div>
+      <p v-if="task.description" data-testid="task-detail-description" class="text-sm whitespace-pre-wrap break-words">{{ task.description }}</p>
+      <p v-if="task.external_ref" class="text-sm text-muted-foreground">{{ task.external_ref }}</p>
+      <div v-if="!pageMode" class="flex flex-wrap items-center gap-2">
         <span class="text-xs text-muted-foreground">{{ projectName }}</span>
       </div>
+      <div :class="pageMode ? 'flex min-w-0 flex-wrap items-end gap-3' : 'contents'">
       <div v-if="canWrite" data-testid="write-action" class="flex flex-col gap-1.5">
         <span id="task-detail-status-label" class="text-xs font-medium text-muted-foreground">
           {{ t('common.status') }}
@@ -199,13 +209,14 @@ defineOptions({ inheritAttrs: false })
         <Pencil class="size-3.5" />
         {{ t('tasks.edit') }}
       </Button>
+      </div>
     </div>
 
     <!-- Sessions -->
-    <section class="space-y-3 border-t border-border pt-4">
-      <h3 class="text-sm font-medium">
+    <section :class="pageMode ? 'min-w-0 space-y-4 pt-4' : 'space-y-3 border-t border-border pt-4'">
+      <component :is="pageMode ? 'h2' : 'h3'" class="text-sm" :class="pageMode ? 'font-bold' : 'font-medium'">
         {{ t('tasks.detail.sessions.title') }}
-      </h3>
+      </component>
 
       <div v-if="sessionsLoading" class="space-y-2">
         <Skeleton class="h-24 w-full" />
@@ -215,7 +226,7 @@ defineOptions({ inheritAttrs: false })
       <EmptyState v-else-if="sessionRows.length === 0" :title="t('tasks.detail.sessions.empty')" />
 
       <ul v-else class="space-y-3">
-        <li v-for="row in sessionRows" :key="row.session.sessionId" class="space-y-3 overflow-x-auto rounded-md border border-border p-3 text-sm">
+        <li v-for="row in sessionRows" :key="row.session.sessionId" :class="pageMode ? 'flex min-w-0 flex-col gap-3 rounded-3xl border border-border bg-card p-2 text-sm sm:gap-5 sm:p-5' : 'space-y-3 overflow-x-auto rounded-md border border-border p-3 text-sm'">
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <p class="min-w-0 truncate font-medium">
               {{ sessionName(row.session) }}

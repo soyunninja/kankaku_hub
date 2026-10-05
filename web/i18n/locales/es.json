@@ -4,6 +4,7 @@
   },
   "nav": {
     "dashboard": "Panel",
+    "organization": "Organización",
     "clients": "Clientes",
     "projects": "Proyectos",
     "tasks": "Tareas",
@@ -12,6 +13,9 @@
     "entries": "Registros",
     "settings": "Ajustes",
     "logout": "Cerrar sesión"
+  },
+  "organizationTabs": {
+    "description": "Clientes, proyectos y tareas. Cambia de pestaña sin perder tus filtros."
   },
   "theme": {
     "label": "Tema",
@@ -187,7 +191,11 @@
       "noContactPhone": "Sin teléfono de contacto",
       "noNotes": "Sin notas",
       "projectsTitle": "Proyectos",
-      "noProjects": "Sin proyectos"
+      "noProjects": "Sin proyectos",
+      "costShare": "{project}: coste de tokens disponible {projectCost} del coste disponible del cliente {clientCost} ({percent}%)",
+      "costShareZero": "{project}: coste de tokens disponible {projectCost} del coste disponible del cliente {clientCost}; sin coste que comparar",
+      "costShareUnavailable": "{project}: sin datos de coste",
+       "notFound": "Cliente no encontrado o no disponible"
     }
   },
   "projects": {
@@ -213,8 +221,14 @@
     "removePath": "Eliminar ruta",
     "empty": "Todavía no hay proyectos.",
     "detail": {
+      "notFound": "Proyecto no encontrado o no disponible",
       "trend": "Tendencia",
       "tasksTitle": "Tareas",
+       "period": "Últimos 30 días: {start} – {end}",
+       "unnamedTask": "Tarea sin nombre",
+       "totalSessions": "Sesiones totales",
+       "metricsUnavailable": "No disponible",
+       "openTask": "Abrir {name}",
       "entriesTitle": "Registros",
       "topPrompts": "Prompts más costosos",
       "byModel": "Por modelo"
@@ -252,6 +266,7 @@
       "text": "Atajos de teclado: Intro/Espacio abre la tarea. ←/→ (o [ / ]) cambia su estado; al completarla, el foco pasa al historial."
     },
     "detail": {
+      "notFound": "Tarea no encontrada o no disponible",
       "sessions": {
         "title": "Sesiones",
         "empty": "Aún no hay sesiones.",

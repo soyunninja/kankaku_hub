@@ -38,6 +38,7 @@ watch(() => route.path, () => {
 // drift out of sync with what's actually in the nav.
 const ICONS: Record<string, typeof Users> = {
   '/': Gauge,
+  '/organizacion': Boxes,
   '/clients': Users,
   '/projects': Boxes,
   '/tasks': ListTodo,
@@ -52,8 +53,11 @@ function badgeFor(to: string): number | undefined {
   return undefined
 }
 
-const nav = computed(() => NAV_ITEMS.map(item => ({
+const nav = computed(() => NAV_ITEMS
+  .filter(item => !['/clients', '/projects', '/tasks'].includes(item.to))
+  .map(item => ({
   to: item.to,
+  sectionKey: item.sectionKey,
   label: t(item.labelKey),
   icon: ICONS[item.to]!,
   badge: badgeFor(item.to),
@@ -66,9 +70,11 @@ function isActive(to: string) {
 
 <template>
   <nav class="flex flex-col gap-1 p-2">
+    <template v-for="(item, index) in nav" :key="item.to">
+      <p v-if="item.sectionKey && item.sectionKey !== 'nav.organization' && item.sectionKey !== nav[index - 1]?.sectionKey" class="px-3 pb-1 pt-3 text-xs font-medium text-muted-foreground">
+        {{ t(item.sectionKey) }}
+      </p>
     <NuxtLink
-      v-for="item in nav"
-      :key="item.to"
       :to="item.to"
       :aria-current="isActive(item.to) ? 'page' : undefined"
       class="group/nav-item flex items-center gap-3 rounded-md bg-transparent px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-muted hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-indicator focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
@@ -80,5 +86,6 @@ function isActive(to: string) {
         {{ item.badge }}
       </Badge>
     </NuxtLink>
+    </template>
   </nav>
 </template>
