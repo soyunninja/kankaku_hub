@@ -15,7 +15,7 @@ All existing Organization routing/ownership/client/project/task behavior and his
 ## Tasks
 - [x] T1 (done): Confirm all pending units and independent checks are complete; derive explicit owned delivery scope excluding unrelated dirty/untracked/runtime artifacts.
 - [x] T2 (done): Align root package and public app version at 0.4.0; verify metadata, fixtures, and the isolated selected candidate.
-- [ ] T3 (in_progress): Inspect exact staged allowlist/diff and create the one user-authorized Conventional Commit; record identity and residual unrelated work.
+- [x] T3 (done): Inspect the exact staged candidate and create the authorized commit; identity and residual work recorded below.
 
 ## Allowed metadata edit surfaces
 package.json
@@ -133,3 +133,13 @@ All 607 exported index blobs, 611 original source records, 623 original cache ha
 Root fixture evidence is reused, not rerun: **9 manifest, 155 hooks, 19 seed** passes on unchanged code/root release metadata. The earlier independent **89 browser passes** concern the working-tree UI, not fresh exported browser execution. No build, deployment, backend mutations/ACL verification, formal accessibility audit, physical-phone/reboot checks, or native approval is claimed. Prior failure exports and the unattributed earlier Jiti cache observation are retained.
 
 T2 is complete. T3 now proceeds with the user-authorized normal commit and installed pre-commit hook, without bypass. This final documentation-only transition does not alter tested source/test/configuration blobs. The commit identity and residual state will be recorded only after the actual outcome is observed.
+
+## Observed commit closure
+
+Commit: `8857e811405c5b146b7e42eaad815a30fda0adb6` on `feat/card-contained-form-backgrounds`.
+Message: `feat: release organization dashboard updates in 0.4.0`.
+The normal installed GGA pre-commit hook passed its supplied eight-file static review. Its repository access failed, so it did not verify proposal/tests/packaging; independent functional evidence above remains the verification record. This is not native RDD approval.
+
+The commit tree matches final index fingerprint `69c0d965485da8586b0b18f02363161a96ae8a44897c2d2bf5172d539606e383`; its parent is `237fee20db9ad989263118d906987fe965aee9c3`. Exactly 65 selected paths were committed. Index was empty afterward. Both root and public application versions are 0.4.0. No AI attribution, hook bypass, tag, publication, deployment, or push was used.
+
+Pre-existing tracked and untracked work remains outside the commit, including private preview changes. This post-commit task closure is local bookkeeping, not a second source commit. Git reported the existing automatically inferred identity `baldboy <baldboy@MacBook-Air.local>`; no identity configuration or history amendment was performed.
