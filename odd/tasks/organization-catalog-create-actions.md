@@ -8,7 +8,7 @@ Owner explicitly requests version **0.4.1**, commit and push. Include the previo
 ## Tasks
 - [x] T1 (done): Add embedded catalog actions matching Tasks; observe focused GREEN and meaningful post-implementation old-page regression sensitivity (not historical test-first RED).
 - [x] T2 (done): Align root/public version at 0.4.1 without changing other metadata or private-preview settings.
-- [x] T3 (functional release done): Independently verify the combined candidate, commit with normal hooks, and push main safely. Final documentation publication and primary synchronization remain parent-owned delivery bookkeeping.
+- [x] T3 (functional release done): Independently verify the combined candidate, commit with normal hooks, and push main safely. Documentation checkpoint publication and primary synchronization were completed at `344d645fa39d8b6ff92d6aeb87bde57a6f900911`.
 
 ## Allowed implementation surfaces
 - `web/app/pages/clients/index.vue`
@@ -70,4 +70,4 @@ Together with Dashboard 12, alternative HTTPS Card 6, health 1 and original card
 
 Normal GGA 2.10.1 Codex hook passed for three static TypeScript files, not Vue/tests. RDD was off; native ASSESS was unassessable and independent high fallback verification was satisfied, not native approval. No build/pack/npm publication/tag/deployment, real Save/backend viewer ACL, physical-phone/accessibility audit or reboot is claimed; production integration remains separately blocked.
 
-**Remaining parent delivery operations:** one final documentation commit/push and the source-compatible primary switch to main. Primary still has its feature-branch/release8857 state and preserved local changes; these unexecuted bookkeeping/synchronization outcomes and a final documentation SHA are not marked complete. They do not reopen the completed functional UI/version/main-push work.
+**Observed delivery complete:** functional main publication at `2e0a6edae5cc794bba1a4cff9eff3fea5bc48aff` was followed by normal documentation checkpoint commit/push `344d645fa39d8b6ff92d6aeb87bde57a6f900911`, confirmed on fresh GitHub main. Parent verified 683 tracked blobs/executable modes and 90 source-compatible staged paths, then successfully switched primary normally to main at that checkpoint with clean index and tracked working tree. Excluded private runtime files remain preserved and dynamic. Publication of this subsequent passive status update is not claimed here.
