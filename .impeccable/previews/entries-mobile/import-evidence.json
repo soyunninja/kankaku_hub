@@ -1,0 +1,472 @@
+{
+  "baseline": {
+    "firstRecordY": 792,
+    "header": "<header class=\"sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur\"><button class=\"rounded-md p-2 hover:bg-accent md:hidden\" aria-label=\"Abrir menú\" title=\"Abrir menú\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-menu size-5\" aria-hidden=\"true\"><path d=\"M4 5h16\"></path><path d=\"M4 12h16\"></path><path d=\"M4 19h16\"></path></svg></button><nav class=\"hidden min-w-0 items-center gap-1 text-sm text-muted-foreground md:flex\"><span class=\"font-medium text-foreground\">Registros</span><!--v-if--></nav><div class=\"flex-1\"></div><button class=\"hidden items-center gap-2 rounded-md border border-input px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent sm:flex\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-search size-3.5\" aria-hidden=\"true\"><path d=\"m21 21-4.34-4.34\"></path><circle cx=\"11\" cy=\"11\" r=\"8\"></circle></svg> Buscar <kbd class=\"bg-muted text-muted-foreground pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded-sm px-1 font-sans text-xs font-medium select-none [&amp;_svg:not([class*='size-'])]:size-3 [[data-slot=tooltip-content]_&amp;]:bg-background/20 [[data-slot=tooltip-content]_&amp;]:text-background dark:[[data-slot=tooltip-content]_&amp;]:bg-background/10\">⌘K</kbd></button><button data-slot=\"dropdown-menu-trigger\" id=\"reka-dropdown-menu-trigger-v-0-0\" type=\"button\" aria-haspopup=\"menu\" aria-expanded=\"false\" data-state=\"closed\" class=\"inline-flex size-8 items-center justify-center rounded-md border border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground\" aria-label=\"Tema\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-moon size-4\" aria-hidden=\"true\"><path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\"></path></svg></button><!--teleport start--><!--teleport end--><button data-slot=\"dropdown-menu-trigger\" id=\"reka-dropdown-menu-trigger-v-0-1\" type=\"button\" aria-haspopup=\"menu\" aria-expanded=\"false\" data-state=\"closed\" class=\"inline-flex size-8 items-center justify-center rounded-md border border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground\" aria-label=\"Idioma\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-languages size-4\" aria-hidden=\"true\"><path d=\"m5 8 6 6\"></path><path d=\"m4 14 6-6 2-3\"></path><path d=\"M2 5h12\"></path><path d=\"M7 2h1\"></path><path d=\"m22 22-5-10-5 10\"></path><path d=\"M14 18h6\"></path></svg></button><!--teleport start--><!--teleport end--><!--v-if--><button data-slot=\"dropdown-menu-trigger\" id=\"reka-dropdown-menu-trigger-v-0-2\" type=\"button\" aria-haspopup=\"menu\" aria-expanded=\"false\" data-state=\"closed\" aria-label=\"Menú de usuario\"><div class=\"flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground\">D</div></button><!--teleport start--><!--teleport end--></header>"
+  },
+  "grouped": [
+    {
+      "cells": [
+        "26/09/30 18:07",
+        "Add file upload validation",
+        "CD\nClínica Dental Vega",
+        "Agenda Pacientes",
+        "—",
+        "",
+        "1",
+        "18m",
+        "$0.1117",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/30 07:50",
+        "Migrate auth to PocketBase",
+        "SD\nSin determinar",
+        "—",
+        "—",
+        "",
+        "1",
+        "3h 19m",
+        "$0.0678",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/29 13:00",
+        "Optimize dashboard queries",
+        "TN\nTurismo Níjar",
+        "Reservas",
+        "Improve search relevance",
+        "",
+        "1",
+        "3h 16m",
+        "$0.0402",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/29 11:58",
+        "Add file upload validation",
+        "A\nAcme",
+        "ERP Interno",
+        "Add audit log",
+        "",
+        "2",
+        "5h 57m",
+        "$0.123",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/29 07:41",
+        "Add e2e tests for checkout",
+        "CD\nClínica Dental Vega",
+        "Web Corporativa",
+        "Add realtime notifications",
+        "",
+        "1",
+        "41m",
+        "$0.074",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/28 11:05",
+        "Add e2e tests for checkout",
+        "CD\nClínica Dental Vega",
+        "Web Corporativa",
+        "—",
+        "",
+        "1",
+        "1h 2m",
+        "$0.0514",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/27 23:13",
+        "Add e2e tests for checkout",
+        "SD\nSin determinar",
+        "—",
+        "—",
+        "",
+        "1",
+        "1h 18m",
+        "$0.0582",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/27 07:00",
+        "Add booking cancellation flow",
+        "A\nAcme",
+        "Landing",
+        "—",
+        "",
+        "1",
+        "3h 39m",
+        "$0.0742",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/26 09:02",
+        "Refactor invoice PDF generator",
+        "C\nCajamar",
+        "Backoffice",
+        "Migrate auth to PocketBase",
+        "",
+        "1",
+        "12m",
+        "$0.1076",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/24 17:16",
+        "Improve mobile navigation",
+        "FS\nFerretería Soto",
+        "Tienda Online",
+        "Add rate limiting",
+        "",
+        "1",
+        "2h 7m",
+        "$0.0701",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/24 01:38",
+        "Upgrade Nuxt to v4",
+        "A\nAcme",
+        "ERP Interno",
+        "Add audit log",
+        "",
+        "1",
+        "1h 35m",
+        "$0.0397",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/23 19:49",
+        "Improve mobile navigation",
+        "TN\nTurismo Níjar",
+        "Web Turismo",
+        "—",
+        "",
+        "1",
+        "1h 41m",
+        "$0.0929",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/23 18:26",
+        "Refactor invoice PDF generator",
+        "C\nCajamar",
+        "Portal Cliente",
+        "Fix N+1 query in project list",
+        "",
+        "1",
+        "55m",
+        "$0.123",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"OpenCode\" aria-label=\"OpenCode\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 dark:ring-white/25\"><img src=\"/agents/opencode.png\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-cover\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/22 22:49",
+        "Improve search relevance",
+        "FS\nFerretería Soto",
+        "Tienda Online",
+        "—",
+        "",
+        "2",
+        "4h 28m",
+        "$0.1697",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/20 19:09",
+        "Migrate auth to PocketBase",
+        "TN\nTurismo Níjar",
+        "Web Turismo",
+        "—",
+        "",
+        "1",
+        "2h 33m",
+        "$0.0532",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/18 03:38",
+        "Add realtime notifications",
+        "CD\nClínica Dental Vega",
+        "Agenda Pacientes",
+        "Redesign settings page",
+        "",
+        "1",
+        "1h 7m",
+        "$0.0705",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/17 15:42",
+        "Improve mobile navigation",
+        "SD\nSin determinar",
+        "—",
+        "—",
+        "",
+        "2",
+        "4h 35m",
+        "$0.1867",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/17 09:33",
+        "Add file upload validation",
+        "CD\nClínica Dental Vega",
+        "Agenda Pacientes",
+        "Write onboarding docs",
+        "",
+        "4",
+        "8h 35m",
+        "$0.289",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/16 19:25",
+        "Add audit log",
+        "C\nCajamar",
+        "App Móvil",
+        "Add multi-language support",
+        "",
+        "2",
+        "3h 34m",
+        "$0.0918",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/16 06:31",
+        "Fix flaky test suite",
+        "C\nCajamar",
+        "Backoffice",
+        "Upgrade Nuxt to v4",
+        "",
+        "2",
+        "3h 26m",
+        "$0.1246",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/16 04:24",
+        "Upgrade Nuxt to v4",
+        "C\nCajamar",
+        "Portal Cliente",
+        "Fix timezone bug in bookings",
+        "",
+        "1",
+        "14m",
+        "$0.0525",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/13 15:11",
+        "Improve mobile navigation",
+        "C\nCajamar",
+        "Portal Cliente",
+        "Fix timezone bug in bookings",
+        "",
+        "2",
+        "4h 35m",
+        "$0.1051",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/09 05:38",
+        "Add dark mode",
+        "C\nCajamar",
+        "Backoffice",
+        "Upgrade Nuxt to v4",
+        "",
+        "1",
+        "16m",
+        "$0.0693",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/09 01:08",
+        "Improve mobile navigation",
+        "C\nCajamar",
+        "Backoffice",
+        "Improve error messages",
+        "",
+        "5",
+        "4h 57m",
+        "$0.3777",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/09/08 20:02",
+        "Add rate limiting",
+        "TN\nTurismo Níjar",
+        "Reservas",
+        "Improve search relevance",
+        "",
+        "3",
+        "5h 12m",
+        "$0.2189",
+        ""
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    }
+  ],
+  "children": [
+    [
+      "26/09/30 18:07",
+      "Completado",
+      "18m",
+      "$0.1117"
+    ]
+  ],
+  "flat": [
+    {
+      "cells": [
+        "26/10/02 23:01",
+        "Improve error messages",
+        "FS\nFerretería Soto",
+        "Tienda Online",
+        "Completado",
+        "",
+        "1h 20m",
+        "$0.0755"
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/10/02 17:45",
+        "Refactor invoice PDF generator",
+        "CD\nClínica Dental Vega",
+        "Web Corporativa",
+        "Interrumpido",
+        "",
+        "49m",
+        "$0.0369"
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/10/02 11:34",
+        "Refactor invoice PDF generator",
+        "C\nCajamar",
+        "Backoffice",
+        "Interrumpido",
+        "",
+        "35m",
+        "$0.0574"
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/10/02 11:19",
+        "Upgrade Nuxt to v4",
+        "FS\nFerretería Soto",
+        "Tienda Online",
+        "Completado",
+        "",
+        "2h 26m",
+        "$0.0627"
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/10/02 10:07",
+        "Upgrade Nuxt to v4",
+        "C\nCajamar",
+        "Backoffice",
+        "Completado",
+        "",
+        "2h 11m",
+        "$0.0398"
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    },
+    {
+      "cells": [
+        "26/10/02 09:10",
+        "Add realtime notifications",
+        "C\nCajamar",
+        "App Móvil",
+        "Interrumpido",
+        "",
+        "3h",
+        "$0.1178"
+      ],
+      "agent": "<span data-v-3e26adf0=\"\" data-testid=\"agent-icon\" data-agent-state=\"image\" title=\"pi\" aria-label=\"pi\" class=\"inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-border size-5 bg-white\"><img src=\"/agents/pi.svg\" alt=\"\" loading=\"lazy\" decoding=\"async\" width=\"20\" height=\"20\" class=\"size-full object-contain p-[15%]\"></span>"
+    }
+  ],
+  "method": "Rendered source fields; server session totals from task_entries; no work_records aggregation; standard isolated seed 437 entries"
+}

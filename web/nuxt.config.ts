@@ -7,9 +7,8 @@ export default defineNuxtConfig({
 
   // Static SPA: no server-side rendering. `nuxt generate` produces plain
   // static files that PocketBase serves via --publicDir (see
-  // scripts/dev.sh and README). During `nuxt dev` the app talks to the
-  // PocketBase API over NUXT_PUBLIC_PB_URL; in the production build the
-  // base URL defaults to same-origin.
+  // scripts/dev.sh and README). Both dev and production default to the
+  // browser origin; NUXT_PUBLIC_PB_URL can explicitly select another backend.
   ssr: false,
 
   // Pure client-routed SPA: prerender only the shell at `/`. With
@@ -22,6 +21,11 @@ export default defineNuxtConfig({
   // already serves `index.html` as a 200 SPA fallback for any path with
   // no matching file, which is exactly what a client-routed SPA needs.
   nitro: {
+    // Dev-only: H3 strips the mounted /api prefix before httpxy forwards.
+    // Restore it in the target so /api/health reaches PocketBase /api/health.
+    devProxy: {
+      '/api': { target: 'http://127.0.0.1:8090/api', changeOrigin: true },
+    },
     prerender: {
       crawlLinks: false,
       routes: ['/'],
@@ -38,6 +42,9 @@ export default defineNuxtConfig({
   css: ['~/assets/css/tailwind.css'],
 
   vite: {
+    server: {
+      allowedHosts: ['macbook-air.tailef2f3.ts.net'],
+    },
     plugins: [tailwindcss()],
   },
 
@@ -72,11 +79,10 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      // Same-origin in production (empty string -> relative /api calls);
-      // override with NUXT_PUBLIC_PB_URL for `nuxt dev` against a
-      // PocketBase instance running on a different port.
+      // Empty selects the absolute browser origin in dev and production.
+      // NUXT_PUBLIC_PB_URL overrides the browser client's backend directly.
       pbUrl: '',
-      appVersion: '0.4.0',
+      appVersion: '0.4.1',
     },
   },
 

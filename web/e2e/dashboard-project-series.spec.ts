@@ -28,7 +28,7 @@ test('project defaults use bounded metric ranking and conserve overall day total
   await page.addInitScript(() => localStorage.setItem('kankaku-locale', 'en'))
   await login(page)
   await expect(page.getByText('Others', { exact: true })).toBeVisible()
-  const chart = page.locator('[data-slot="card"]').filter({ has: page.getByText('Time series', { exact: true }) })
+  const chart = page.getByTestId('dashboard-time-series')
   await expect(chart).toContainText('Work time')
   await expect(chart).toContainText('Project')
   const assertCycle = async (sort: string, names: string[], values: number[], unit: 'h' | '$') => {
@@ -83,7 +83,7 @@ for (const change of ['metric', 'range'] as const) {
     try {
       await login(page)
       await expect.poll(() => rankCount).toBe(1)
-      const chart = page.locator('[data-slot="card"]').filter({ has: page.getByText('Time series', { exact: true }) })
+      const chart = page.getByTestId('dashboard-time-series')
       if (change === 'metric') {
         await chart.getByRole('combobox').first().click()
         await page.getByRole('option', { name: 'Cost', exact: true }).click()

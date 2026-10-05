@@ -160,7 +160,7 @@ async function toggleArchive(project: ProjectRecord) {
           <component :is="props.embedded ? 'h2' : 'h1'" class="text-xl font-semibold tracking-tight">{{ t('projects.title') }}</component>
         </div>
         <div class="flex items-center gap-2">
-          <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
+          <Button v-if="canWrite && !props.embedded" data-testid="write-action" size="sm" @click="openCreate">
             <Plus class="size-4" />
             {{ t('projects.new') }}
           </Button>
@@ -193,6 +193,7 @@ async function toggleArchive(project: ProjectRecord) {
             </template>
           </Select>
         </div>
+        <div class="flex min-w-0 flex-wrap items-center gap-3">
         <div role="group" :aria-label="t('projects.viewLabel')" class="control-group flex shrink-0 gap-1 self-start bg-muted sm:self-auto">
           <Button size="segment" :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" @click="view = 'list'">
             <List aria-hidden="true" class="size-4" />{{ t('projects.listView') }}
@@ -200,6 +201,11 @@ async function toggleArchive(project: ProjectRecord) {
           <Button size="segment" :variant="view === 'grid' ? 'secondary' : 'ghost'" :aria-pressed="view === 'grid'" @click="view = 'grid'">
             <LayoutGrid aria-hidden="true" class="size-4" />{{ t('projects.gridView') }}
           </Button>
+        </div>
+        <Button v-if="canWrite && props.embedded" data-testid="write-action" size="sm" @click="openCreate">
+          <Plus class="size-4" />
+          {{ t('projects.new') }}
+        </Button>
         </div>
       </div>
 

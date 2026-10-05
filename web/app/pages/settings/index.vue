@@ -31,7 +31,7 @@ onMounted(async () => {
     </h1>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <Card>
+    <Card data-testid="settings-appearance">
       <CardHeader>
         <CardTitle class="text-sm font-medium text-foreground">
           {{ t('settings.appearance') }}
@@ -42,6 +42,7 @@ onMounted(async () => {
         <Button
           v-for="opt in ['dark', 'light', 'system']" :key="opt"
           size="sm" :variant="colorMode.preference === opt ? 'default' : 'outline'"
+          data-card-option :aria-pressed="colorMode.preference === opt"
           @click="colorMode.preference = opt"
         >
           {{ t(`theme.${opt}`) }}
@@ -49,7 +50,7 @@ onMounted(async () => {
       </CardContent>
     </Card>
 
-    <Card>
+    <Card data-testid="settings-language">
       <CardHeader>
         <CardTitle class="text-sm font-medium text-foreground">
           {{ t('settings.language') }}
@@ -60,6 +61,7 @@ onMounted(async () => {
           <Button
             v-for="l in locales" :key="typeof l === 'string' ? l : l.code"
             size="sm" :variant="locale === (typeof l === 'string' ? l : l.code) ? 'default' : 'outline'"
+            data-card-option :aria-pressed="locale === (typeof l === 'string' ? l : l.code)"
             @click="setLocale(typeof l === 'string' ? l : l.code)"
           >
             {{ typeof l === 'string' ? l : l.name }}

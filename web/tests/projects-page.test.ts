@@ -161,7 +161,18 @@ describe('Projects view contract', () => {
     expect(source).toContain('err instanceof TotalsRouteUnavailableError')
     expect(source).toContain('groupByProject(entries.filter(e => e.project))')
     expect(source).toContain('<NuxtLink :to="`/organizacion/clientes/${p.client}/proyectos/${p.id}`"')
-    expect(source.match(/v-if="canWrite"/g)).toHaveLength(3)
+    expect(source).toContain('<Button v-if="canWrite && !props.embedded" data-testid="write-action" size="sm" @click="openCreate">')
+    expect(source).toContain('<Button v-if="canWrite && props.embedded" data-testid="write-action" size="sm" @click="openCreate">')
+    const grid = source.split('<template v-if="view === \'grid\'">')[1]?.split('<Card v-else>')[0]
+    const list = source.split('<Card v-else>')[1]?.split('<Dialog v-model:open="dialogOpen">')[0]
+    for (const view of [grid, list]) {
+      expect(view).toBeDefined()
+      const menus = view?.match(/<RowActions\b[\s\S]*?\/>/g)
+      expect(menus).toHaveLength(1)
+      expect(menus![0]).toContain('v-if="canWrite"')
+      expect(menus![0]).toContain('onClick: () => openEdit(p)')
+      expect(menus![0]).toContain('onClick: () => toggleArchive(p)')
+    }
     expect(source).toContain('@submit.prevent="onSubmit"')
     expect(source).toContain('await create({ name: form.name')
     expect(source).toContain('await update(editing.value.id')

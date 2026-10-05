@@ -650,14 +650,11 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
       </KpiCard>
     </div>
 
-    <Card>
-      <CardHeader class="flex-row flex-wrap items-center justify-between gap-3 pb-2">
-        <CardTitle class="text-sm font-medium text-foreground">
-          {{ t('dashboard.chart.title') }}
-        </CardTitle>
-        <div class="flex min-w-0 flex-wrap items-center gap-2">
+    <Card data-testid="dashboard-time-series" role="region" :aria-label="t('dashboard.chart.title')">
+      <CardHeader class="flex items-end pb-2">
+        <div class="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
           <Select
-v-model="metric" class="min-w-0 sm:min-w-[12.5rem]" :aria-label="t('dashboard.chart.metric')" :options="[
+v-model="metric" class="w-full min-w-0 sm:w-[12.5rem]" :aria-label="t('dashboard.chart.metric')" :options="[
             { value: 'work', label: t('dashboard.chart.work') },
             { value: 'cost', label: t('dashboard.chart.cost') },
           ]"
@@ -695,18 +692,12 @@ v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :optio
     </Card>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <Card data-testid="breakdown-by-client">
-        <CardHeader><CardTitle class="text-sm font-medium text-foreground">
-          {{ t('dashboard.byClient') }}
-        </CardTitle></CardHeader>
+      <Card data-testid="breakdown-by-client" role="region" :aria-label="t('dashboard.byClient')">
         <CardContent>
           <BreakdownTable :rows="byClient" :name-header="t('common.client')" :resolve-client="clientById" />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle class="text-sm font-medium text-foreground">
-          {{ t('dashboard.byProject') }}
-        </CardTitle></CardHeader>
+      <Card data-testid="breakdown-by-project" role="region" :aria-label="t('dashboard.byProject')">
         <CardContent>
           <BreakdownTable :rows="byProject" :name-header="t('common.project')" />
         </CardContent>

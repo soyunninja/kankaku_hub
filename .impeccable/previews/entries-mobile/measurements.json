@@ -1,0 +1,1186 @@
+[
+  {
+    "option": "A",
+    "keyboardExpanded": true
+  },
+  {
+    "option": "A",
+    "theme": "light",
+    "width": 320,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 346,
+    "themeBackground": "oklch(1 0 0)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 140,
+        "height": 60
+      },
+      {
+        "label": "Todos",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 288,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 246,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "Trabajo 18mCoste tokens $0.1117",
+        "width": 262,
+        "scrollWidth": 262
+      },
+      {
+        "text": "Trabajo 3h 19mCoste tokens $0.0678",
+        "width": 262,
+        "scrollWidth": 262
+      }
+    ]
+  },
+  {
+    "option": "A",
+    "theme": "light",
+    "width": 390,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 330,
+    "themeBackground": "oklch(1 0 0)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 358,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 316,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "Trabajo 18mCoste tokens $0.1117",
+        "width": 332,
+        "scrollWidth": 332
+      },
+      {
+        "text": "Trabajo 3h 19mCoste tokens $0.0678",
+        "width": 332,
+        "scrollWidth": 332
+      }
+    ]
+  },
+  {
+    "option": "A",
+    "theme": "light",
+    "width": 430,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 330,
+    "themeBackground": "oklch(1 0 0)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 398,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 356,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "Trabajo 18mCoste tokens $0.1117",
+        "width": 372,
+        "scrollWidth": 372
+      },
+      {
+        "text": "Trabajo 3h 19mCoste tokens $0.0678",
+        "width": 372,
+        "scrollWidth": 372
+      }
+    ]
+  },
+  {
+    "option": "A",
+    "theme": "dark",
+    "width": 320,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 346,
+    "themeBackground": "oklch(0.113 0.011 316)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 140,
+        "height": 60
+      },
+      {
+        "label": "Todos",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 288,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 246,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 262,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "Trabajo 18mCoste tokens $0.1117",
+        "width": 262,
+        "scrollWidth": 262
+      },
+      {
+        "text": "Trabajo 3h 19mCoste tokens $0.0678",
+        "width": 262,
+        "scrollWidth": 262
+      }
+    ]
+  },
+  {
+    "option": "A",
+    "theme": "dark",
+    "width": 390,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 330,
+    "themeBackground": "oklch(0.113 0.011 316)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 358,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 316,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 332,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "Trabajo 18mCoste tokens $0.1117",
+        "width": 332,
+        "scrollWidth": 332
+      },
+      {
+        "text": "Trabajo 3h 19mCoste tokens $0.0678",
+        "width": 332,
+        "scrollWidth": 332
+      }
+    ]
+  },
+  {
+    "option": "A",
+    "theme": "dark",
+    "width": 430,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 330,
+    "themeBackground": "oklch(0.113 0.011 316)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 398,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 356,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 372,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "Trabajo 18mCoste tokens $0.1117",
+        "width": 372,
+        "scrollWidth": 372
+      },
+      {
+        "text": "Trabajo 3h 19mCoste tokens $0.0678",
+        "width": 372,
+        "scrollWidth": 372
+      }
+    ]
+  },
+  {
+    "option": "B",
+    "keyboardExpanded": true
+  },
+  {
+    "option": "B",
+    "theme": "light",
+    "width": 320,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 408.5,
+    "themeBackground": "oklch(1 0 0)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 140,
+        "height": 60
+      },
+      {
+        "label": "Todos",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 288,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 254,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "18m",
+        "width": 83,
+        "scrollWidth": 83
+      },
+      {
+        "text": "$0.1117",
+        "width": 89,
+        "scrollWidth": 89
+      }
+    ]
+  },
+  {
+    "option": "B",
+    "theme": "light",
+    "width": 390,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 371.5,
+    "themeBackground": "oklch(1 0 0)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 358,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 324,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "18m",
+        "width": 103,
+        "scrollWidth": 103
+      },
+      {
+        "text": "$0.1117",
+        "width": 110,
+        "scrollWidth": 110
+      }
+    ]
+  },
+  {
+    "option": "B",
+    "theme": "light",
+    "width": 430,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 371.5,
+    "themeBackground": "oklch(1 0 0)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 398,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 364,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "18m",
+        "width": 115,
+        "scrollWidth": 115
+      },
+      {
+        "text": "$0.1117",
+        "width": 123,
+        "scrollWidth": 123
+      }
+    ]
+  },
+  {
+    "option": "B",
+    "theme": "dark",
+    "width": 320,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 408.5,
+    "themeBackground": "oklch(0.113 0.011 316)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 140,
+        "height": 60
+      },
+      {
+        "label": "Todos",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 140,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 288,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 254,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 106.390625,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "18m",
+        "width": 83,
+        "scrollWidth": 83
+      },
+      {
+        "text": "$0.1117",
+        "width": 89,
+        "scrollWidth": 89
+      }
+    ]
+  },
+  {
+    "option": "B",
+    "theme": "dark",
+    "width": 390,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 371.5,
+    "themeBackground": "oklch(0.113 0.011 316)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 175,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 358,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 324,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 134.390625,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "18m",
+        "width": 103,
+        "scrollWidth": 103
+      },
+      {
+        "text": "$0.1117",
+        "width": 110,
+        "scrollWidth": 110
+      }
+    ]
+  },
+  {
+    "option": "B",
+    "theme": "dark",
+    "width": 430,
+    "documentOverflow": 0,
+    "readingOverflow": 0,
+    "firstRecordY": 371.5,
+    "themeBackground": "oklch(0.113 0.011 316)",
+    "touchControls": [
+      {
+        "label": "Exportar",
+        "width": 77.90625,
+        "height": 44
+      },
+      {
+        "label": "Todo el tiempo",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Todos",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Sesiones",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Entradas",
+        "width": 195,
+        "height": 44
+      },
+      {
+        "label": "Más filtros (0)",
+        "width": 398,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "Ver detalles",
+        "width": 364,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "2 entradas",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      },
+      {
+        "label": "1 entrada",
+        "width": 150.390625,
+        "height": 44
+      }
+    ],
+    "metrics": [
+      {
+        "text": "18m",
+        "width": 115,
+        "scrollWidth": 115
+      },
+      {
+        "text": "$0.1117",
+        "width": 123,
+        "scrollWidth": 123
+      }
+    ]
+  }
+]

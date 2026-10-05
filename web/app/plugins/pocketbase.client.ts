@@ -1,13 +1,13 @@
 import PocketBase from 'pocketbase'
 import type { UserRecord } from '~/lib/pocketbase-types'
+import { resolvePocketBaseUrl } from '~/lib/pocketbase-url'
 
 /**
  * Single PocketBase client for the whole app. Base URL resolution:
  * - `NUXT_PUBLIC_PB_URL` when set (any environment).
- * - In `nuxt dev` with no override: `http://127.0.0.1:8090` (scripts/dev.sh
- *   default), since the Nuxt dev server runs on its own port.
- * - Otherwise (the production static build, served BY PocketBase itself
- *   via --publicDir): `window.location.origin` — see docs/proposal.md
+ * - Otherwise: `window.location.origin`, with Nitro's dev-only /api proxy
+ *   in development and PocketBase serving the static build in production
+ *   via --publicDir — see docs/proposal.md
  *   §9.1. Deliberately NOT an empty string/relative base: the PocketBase
  *   SDK builds request URLs like `api/collections/...` (no leading
  *   slash), which the browser resolves against the *current page path*,
@@ -18,7 +18,7 @@ import type { UserRecord } from '~/lib/pocketbase-types'
  */
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
-  const baseUrl = config.public.pbUrl || (import.meta.dev ? 'http://127.0.0.1:8090' : window.location.origin)
+  const baseUrl = resolvePocketBaseUrl(config.public.pbUrl, window.location.origin)
 
   const pb = new PocketBase(baseUrl)
   pb.autoCancellation(false)

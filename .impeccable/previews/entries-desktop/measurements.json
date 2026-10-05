@@ -1,0 +1,122 @@
+[
+  {
+    "name": "A-light",
+    "viewport": "1440x1000",
+    "documentOverflow": false,
+    "filterPanel": {
+      "top": 125,
+      "bottom": 400
+    },
+    "table": {
+      "top": 454,
+      "left": 265,
+      "right": 1415
+    },
+    "expanderFullyVisible": true,
+    "cardPadding": "0px",
+    "contentPadding": "0px",
+    "filterDimensions": 9,
+    "rows": 25,
+    "font": "Inter, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", Meiryo, \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif"
+  },
+  {
+    "name": "A-dark",
+    "viewport": "1440x1000",
+    "documentOverflow": false,
+    "filterPanel": {
+      "top": 125,
+      "bottom": 400
+    },
+    "table": {
+      "top": 454,
+      "left": 265,
+      "right": 1415
+    },
+    "expanderFullyVisible": true,
+    "cardPadding": "0px",
+    "contentPadding": "0px",
+    "filterDimensions": 9,
+    "rows": 25,
+    "font": "Inter, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", Meiryo, \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif"
+  },
+  {
+    "name": "B-light",
+    "viewport": "1440x1000",
+    "documentOverflow": false,
+    "filterPanel": {
+      "top": 125,
+      "bottom": 213
+    },
+    "table": {
+      "top": 231,
+      "left": 265,
+      "right": 1415
+    },
+    "expanderFullyVisible": true,
+    "cardPadding": "0px",
+    "contentPadding": "0px",
+    "filterDimensions": 9,
+    "rows": 25,
+    "font": "Inter, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", Meiryo, \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif"
+  },
+  {
+    "name": "B-expanded-light",
+    "viewport": "1440x1000",
+    "documentOverflow": false,
+    "filterPanel": {
+      "top": 125,
+      "bottom": 400
+    },
+    "table": {
+      "top": 418,
+      "left": 265,
+      "right": 1415
+    },
+    "expanderFullyVisible": true,
+    "cardPadding": "0px",
+    "contentPadding": "0px",
+    "filterDimensions": 9,
+    "rows": 25,
+    "font": "Inter, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", Meiryo, \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif"
+  },
+  {
+    "name": "B-dark",
+    "viewport": "1440x1000",
+    "documentOverflow": false,
+    "filterPanel": {
+      "top": 125,
+      "bottom": 213
+    },
+    "table": {
+      "top": 231,
+      "left": 265,
+      "right": 1415
+    },
+    "expanderFullyVisible": true,
+    "cardPadding": "0px",
+    "contentPadding": "0px",
+    "filterDimensions": 9,
+    "rows": 25,
+    "font": "Inter, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", Meiryo, \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif"
+  },
+  {
+    "name": "B-expanded-dark",
+    "viewport": "1440x1000",
+    "documentOverflow": false,
+    "filterPanel": {
+      "top": 125,
+      "bottom": 400
+    },
+    "table": {
+      "top": 418,
+      "left": 265,
+      "right": 1415
+    },
+    "expanderFullyVisible": true,
+    "cardPadding": "0px",
+    "contentPadding": "0px",
+    "filterDimensions": 9,
+    "rows": 25,
+    "font": "Inter, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Yu Gothic UI\", \"Yu Gothic\", Meiryo, \"Noto Sans JP\", \"Noto Sans CJK JP\", ui-sans-serif, system-ui, sans-serif"
+  }
+]

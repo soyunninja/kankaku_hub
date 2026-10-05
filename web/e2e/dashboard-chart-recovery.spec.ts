@@ -49,7 +49,7 @@ for (const failure of [503, 404]) {
       await route.fulfill({ json: { page: 1, perPage: 2000, totalItems: 1, totalPages: 1, items: fallback ? [{ id: 'entry0000000001', project: 'project00000001', client: '', started_at: new Date().toISOString(), work_ms: 3600000, cost: 1 }] : [] } })
     })
     await login(page)
-    const chart = page.locator('[data-slot="card"]').filter({ has: page.getByText('Time series', { exact: true }) })
+    const chart = page.getByTestId('dashboard-time-series')
     const alert = chart.getByRole('alert')
     await expect(alert).toContainText('Could not load time series.')
     await expect(chart.getByRole('img')).toHaveCount(0)
@@ -103,7 +103,7 @@ test('delayed stale failure cannot overwrite a newer metric and stack', async ({
   try {
     await login(page)
     await expect.poll(() => ranks).toBe(1)
-    const chart = page.locator('[data-slot="card"]').filter({ has: page.getByText('Time series', { exact: true }) })
+    const chart = page.getByTestId('dashboard-time-series')
     await expect(chart.getByRole('img')).toHaveCount(0)
     await chart.getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Cost', exact: true }).click()
@@ -145,7 +145,7 @@ test('summary failure is distinct and sticky fallback refetches a new range', as
     await route.fulfill({ json: { page: 1, totalItems: 0, totalPages: 1, items: [] } })
   })
   await login(page)
-  const chart = page.locator('[data-slot="card"]').filter({ has: page.getByText('Time series', { exact: true }) })
+  const chart = page.getByTestId('dashboard-time-series')
   await expect(chart.getByRole('img').first()).toBeVisible()
   failSummary = true
   await page.getByRole('button', { name: /\d{4}-\d{2}-\d{2} → \d{4}-\d{2}-\d{2}/ }).click()

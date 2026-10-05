@@ -84,7 +84,7 @@ function openDetail(client: ClientRecord) {
             {{ t('clients.title') }}
           </component>
         </div>
-        <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
+        <Button v-if="canWrite && !props.embedded" data-testid="write-action" size="sm" @click="openCreate">
           <Plus class="size-4" />
           {{ t('clients.new') }}
         </Button>
@@ -106,6 +106,7 @@ function openDetail(client: ClientRecord) {
             class="pl-11"
           />
         </div>
+        <div class="flex min-w-0 flex-wrap items-center gap-3">
         <div role="group" :aria-label="t('clients.viewLabel')" class="control-group flex shrink-0 gap-1 self-start bg-muted sm:self-auto">
           <Button size="segment" :variant="view === 'list' ? 'secondary' : 'ghost'" :aria-pressed="view === 'list'" @click="view = 'list'">
             <List aria-hidden="true" class="size-4" />
@@ -115,6 +116,11 @@ function openDetail(client: ClientRecord) {
             <LayoutGrid aria-hidden="true" class="size-4" />
             {{ t('clients.gridView') }}
           </Button>
+        </div>
+        <Button v-if="canWrite && props.embedded" data-testid="write-action" size="sm" @click="openCreate">
+          <Plus class="size-4" />
+          {{ t('clients.new') }}
+        </Button>
         </div>
       </div>
 

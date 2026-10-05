@@ -7,9 +7,9 @@ The verified release commit is `8857e811405c5b146b7e42eaad815a30fda0adb6`; curre
 
 ## Tasks
 - [x] T1 (done): Map selected branch ancestry, genuinely additional changes, conflicts, remote/worktree state, and narrow implementation surfaces.
-- [ ] T2 (in_progress): Integrate selected branches sequentially in an isolated same-clone worktree; resolve only mapped conflicts and preserve verified release behavior.
-- [ ] T3 (pending): Independently verify the integrated candidate and normal commit hooks; record actual results, skips, and integration commits.
-- [ ] T4 (pending): Advance main safely and push origin/main without force; verify remote identity and preserve unrelated local work.
+- [x] T2 (done): Integrate selected branches sequentially in an isolated same-clone worktree; resolve only mapped conflicts and preserve verified release behavior.
+- [x] T3 (done): Independently verify the integrated candidate and normal commit hooks; record actual results, skips, and integration commits.
+- [x] T4 (done): Advance main safely and push origin/main without force; verify remote identity and preserve unrelated local work.
 
 ## Execution safeguards
 Single source writer. Main-primary worktree stays untouched except orchestrator task bookkeeping. Read-only mapping first; parent derives exact allowed edit surfaces before a worker. Do not prune stale worktree registrations or touch their directories. Inspect/fetch remote state before updating main; stop on unknown remote changes rather than overwriting them. Integrate on a feature branch rooted at main, not by changing dirty current files. Worktree isolation is sequential, not parallel write authorization.
@@ -33,3 +33,29 @@ The isolated branch fast-forwarded to `8857e811405c5b146b7e42eaad815a30fda0adb6`
 Final integration differences from release are limited to two parent-owned ODD records: this integration ledger and the previously observed release-commit closure. No application, test, schema, packaging, or public/private configuration blob changes. The retained release checks therefore apply to identical functional inputs; independent post-commit structural verification will prove this and selected-tip ancestry.
 
 Installed `/opt/homebrew/bin/gga` discovers the project config from CWD-relative `.gga` (lines 295–299) and validates provider configuration before reviewing files (lines 785–793). Parent copies the already-used primary config byte-for-byte into the isolated worktree as an **untracked** runtime file so the ordinary hook uses the same provider/settings; the original is not changed and neither copy is staged. This is not a hook bypass or a new provider configuration.
+
+## T2 observed integration commit
+
+Normal commit completed as `d030f86` on the isolated integration feature branch with message `chore: integrate verified task history into main`. It records selected taskless history while retaining verified release code; the selected tasks-history tip is covered by taskless ancestry. Only the two explicit ODD records differ from release. The ordinary pre-commit hook executed using the byte-identical untracked local config copy and reported no matching staged code files, as expected for documentation-only changes; no hook was bypassed and no code-review verdict is inferred.
+
+T2 is complete; T3 independent post-commit identity/ancestry/source-blob verification is in progress. Main still points to `237fee20db9ad989263118d906987fe965aee9c3`; push has not run. Primary working branch remains `feat/card-contained-form-backgrounds` and its unrelated local work is retained.
+
+## T3 independent verification and delivery handoff
+
+Verifier `muvbh2ff-29-56gu` confirmed commit `d030f860ffdc0197283bad534064c267b068ddb7`, tree `4bf865589923cfb80b9d0c48f2ea2ab66a940368`, with exact parents release `8857e811405c5b146b7e42eaad815a30fda0adb6` and taskless `87c91ec42bf3ef803de01a6f68e5862cb7b36bf3`. All three selected tips are ancestors and their refs remain unchanged.
+
+All 606 non-bookkeeping blob IDs/modes and their bytes equal the actually-tested retained green export. Exactly two ODD records differ (+46/-1). Root/public version remains 0.4.0; private preview changes, generated/runtime files, and untracked hook config were not absorbed. Index/working source are clean in the isolated worktree, with only the expected untracked .gga copy.
+
+Primary HEAD/branch/index and original cache records are unchanged except expected release bookkeeping; historical worktree registrations were preserved. Main was unoccupied and still at expected `237fee20db9ad989263118d906987fe965aee9c3`, an ancestor of integration. Retained functional results are reused for identical inputs, not described as rerun: 317 focused, 844 full, 38 skipped, typecheck 0; root fixtures 9/155/19; earlier 89 browser checks remain working-tree evidence.
+
+T3 is complete. Parent now rechecks advertised remote/main occupancy and expected tip, advances main with a guarded fast-forward compare-and-swap, then performs the user-authorized ordinary non-force push. Unexpected remote/local advancement stops delivery.
+
+## T4 observed main delivery closure
+
+Parent rechecked advertised GitHub main, local main, primary index/branch, selected-tip ancestry, and main worktree occupancy. All pre-delivery tips still matched expected `237fee20db9ad989263118d906987fe965aee9c3`. Main advanced by guarded fast-forward compare-and-swap to `d030f860ffdc0197283bad534064c267b068ddb7`.
+
+Ordinary `git push origin refs/heads/main:refs/heads/main` succeeded: `237fee2..d030f86 main -> main`. A fresh remote advertisement then confirmed **local main = origin/main = GitHub main = d030f860ffdc0197283bad534064c267b068ddb7**. All three selected branch tips are ancestors of main. No force, branch deletion, tag, npm publication, manual deployment, reset, or hook bypass occurred.
+
+Primary working branch remains `feat/card-contained-form-backgrounds` at release `8857e81` to preserve dirty local work. Its empty index and fingerprint `69c0d965485da8586b0b18f02363161a96ae8a44897c2d2bf5172d539606e383` remain unchanged. Existing source/config/design/dashboard/private-preview changes and untracked files were not staged or discarded; original source branch and backup refs remain. Isolated integration worktree and prior verification artifacts are retained.
+
+All four tasks are complete. This final local task/memory closure is not a further commit or push. CI, deployment, npm publication, backend ACL/mutation checks, build, physical-device/reboot checks, and formal accessibility audit were not executed. Functional checks are the retained source-identical evidence above; 38 live-backend cases remain skipped.

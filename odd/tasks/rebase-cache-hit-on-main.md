@@ -1,0 +1,12 @@
+# Rebase cache-hit work onto npm-enabled main
+
+Goal: Move `feat/cache-hit-display`'s existing commits onto the latest npm-packaged `main` without losing or accidentally committing its extensive tracked, staged and untracked working changes. No push or deployment.
+
+Context: local `main` is behind `origin/main` by npm package commits `7b2308d` and `185291f`; feature branch has eight commits since their common base `dcf01ef`. The worktree has many unrelated pending edits, one staged Claude SVG and 71 untracked files. The untracked files must remain untouched, including `.kankaku`, `.pi`, `.gga`, `web/.vitest` and task artifacts. Rebase rewrites the branch's existing commits, not a new WIP commit.
+
+## Tasks
+- [x] T1 — Capture exact branch/index/working-tree inventory and durable rollback handles; fetch latest main and confirm no untracked path collisions. Captured `/tmp/kankaku-hub-rebase.6LZcWB` (patches, status, untracked archive, index tree), backup branch `backup/feat-cache-hit-pre-npm-rebase-20260926` at `87c91ec`, tracked/index stash `9afd974`; target `origin/main=185291f`; no untracked collisions.
+- [x] T2 — Stash tracked/index changes only, fast-forward local main, rebase existing feature commits onto it, then reapply the tracked/index stash while keeping untracked paths in place. Completed without conflicts: local main `185291f`, feature HEAD `f8bdcab` (7 linear commits; former merge flattened), staged SVG restored. Pre/post working patch, staged patch, porcelain status, untracked path list byte-identical; feature tree delta exactly equals two npm commits. Stash retained for rollback.
+- [x] T3 — Verify all pre-rebase staged/unstaged/untracked content and branch ancestry. Independent `git range-diff` confirmed seven patch-equivalent commits; all 72 untracked files remain (only this task doc and volatile `.kankaku`/`.vitest` changed after archive). Web unit 483 passed/38 skipped, typecheck passed, lint 0 errors/23 warnings; package manifest tests 9, hooks 150, seed 19 passed; both diff checks passed. No build, prepack, npm pack, publish or PocketBase runtime check.
+
+Result: `feat/cache-hit-display` now ends at `f8bdcab3cbcf81644c7dce0d1bb316793f8588b2`, descended from npm-enabled `main=185291ffefe1411eb6d9ad3e797fcd6797b0afe4`. Existing work remains dirty exactly as before and `web/public/agents/claude-code.svg` is still staged. Rollback branch, stash and external snapshot remain deliberately retained. No new work-unit commit, force push, build, pack or deployment.

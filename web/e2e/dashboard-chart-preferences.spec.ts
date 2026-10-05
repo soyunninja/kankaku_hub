@@ -42,7 +42,7 @@ for (const scenario of ['fresh', 'client', 'none', 'invalid', 'throws'] as const
       }, DASHBOARD_PREFERENCES_KEY)
     }
     await login(page)
-    const chart = page.locator('[data-slot="card"]').filter({ has: page.getByText('Time series', { exact: true }) })
+    const chart = page.getByTestId('dashboard-time-series')
     await expect(chart.getByRole('img').first()).toBeVisible()
     await page.waitForLoadState('networkidle')
     const assertInitialization = (stack: string) => {

@@ -1,0 +1,9 @@
+# Entries session bulk task assignment
+
+- [x] B1 — Complete read-only mapping of existing selection/bulk-assignment patterns and finalize exact UX/implementation scope.
+- [x] B2 — Implement session-filtered row selection and selected-count/action bar without breaking row open/toggle behavior.
+- [x] B3 — Implement bulk assign to existing task and create-new-task-and-assign flow, reusing batch/chunk behavior and refreshing entries/tasks.
+- [x] B4 — Add i18n strings and focused tests, then run lint/typecheck/diff checks.
+- [ ] B5 — Verify or request owner visual/runtime signoff on `/entries` with an active session filter.
+
+- [ ] B6 — Simplify bulk assignment UX into focused dialogs.

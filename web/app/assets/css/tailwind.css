@@ -24,6 +24,20 @@
   padding: 4px;
 }
 
+/* Card fields and explicitly unselected Settings options use canvas.
+   Unlayered to beat dark/hover utilities;
+   only background paint changes, never widget states or focus/invalid indicators.
+   Portalled popup surfaces are not descendants of the card. */
+[data-slot="card"] :is(
+  input[data-slot="input"]:not([type="checkbox"], [type="radio"], [type="range"], [role="checkbox"], [role="radio"], [role="switch"]),
+  select[data-slot="native-select"],
+  button[data-slot="combobox-trigger"][role="combobox"],
+  textarea[data-slot="textarea"],
+  button[data-card-option][aria-pressed="false"]
+) {
+  background-color: var(--background);
+}
+
 /* Calendar month/year pickers are internal compact controls, not standalone fields. */
 [data-slot="calendar"] [data-slot="native-select"] {
   height: 32px;
