@@ -24,7 +24,7 @@ var MAX_PER_PAGE = 200;
 var MAX_BODY_CHARS = 60000; // generous headroom over a 401-boundary array (~30 chars/entry)
 var MAX_STRING_LEN = 400; // generic cap for any single filter value
 
-var GROUP_BY_VALUES = ["none", "day", "client", "project", "task", "session", "agent", "model", "legacy_label"];
+var GROUP_BY_VALUES = ["none", "day", "client", "project", "task", "session", "agent", "model", "machine", "legacy_label"];
 var STATUS_VALUES = ["completed", "aborted", "interrupted"];
 
 // sort key -> literal ORDER BY SQL fragment. Never derived from request text.
@@ -367,6 +367,10 @@ var SESSION_REAL_COLUMNS =
  * `{ selectExtra, groupBy, having }` — `selectExtra` always starts with
  * `group_key` (text) and `group_key2` (text, '' when unused).
  */
+// Blank machines share the empty-dimension sentinel; preserve all other
+// values verbatim, including case and surrounding whitespace.
+var MACHINE_GROUP_SQL = "CASE WHEN TRIM(COALESCE(te.machine, ''), char(9, 10, 11, 12, 13, 32)) = '' THEN '' ELSE te.machine END";
+
 function buildGroupBranch(groupBy, params) {
   switch (groupBy) {
     case "none":
@@ -383,6 +387,13 @@ function buildGroupBranch(groupBy, params) {
       return { selectExtra: "te.agent as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "te.agent", having: "" };
     case "model":
       return { selectExtra: "te.model as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "te.model", having: "" };
+    case "machine":
+      return {
+        selectExtra: MACHINE_GROUP_SQL + " as group_key, '' as group_key2, -1 as day_index," +
+          SESSION_PLACEHOLDER_COLUMNS.replace("'' as machine_out", MACHINE_GROUP_SQL + " as machine_out"),
+        groupBy: MACHINE_GROUP_SQL,
+        having: "",
+      };
     case "session":
       return { selectExtra: "te.session_id as group_key, '' as group_key2, -1 as day_index," + SESSION_REAL_COLUMNS, groupBy: "te.session_id", having: "" };
     case "legacy_label":

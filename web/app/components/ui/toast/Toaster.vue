@@ -59,6 +59,9 @@ const latestAssertive = computed(() => {
             <p v-if="t.description" class="mt-0.5 text-xs opacity-90">
               {{ t.description }}
             </p>
+            <NuxtLink v-if="t.action" :to="t.action.href" class="mt-1 inline-block text-xs underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2">
+              {{ t.action.label }}
+            </NuxtLink>
           </div>
           <button class="shrink-0 opacity-70 hover:opacity-100" :aria-label="translate('common.close')" :title="translate('common.close')" @click="dismiss(t.id)">
             <X class="size-4" aria-hidden="true" />

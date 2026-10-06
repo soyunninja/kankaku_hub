@@ -1,7 +1,19 @@
+export interface ToastAction {
+  href: string
+  label: string
+}
+
+export interface ToastOptions {
+  action?: ToastAction
+  /** Zero keeps the toast visible until manually dismissed. */
+  duration?: number
+}
+
 export interface ToastMessage {
   id: number
   title: string
   description?: string
+  action?: ToastAction
   variant?: 'default' | 'destructive' | 'success'
 }
 
@@ -28,9 +40,9 @@ export function useToast() {
 
   return {
     toasts,
-    success: (title: string, description?: string) => push({ title, description, variant: 'success' }),
-    error: (title: string, description?: string) => push({ title, description, variant: 'destructive' }),
-    info: (title: string, description?: string) => push({ title, description, variant: 'default' }),
+    success: (title: string, description?: string, options: ToastOptions = {}) => push({ title, description, variant: 'success', action: options.action }, options.duration),
+    error: (title: string, description?: string, options: ToastOptions = {}) => push({ title, description, variant: 'destructive', action: options.action }, options.duration),
+    info: (title: string, description?: string, options: ToastOptions = {}) => push({ title, description, variant: 'default', action: options.action }, options.duration),
     dismiss,
   }
 }

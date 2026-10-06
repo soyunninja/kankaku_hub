@@ -45,6 +45,12 @@ export const AGENTS: Readonly<Record<string, AgentDefinition>> = {
     icon: '/agents/opencode.png',
     background: 'own',
   },
+  'gentle-shell': {
+    slug: 'gentle-shell',
+    label: 'Gentle-Shell',
+    icon: '/agents/gentle-shell.svg',
+    background: 'white',
+  },
   'claude-code': {
     slug: 'claude-code',
     label: 'Claude Code',

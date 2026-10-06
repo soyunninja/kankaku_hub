@@ -26,7 +26,6 @@ function selectTab(value: string | number) {
   <div class="flex min-w-0 flex-col gap-6">
     <header class="space-y-2">
       <h1 class="text-xl font-semibold tracking-tight">{{ t('nav.organization') }}</h1>
-      <p class="text-sm text-muted-foreground">{{ t('organizationTabs.description') }}</p>
     </header>
     <Tabs :model-value="activeTab" @update:model-value="selectTab">
       <TabsList :aria-label="t('nav.organization')">

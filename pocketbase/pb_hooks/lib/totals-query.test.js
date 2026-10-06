@@ -48,7 +48,7 @@ test("accepts a T-separated date and normalizes it to space form", () => {
 });
 
 test("accepts every documented group_by value", () => {
-  const values = ["none", "client", "project", "task", "session", "agent", "model", "legacy_label"];
+  const values = ["none", "client", "project", "task", "session", "agent", "model", "machine", "legacy_label"];
   for (const g of values) {
     valid({ group_by: g });
   }
@@ -95,6 +95,7 @@ test("rejects unknown filter keys", () => {
 test("rejects a group_by value outside the whitelist, including an injection attempt", () => {
   invalid({ group_by: "client; DROP TABLE task_entries;--" });
   invalid({ group_by: "task_entries.cost" });
+  invalid({ group_by: "machine; DROP TABLE task_entries;--" });
   invalid({ group_by: "" });
 });
 
@@ -251,6 +252,48 @@ test("buildQueries applies LIMIT/OFFSET matching page/per_page", () => {
   const q = buildQueries(v);
   assert.equal(q.page.params.p_limit, 10);
   assert.equal(q.page.params.p_offset, 20);
+});
+
+test("machine groups expose the same identity and machine dimension, merging only blank values", () => {
+  const q = buildQueries(valid({ group_by: "machine" }));
+  const identity = "CASE WHEN TRIM(COALESCE(te.machine, ''), char(9, 10, 11, 12, 13, 32)) = '' THEN '' ELSE te.machine END";
+  assert.ok(q.page.sql.includes(identity + " as group_key"));
+  assert.ok(q.page.sql.includes(identity + " as machine_out"));
+  assert.ok(q.page.sql.includes("'' as group_key2"));
+  for (const query of [q.page, q.groupCount]) {
+    assert.ok(query.sql.includes("GROUP BY " + identity));
+    assert.ok(!query.sql.includes("LOWER(")); // case-sensitive machine identities survive
+  }
+});
+
+test("machine cost ranking aggregates all scoped task entries before group pagination", () => {
+  const q = buildQueries(valid({
+    group_by: "machine", sort: "-cost", per_page: 5,
+    from: "2026-01-01T00:00:00.000Z", to: "2026-02-01T00:00:00.000Z",
+    filters: { client: "c1", project: "p1", agent: "", machine: "host' OR 1=1--" },
+  }));
+  for (const query of [q.grandTotal, q.groupCount, q.page]) {
+    assert.ok(query.sql.includes("FROM task_entries te WHERE"));
+    for (const key of ["client", "project", "agent", "machine"]) {
+      assert.ok(query.sql.includes("te." + key + " = {:p_" + key + "}"));
+    }
+    assert.equal(query.params.p_client, "c1");
+    assert.equal(query.params.p_project, "p1");
+    assert.equal(query.params.p_agent, "");
+    assert.equal(query.params.p_machine, "host' OR 1=1--");
+    assert.equal(query.params.p_from, "2026-01-01 00:00:00.000Z");
+    assert.equal(query.params.p_to, "2026-02-01 00:00:00.000Z");
+    assert.ok(query.sql.includes("te.started_at >= {:p_from}"));
+    assert.ok(query.sql.includes("te.started_at <= {:p_to}"));
+    assert.ok(!/work_records|OR 1=1|ignored_sessions/.test(query.sql));
+  }
+  for (const query of [q.grandTotal, q.page]) {
+    assert.ok(query.sql.includes("SUM(te.cost)"));
+    assert.ok(query.sql.includes("WHEN te.cost_quality != 'unknown' THEN te.cost ELSE 0 END"));
+  }
+  assert.ok(q.page.sql.indexOf("GROUP BY") < q.page.sql.indexOf("ORDER BY cost DESC LIMIT"));
+  assert.equal(q.page.params.p_limit, 5);
+  assert.equal(q.page.params.p_offset, 0);
 });
 
 test("buildQueries for legacy_label groups by two columns", () => {

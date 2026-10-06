@@ -341,14 +341,14 @@ async function onDelete(task: TaskRecord) {
   <TooltipProvider>
     <div class="flex flex-col gap-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <component :is="props.embedded ? 'h2' : 'h1'" class="text-xl font-semibold tracking-tight">
+        <h1 v-if="!props.embedded" class="text-xl font-semibold tracking-tight">
           {{ t('tasks.title') }}
-        </component>
-        <div data-testid="tasks-toolbar" class="flex min-w-0 w-full flex-wrap items-end gap-2 xl:w-auto">
-          <div class="flex flex-col gap-1">
+        </h1>
+        <div data-testid="tasks-toolbar" class="flex min-w-0 flex-wrap items-end gap-2" :class="props.embedded ? 'w-full' : 'w-full xl:w-auto'">
+          <div class="flex flex-col gap-1" :class="props.embedded ? 'min-w-0 w-full sm:flex-1' : ''">
             <Label for="tasks-filter-client" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('common.client') }}</Label>
             <Select
-              id="tasks-filter-client" :model-value="filterClient" class="min-w-0 w-48 max-w-full border-0 bg-muted dark:bg-muted" :aria-label="t('common.client')" :placeholder="t('common.client')"
+              id="tasks-filter-client" :model-value="filterClient" class="min-w-0 max-w-full border-0 bg-muted dark:bg-muted" :class="props.embedded ? 'w-full' : 'w-48'" :aria-label="t('common.client')" :placeholder="t('common.client')"
               :options="[{ value: '', label: t('common.all') }, ...clients.map(c => ({ value: c.id, label: c.name }))]"
               @update:model-value="selectClient"
             >
@@ -366,10 +366,10 @@ async function onDelete(task: TaskRecord) {
               </template>
             </Select>
           </div>
-          <div class="flex flex-col gap-1">
+          <div class="flex flex-col gap-1" :class="props.embedded ? 'min-w-0 w-full sm:flex-1' : ''">
             <Label for="tasks-filter-project" class="text-xs leading-normal font-normal text-muted-foreground">{{ t('common.project') }}</Label>
             <Select
-              id="tasks-filter-project" v-model="filterProject" class="min-w-0 w-48 max-w-full border-0 bg-muted dark:bg-muted" :aria-label="t('common.project')" :placeholder="t('common.project')"
+              id="tasks-filter-project" v-model="filterProject" class="min-w-0 max-w-full border-0 bg-muted dark:bg-muted" :class="props.embedded ? 'w-full' : 'w-48'" :aria-label="t('common.project')" :placeholder="t('common.project')"
               :options="[{ value: '', label: t('common.all') }, ...availableProjects.map(p => ({ value: p.id, label: p.name }))]"
             />
           </div>

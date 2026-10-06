@@ -534,7 +534,7 @@ defaulting to `"none"`):
     "unassigned_only": true, "without_task": true,
     "exclude_unassigned_client": "<id>", "session_fully_unassigned": true
   },
-  "group_by": "none | day | client | project | task | session | agent | model | legacy_label",
+  "group_by": "none | day | client | project | task | session | agent | model | machine | legacy_label",
   "day_boundaries": ["...UTC instant...", "..."],
   "sort": "-cost",
   "page": 1,
@@ -567,7 +567,7 @@ defaulting to `"none"`):
   narrows the row set to `task=''` before the sibling check could see a
   triaged row in the same session. Adds no bound parameter (boolean-only,
   fixed SQL fragment).
-- `group_by` — one of the 9 listed values; anything else is a `400`.
+- `group_by` — one of the 10 listed values; anything else is a `400`.
   This is a fixed server-side whitelist mapped to a hard-coded SQL
   fragment — request text is never used as a SQL identifier.
 - `day_boundaries` — required (and only valid) when `group_by: "day"`: an
@@ -620,7 +620,11 @@ row's `machine`), and `distinct_client`/`sample_client`,
 rows disagree on that field — display "mixed"; otherwise `sample_*` is
 the unanimous value). These five field pairs are present but empty/zero
 for every other `group_by`, so every response shares one fixed column
-shape.
+shape. For `group_by: "machine"`, `group_key` and `machine` both carry
+the actual machine value (case preserved); null, empty and ASCII-whitespace-only
+values share the empty-string unknown bucket. Machine cost totals sum all scoped
+`task_entries` before grouped pagination, using the same filters and quality
+aggregates as other dimensions, never a sampled entry list or `work_records`.
 
 Captured against PocketBase 0.40.4 on an isolated instance with 100k
 synthetic `task_entries` rows (`pocketbase/seed/bulk.js`), authenticated

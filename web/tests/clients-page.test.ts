@@ -92,6 +92,13 @@ describe('Clients shared editor and detail layout', () => {
 })
 
 describe('Clients index view contract', () => {
+  it('omits the empty catalog header only when embedded, preserving the standalone title and creation action', () => {
+    expect(source).toContain('<div v-if="!props.embedded" class="flex items-center justify-between gap-4">')
+    expect(source).toContain('<h1 class="text-xl font-semibold tracking-tight">')
+    expect(source).toContain("{{ t('clients.title') }}")
+    expect(source).not.toContain("props.embedded ? 'h2' : 'h1'")
+    expect(source).toContain('v-if="canWrite && !props.embedded"')
+  })
   it('defaults to grid and shares filtered records with the preserved table', () => {
     expect(source).toContain("const view = ref<'grid' | 'list'>('grid')")
     expect(source.match(/v-for="c in filteredClients"/g)).toHaveLength(2)

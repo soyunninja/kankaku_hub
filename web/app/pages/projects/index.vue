@@ -155,9 +155,9 @@ async function toggleArchive(project: ProjectRecord) {
 <template>
   <TooltipProvider>
     <div class="flex flex-col gap-6">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+      <div v-if="!props.embedded" class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <component :is="props.embedded ? 'h2' : 'h1'" class="text-xl font-semibold tracking-tight">{{ t('projects.title') }}</component>
+          <h1 class="text-xl font-semibold tracking-tight">{{ t('projects.title') }}</h1>
         </div>
         <div class="flex items-center gap-2">
           <Button v-if="canWrite && !props.embedded" data-testid="write-action" size="sm" @click="openCreate">

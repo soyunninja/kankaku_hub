@@ -49,13 +49,16 @@ describe.each(['clients', 'projects'] as const)('%s creation placement', catalog
     const action = actions[0]!
     const group = wrapper.get('[role="group"]')
     if (embedded) {
+      expect(wrapper.find('h1, h2').exists()).toBe(false)
       expect(group.element.nextElementSibling).toBe(action.element)
       expect(group.element.parentElement!.classList.contains('flex-wrap')).toBe(true)
       expect(group.element.parentElement!.classList.contains('min-w-0')).toBe(true)
     }
     else {
       expect(action.element.compareDocumentPosition(group.element) & 4).toBe(4)
-      expect(wrapper.find('h1').exists()).toBe(true)
+      expect(wrapper.findAll('h1')).toHaveLength(1)
+      expect(wrapper.get('h1').text()).toBe(`${catalog}.title`)
+      expect(wrapper.find('h2').exists()).toBe(false)
     }
     expect(action.attributes('disabled')).toBeUndefined()
     await action.trigger('click')

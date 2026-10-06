@@ -114,7 +114,9 @@
       "tokensCache": "Cache tokens",
       "tasks": "Tasks",
       "avgCostPerTask": "Avg cost/task",
-      "workTimeUpperBoundNotice": "Includes {count} entries where waiting time was not measurable — work time is an upper bound for those. View them.",
+      "workTimeUpperBoundNotice": "Includes {count} entries where waiting time was not measurable — work time is an upper bound for those.",
+      "workTimeInfo": "Work time measurement information",
+      "workTimeViewEntries": "View them",
       "avgCostExcludedNotice": "{count} entries excluded because cost wasn't knowable"
     },
     "vsPrevious": "vs. previous period",
@@ -138,6 +140,10 @@
     "byClient": "By client",
     "byProject": "By project",
     "topExpensive": "Most expensive entries",
+    "topMachines": "Top machines by cost",
+    "machine": "Machine",
+    "unknownMachine": "Unknown machine",
+    "machineUnavailable": "Machine ranking is unavailable: the backend could not provide complete machine totals.",
     "share": "Share",
     "noData": "No data in this period",
     "liveUpdate": "Live updated"

@@ -82,7 +82,7 @@ export default defineNuxtConfig({
       // Empty selects the absolute browser origin in dev and production.
       // NUXT_PUBLIC_PB_URL overrides the browser client's backend directly.
       pbUrl: '',
-      appVersion: '0.4.1',
+      appVersion: '0.4.2',
     },
   },
 

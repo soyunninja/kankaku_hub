@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { Info } from '@lucide/vue'
 import { Translation as I18nT } from 'vue-i18n'
 import { onBeforeUnmount, onMounted } from 'vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
-import ClientName from '@/components/clients/ClientName.vue'
 import ExportMenu from '@/components/common/ExportMenu.vue'
 import BreakdownTable from '@/components/dashboard/BreakdownTable.vue'
 import DateRangePicker from '@/components/dashboard/DateRangePicker.vue'
@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { groupByClient, groupByProject, sumTaskEntries } from '@/lib/aggregate'
 import { resolveAgent } from '@/lib/agents'
 import { cacheHitRatio } from '@/lib/cache-hit'
@@ -76,6 +75,16 @@ function projectName(id: string) {
   return projects.value.find(c => c.id === id)?.name ?? id
 }
 
+function clientHref(id: string) {
+  return clientById(id) ? `/organizacion/clientes/${encodeURIComponent(id)}` : undefined
+}
+function projectHref(id: string) {
+  const project = projects.value.find(p => p.id === id)
+  return project && clientById(project.client)
+    ? `/organizacion/clientes/${encodeURIComponent(project.client)}/proyectos/${encodeURIComponent(project.id)}`
+    : undefined
+}
+
 function agentLabel(slug: string) {
   if (slug === LEGACY_AGENT) return t('entries.detail.quality.agentLegacy')
   return resolveAgent(slug)?.label ?? slug
@@ -92,6 +101,8 @@ const workTimeQuality = ref(summarizeWorkTimeQualityFromTotal(ZERO_TOTALS_ROW))
 const averageCost = ref(computeAverageCostFromTotal(ZERO_TOTALS_ROW))
 const byClient = ref<(GroupTotalsLike & { label: string })[]>([])
 const byProject = ref<(GroupTotalsLike & { label: string })[]>([])
+const byMachine = ref<(GroupTotalsLike & { label: string })[]>([])
+const machineUnavailable = ref(false)
 const topExpensive = ref<Pick<TaskEntryRecord, 'id' | 'client' | 'project' | 'cost' | 'work_ms' | 'model'>[]>([])
 const agentOptions = ref<string[]>([])
 // Keep export metadata paired with the data, even if a later load fails.
@@ -149,6 +160,20 @@ const workTimeUpperBoundDrilldown = computed(() => ({
     ...(agentFilter.value ? { agent: agentFilter.value } : {}),
   },
 }))
+
+let qualityToastId: number | undefined
+function showWorkTimeInfo() {
+  const count = workTimeQuality.value.upperBoundCount
+  if (count <= 0) return
+  if (qualityToastId !== undefined) toast.dismiss(qualityToastId)
+  const drilldown = workTimeUpperBoundDrilldown.value
+  // Capture the current scope, not a reactive route that can change later.
+  const href = `${drilldown.path}?${new URLSearchParams(drilldown.query)}`
+  qualityToastId = toast.info(t('dashboard.kpi.workTime'), t('dashboard.kpi.workTimeUpperBoundNotice', { count }), {
+    duration: 0,
+    action: { href, label: t('dashboard.kpi.workTimeViewEntries') },
+  })
+}
 
 const committedProjectKeys = ref<string[]>([])
 const projectChartMetric = ref(metric.value)
@@ -351,7 +376,7 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
   const utcPrev = localDateRangeToUtcFilters(prevRange)
   const filters = buildServerFilters(snapshot)
 
-  const [currentResp, previousResp, clientResp, projectResp, agentResp, topExpensiveRows] = await Promise.all([
+  const [currentResp, previousResp, clientResp, projectResp, agentResp, topExpensiveRows, machineResp] = await Promise.all([
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'none', filters }),
     fetchTotals({ from: utcPrev.start, to: utcPrev.end, groupBy: 'none', filters }),
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'client', filters, perPage: 200 }),
@@ -363,6 +388,8 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
     // list out from under itself.
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'agent', sort: 'group_key', perPage: 200 }),
     fetchTopExpensive(snapshot),
+    // Isolate older backends without this grouping and transient machine failures.
+    fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'machine', sort: '-cost', filters, page: 1, perPage: 5 }).catch(() => null),
   ])
 
   if (!isCurrent(generation)) return
@@ -373,6 +400,10 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
 
   byClient.value = groupsToGroupTotals(clientResp.groups, currentResp.total).map(g => ({ ...g, label: clientName(g.key) }))
   byProject.value = groupsToGroupTotals(projectResp.groups.filter(g => g.groupKey !== ''), currentResp.total).map(g => ({ ...g, label: projectName(g.key) }))
+  machineUnavailable.value = machineResp === null
+  byMachine.value = machineResp
+    ? groupsToGroupTotals(machineResp.groups, currentResp.total).map(g => ({ ...g, label: g.key || t('dashboard.unknownMachine') }))
+    : []
   topExpensive.value = topExpensiveRows
   exportSnapshot.value = { ...snapshot, metadata: {
     dataSource: 'totals_endpoint',
@@ -459,6 +490,21 @@ async function loadFallback(snapshot: LoadSnapshot, generation: number) {
 
   byClient.value = groupByClient(visibleCurrent).map(g => ({ ...toTotalsRow(visibleCurrent.filter(e => e.client === g.key)), key: g.key, costShare: g.costShare, workMsShare: g.workMsShare, label: clientName(g.key) }))
   byProject.value = groupByProject(visibleCurrent.filter(e => e.project)).map(g => ({ ...toTotalsRow(visibleCurrent.filter(e => e.project === g.key)), key: g.key, costShare: g.costShare, workMsShare: g.workMsShare, label: projectName(g.key) }))
+  // Never rank a truncated legacy scan as if it were a complete scope.
+  machineUnavailable.value = current.truncated
+  const machineBuckets = new Map<string, TaskEntryRecord[]>()
+  if (!current.truncated) {
+    for (const entry of visibleCurrent) {
+      const key = !entry.machine || /^[\t\n\v\f\r ]*$/.test(entry.machine) ? '' : entry.machine
+      const bucket = machineBuckets.get(key) ?? []
+      bucket.push(entry)
+      machineBuckets.set(key, bucket)
+    }
+  }
+  byMachine.value = [...machineBuckets].map(([key, entries]) => {
+    const row = toTotalsRow(entries)
+    return { ...row, key, label: key || t('dashboard.unknownMachine'), costShare: totals.value.cost > 0 ? row.cost / totals.value.cost : 0, workMsShare: totals.value.workMs > 0 ? row.workMs / totals.value.workMs : 0 }
+  }).sort((a, b) => b.cost - a.cost).slice(0, 5)
   topExpensive.value = [...visibleCurrent].sort((a, b) => b.cost - a.cost).slice(0, 10)
   exportSnapshot.value = { ...snapshot, metadata: {
     dataSource: 'fallback_task_entries',
@@ -627,11 +673,16 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
 
     <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
       <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')">
-        <p v-if="workTimeQuality.upperBoundCount > 0" class="mt-1 text-xs text-muted-foreground">
-          <NuxtLink :to="workTimeUpperBoundDrilldown" class="underline decoration-dotted underline-offset-2 hover:text-foreground">
-            {{ t('dashboard.kpi.workTimeUpperBoundNotice', { count: workTimeQuality.upperBoundCount }) }}
-          </NuxtLink>
-        </p>
+        <button
+          v-if="workTimeQuality.upperBoundCount > 0"
+          type="button"
+          :aria-label="t('dashboard.kpi.workTimeInfo')"
+          :title="t('dashboard.kpi.workTimeInfo')"
+          class="mt-1 inline-flex rounded text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+          @click="showWorkTimeInfo"
+        >
+          <Info class="size-4" aria-hidden="true" />
+        </button>
       </KpiCard>
       <KpiCard :title="t('dashboard.kpi.wallTime')" :value="formatDuration(totals.wallMs)" :current-value="totals.wallMs" :previous-value="previousTotals.wallMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" />
       <KpiCard :title="t('dashboard.kpi.waitingTime')" :value="formatDuration(totals.waitingMs)" :current-value="totals.waitingMs" :previous-value="previousTotals.waitingMs" polarity="lowerIsBetter" :vs-label="t('dashboard.vsPrevious')" />
@@ -694,59 +745,23 @@ v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :optio
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card data-testid="breakdown-by-client" role="region" :aria-label="t('dashboard.byClient')">
         <CardContent>
-          <BreakdownTable :rows="byClient" :name-header="t('common.client')" :resolve-client="clientById" />
+          <BreakdownTable :rows="byClient" :name-header="t('common.client')" :resolve-client="clientById" :resolve-href="clientHref" :max-rows="5" />
         </CardContent>
       </Card>
       <Card data-testid="breakdown-by-project" role="region" :aria-label="t('dashboard.byProject')">
         <CardContent>
-          <BreakdownTable :rows="byProject" :name-header="t('common.project')" />
+          <BreakdownTable :rows="byProject" :name-header="t('common.project')" :resolve-href="projectHref" :max-rows="5" />
         </CardContent>
       </Card>
     </div>
 
-    <Card>
+    <Card data-testid="breakdown-by-machine" role="region" :aria-label="t('dashboard.topMachines')">
       <CardHeader><CardTitle class="text-sm font-medium text-foreground">
-        {{ t('dashboard.topExpensive') }}
+        {{ t('dashboard.topMachines') }}
       </CardTitle></CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{{ t('common.client') }}</TableHead>
-              <TableHead>{{ t('common.project') }}</TableHead>
-              <TableHead class="text-right">
-                {{ t('dashboard.kpi.cost') }}
-              </TableHead>
-              <TableHead class="text-right">
-                <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
-              </TableHead>
-              <TableHead>{{ t('common.model') }}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="e in topExpensive" :key="e.id">
-              <TableCell>
-                <ClientName v-if="clientById(e.client)" :client="clientById(e.client)!" size="xs" class="max-w-40" />
-                <span v-else>{{ clientName(e.client) }}</span>
-              </TableCell>
-              <TableCell>{{ e.project ? projectName(e.project) : '—' }}</TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatCost(e.cost) }}
-              </TableCell>
-              <TableCell class="text-right tabular-nums">
-                {{ formatDuration(e.work_ms) }}
-              </TableCell>
-              <TableCell class="text-muted-foreground">
-                {{ e.model }}
-              </TableCell>
-            </TableRow>
-            <TableRow v-if="topExpensive.length === 0">
-              <TableCell colspan="5" class="text-center text-muted-foreground">
-                {{ t('dashboard.noData') }}
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <p v-if="machineUnavailable" role="status" class="text-sm text-muted-foreground">{{ t('dashboard.machineUnavailable') }}</p>
+        <BreakdownTable v-else :rows="byMachine" :name-header="t('dashboard.machine')" :max-rows="5" />
       </CardContent>
     </Card>
   </div>

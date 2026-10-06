@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AGENTS, resolveAgent } from '../app/lib/agents'
 
@@ -12,6 +14,19 @@ describe('resolveAgent', () => {
     expect(resolveAgent('claude-code')).toEqual({
       slug: 'claude-code', label: 'Claude Code', icon: '/agents/claude-code.svg', background: 'white',
     })
+  })
+
+  it('resolves Gentle-Shell without aliasing Pi or unknown agents', () => {
+    const definition = {
+      slug: 'gentle-shell', label: 'Gentle-Shell', icon: '/agents/gentle-shell.svg', background: 'white',
+    }
+    expect(resolveAgent('gentle-shell')).toEqual(definition)
+    expect(resolveAgent('  Gentle-Shell  ')).toEqual(definition)
+    expect(resolveAgent('gentle-shell-unknown')).toBeUndefined()
+    expect(resolveAgent('pi')).toEqual(AGENTS.pi)
+    const asset = readFileSync('public/agents/gentle-shell.svg')
+    expect(createHash('sha256').update(asset).digest('hex'))
+      .toBe('74b3f196dbe457ec20137010eee6fafa2d8c1f5c0b3e05f9ebde36f3aac8df08')
   })
 
   it('is case-insensitive, defensively, against non-lowercase legacy/seeded data', () => {

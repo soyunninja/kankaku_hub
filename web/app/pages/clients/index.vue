@@ -78,11 +78,11 @@ function openDetail(client: ClientRecord) {
 <template>
   <TooltipProvider>
     <div class="flex flex-col gap-6">
-      <div class="flex items-center justify-between gap-4">
+      <div v-if="!props.embedded" class="flex items-center justify-between gap-4">
         <div>
-          <component :is="props.embedded ? 'h2' : 'h1'" class="text-xl font-semibold tracking-tight">
+          <h1 class="text-xl font-semibold tracking-tight">
             {{ t('clients.title') }}
-          </component>
+          </h1>
         </div>
         <Button v-if="canWrite && !props.embedded" data-testid="write-action" size="sm" @click="openCreate">
           <Plus class="size-4" />

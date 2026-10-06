@@ -38,7 +38,7 @@ test.describe('dashboard table cards retain horizontal padding', () => {
       await page.goto('/')
       await page.waitForLoadState('networkidle')
 
-      // Breakdown by client/project and Most expensive entries are the only
+      // Breakdown by client/project and top machines are the only
       // dashboard cards with tables; check their content, not the table wrapper.
       const cards = page.locator('main [data-slot="card"]').filter({ has: page.locator('table') })
       await expect(cards).toHaveCount(3)

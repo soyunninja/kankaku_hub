@@ -97,15 +97,25 @@ test.describe('dashboard upper-bound honesty notice', () => {
 
     await setWideCustomRange(page)
 
-    const notice = page.getByText(/Incluye \d+ registros donde el tiempo de espera no se pudo medir/)
-    await expect(notice).toBeVisible({ timeout: 10_000 })
-    await expect(notice).toContainText('7 registros')
+    const info = page.getByRole('button', { name: 'Información sobre la medición del tiempo de trabajo' })
+    await expect(info).toBeVisible({ timeout: 10_000 })
+    const notice = page.locator('[data-testid="toast-viewport"]').getByText(/Incluye \d+ registros donde el tiempo de espera no se pudo medir/)
+    await expect(notice).toHaveCount(0)
+    await info.focus()
+    await page.keyboard.press('Enter')
+    await expect(notice).toBeVisible()
+    const link = page.locator('[data-testid="toast-viewport"]').getByRole('link', { name: 'Verlos' })
+    await expect(link).toHaveAttribute('href', /quality=waitingUnavailable/)
+    await expect(link).toHaveAttribute('href', /dateStart=/)
+    await page.locator('[data-testid="toast-viewport"]').getByRole('button', { name: 'Cerrar' }).click()
+    await expect(notice).toHaveCount(0)
 
     await selectCombobox(comboboxTrigger(page, 'Agente'), 'pi')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(300)
 
-    await expect(page.getByText(/Incluye \d+ registros donde el tiempo de espera no se pudo medir/)).toHaveCount(0)
+    await expect(info).toHaveCount(0)
+    await expect(notice).toHaveCount(0)
   })
 
   test('captures docs screenshots (dark, light)', async ({ page }) => {

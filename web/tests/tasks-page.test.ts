@@ -27,6 +27,40 @@ function setup(path: string, result: string) {
   return { page, source, projects, navigateTo, router }
 }
 
+describe('Organization task toolbar', () => {
+  const source = readFileSync('app/pages/tasks/index.vue', 'utf8')
+
+  it('hides only the embedded heading, not filters, modes, history or creation', () => {
+    expect(source).toContain('<h1 v-if="!props.embedded" class="text-xl font-semibold tracking-tight">')
+    expect(source).not.toContain("props.embedded ? 'h2' : 'h1'")
+    const toolbar = source.slice(source.indexOf('data-testid="tasks-toolbar"'), source.indexOf('data-testid="task-status-announcer"'))
+    expect(toolbar).not.toContain('v-if="!props.embedded"')
+    for (const control of ['tasks-filter-client', 'tasks-filter-project', 'role="group"', 'historyControl', 'v-if="canWrite"', '@click="openCreate"']) expect(toolbar).toContain(control)
+  })
+
+  it('fills the embedded panel and lets filter fields grow without changing standalone sizing', () => {
+    expect(source).toContain(':class="props.embedded ? \'w-full\' : \'w-full xl:w-auto\'"')
+    expect(source.match(/:class="props.embedded \? 'min-w-0 w-full sm:flex-1' : ''"/g)).toHaveLength(2)
+    expect(source.match(/:class="props.embedded \? 'w-full' : 'w-48'"/g)).toHaveLength(2)
+    expect(source).toContain('class="flex min-w-0 flex-wrap items-end gap-2"')
+  })
+
+  it('preserves real client/project filtering and dependent-selection resets', () => {
+    const h = setup('app/pages/tasks/index.vue', '{ selectClient, filterClient, filterProject, availableProjects, filtered }')
+    h.page.filterProject.value = project.id
+    h.page.selectClient(project.client)
+    expect(h.page.filterProject.value).toBe(project.id)
+    expect(h.page.filtered.value).toEqual([task])
+    h.page.selectClient('otherclient')
+    expect(h.page.filterProject.value).toBe('')
+    expect(h.page.availableProjects.value).toEqual([])
+    expect(h.page.filtered.value).toEqual([])
+    h.page.selectClient('')
+    expect(h.page.availableProjects.value).toEqual([project])
+    expect(h.page.filtered.value).toEqual([task])
+  })
+})
+
 describe('actual task callers', () => {
   it('opens the actual nested route through board click and keyboard handlers', () => {
     const h = setup('app/pages/tasks/index.vue', '{ openDetail, onCardKeydown }')

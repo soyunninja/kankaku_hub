@@ -10,6 +10,8 @@ const { formatCost, formatDuration, formatPercent } = useFormatters()
 defineProps<{
   rows: (GroupTotals & { label: string })[]
   nameHeader: string
+  maxRows?: number
+  resolveHref?: (id: string) => string | undefined
   /** When these rows are grouped by client, resolves a row's `key` (a
    * client id) to its record so the name can render with an avatar.
    * Omit for rows grouped by anything else (e.g. project). */
@@ -52,11 +54,13 @@ function sorted(rows: (GroupTotals & { label: string })[]) {
       </TableRow>
     </TableHeader>
     <TableBody>
-      <TableRow v-for="row in sorted(rows)" :key="row.key">
+      <TableRow v-for="row in sorted(rows).slice(0, maxRows)" :key="row.key">
         <TableCell class="font-medium">
-          <ClientName v-if="resolveClient?.(row.key)" :client="resolveClient(row.key)!" size="xs">
-            {{ row.label }}
-          </ClientName>
+          <NuxtLink v-if="resolveHref?.(row.key)" :to="resolveHref(row.key)" class="hover:underline">
+            <ClientName v-if="resolveClient?.(row.key)" :client="resolveClient(row.key)!" size="xs">{{ row.label }}</ClientName>
+            <span v-else>{{ row.label }}</span>
+          </NuxtLink>
+          <ClientName v-else-if="resolveClient?.(row.key)" :client="resolveClient(row.key)!" size="xs">{{ row.label }}</ClientName>
           <span v-else>{{ row.label }}</span>
         </TableCell>
         <TableCell class="text-right tabular-nums">

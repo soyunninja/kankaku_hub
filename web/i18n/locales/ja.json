@@ -114,7 +114,9 @@
       "tokensCache": "キャッシュトークン",
       "tasks": "タスク",
       "avgCostPerTask": "タスクあたりの平均コスト",
-      "workTimeUpperBoundNotice": "待機時間を測定できなかったエントリーが{count}件含まれています。それらの作業時間は上限値です。表示する。",
+      "workTimeUpperBoundNotice": "待機時間を測定できなかったエントリーが{count}件含まれています。それらの作業時間は上限値です。",
+      "workTimeInfo": "作業時間の測定に関する情報",
+      "workTimeViewEntries": "該当記録を見る",
       "avgCostExcludedNotice": "コストが不明なため{count}件を除外しました"
     },
     "vsPrevious": "前期間比",
@@ -138,6 +140,10 @@
     "byClient": "クライアント別",
     "byProject": "プロジェクト別",
     "topExpensive": "コストの高いエントリー",
+    "topMachines": "コスト上位のマシン",
+    "machine": "マシン",
+    "unknownMachine": "不明なマシン",
+    "machineUnavailable": "マシンのランキングは利用できません。サーバーからマシン別の完全な集計を取得できませんでした。",
     "share": "割合",
     "noData": "この期間のデータはありません",
     "liveUpdate": "リアルタイム更新"

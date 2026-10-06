@@ -20,6 +20,7 @@ describe('canonical Organization tabs', () => {
     expect(source).toContain('force-mount')
     expect(source).toContain('organizationTabQuery(route.query, value)')
     expect(source).toContain('resolveOrganizationTab(route.query.tab)')
+    expect(source).not.toContain("t('organizationTabs.description')")
     expect(source.match(/<h1\b/g)).toHaveLength(1)
     expect(source).toContain("useHead({ title: computed(() => t('nav.organization')) })")
     expect(source).toContain("{{ t('nav.organization') }}</h1>")

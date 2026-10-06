@@ -2,7 +2,7 @@ import type { DateRange } from '~/lib/period'
 import { localDateRangeToUtcFilters } from '~/lib/local-day'
 import { mapTotalsResponse, type TotalsResponse, type TotalsResponseRaw } from '~/lib/totals-map'
 
-export type TotalsGroupBy = 'none' | 'day' | 'client' | 'project' | 'task' | 'session' | 'agent' | 'model' | 'legacy_label'
+export type TotalsGroupBy = 'none' | 'day' | 'client' | 'project' | 'task' | 'session' | 'agent' | 'model' | 'machine' | 'legacy_label'
 
 export interface TotalsFilters {
   client?: string

@@ -32,6 +32,13 @@ function setupFilter() {
 }
 
 describe('Projects local search and sort composition', () => {
+  it('omits the empty catalog header only when embedded, preserving the standalone title and creation action', () => {
+    expect(source).toContain('<div v-if="!props.embedded" class="flex flex-wrap items-center justify-between gap-3">')
+    expect(source).toContain('<h1 class="text-xl font-semibold tracking-tight">')
+    expect(source).toContain("{{ t('projects.title') }}")
+    expect(source).not.toContain("props.embedded ? 'h2' : 'h1'")
+    expect(source).toContain('v-if="canWrite && !props.embedded"')
+  })
   it.each([[' PORTAL ', ['a', 'c']], ['WEB', ['a']], ['acme', ['b', 'a']], ['old', ['b']], ['Studio', ['c']]])('searches name, code and client: %s', (query, expected) => {
     const state = setupFilter()
     state.search.value = query as string

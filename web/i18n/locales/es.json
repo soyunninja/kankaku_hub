@@ -114,7 +114,9 @@
       "tokensCache": "Tokens caché",
       "tasks": "Tareas",
       "avgCostPerTask": "Coste medio/tarea",
-      "workTimeUpperBoundNotice": "Incluye {count} registros donde el tiempo de espera no se pudo medir: el tiempo de trabajo es un límite superior para esos casos. Verlos.",
+      "workTimeUpperBoundNotice": "Incluye {count} registros donde el tiempo de espera no se pudo medir: el tiempo de trabajo es un límite superior para esos casos.",
+      "workTimeInfo": "Información sobre la medición del tiempo de trabajo",
+      "workTimeViewEntries": "Verlos",
       "avgCostExcludedNotice": "{count} registros excluidos porque no se pudo conocer su coste"
     },
     "vsPrevious": "vs. periodo anterior",
@@ -138,6 +140,10 @@
     "byClient": "Por cliente",
     "byProject": "Por proyecto",
     "topExpensive": "Entradas más costosas",
+    "topMachines": "Máquinas con mayor coste",
+    "machine": "Máquina",
+    "unknownMachine": "Sin máquina",
+    "machineUnavailable": "La clasificación de máquinas no está disponible: el servidor no pudo proporcionar totales completos por máquina.",
     "share": "Cuota",
     "noData": "No hay datos en este periodo",
     "liveUpdate": "Actualizado en vivo"
