@@ -174,6 +174,35 @@ against the current task remains live. Failed resume/disclosure reads do
 not prevent sessions from rendering. Cross-route catalog filter retention
 is not promised.
 
+### Page-mode task detail (0.4.3)
+
+The full task page presents a client/project/task header and task-wide KPI
+cards. Exact totals cover all consolidated `task_entries` for the task,
+independently of the bounded 50-session history. Unavailable aggregates
+show `—`, not zero or partial history totals; an unavailable session count
+remains nullable.
+
+- **Measurement quality:** an accessible Info action at the top right
+  explains work and cost quality in a persistent, truthful snapshot.
+  Unknown/estimated labels are not repeated inline; estimated values retain
+  `≈` where applicable.
+- **Session layout:** cards use one column on mobile and tablet, switching
+  to two at the `lg` desktop breakpoint. Resume commands keep an icon-only
+  copy button inside the grey command block, with an accessible name and
+  live feedback for successful copying.
+- **Entry disclosure:** native buttons on page-mode entries open the same
+  `EntryDetailSheet` used by Registros. Viewers retain read access;
+  mutations retain owner-only controls and write guards. Hidden prompts
+  stay hidden. Raw `work_records` are detail only and never contribute to
+  aggregates.
+- **Read lifecycle:** retiring stale reads, refreshing after changes and
+  restoring focus remain safe across ownership and route changes. Closing
+  the entry sheet preserves focus restoration, including when its original
+  trigger is no longer connected.
+
+These presentation changes apply to page mode; compact mode and the
+existing task editing, session loading and permission behavior are preserved.
+
 ## Configuration
 
 None beyond the shared PocketBase connection.

@@ -12,7 +12,11 @@ async function setup() {
   const fetchSessionTotals = vi.fn().mockResolvedValue({ sessions: [] })
   const fetchSessionsForTask = vi.fn().mockResolvedValue([])
   const list = vi.fn().mockResolvedValue({ items: [], totalItems: 0 })
-  vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: () => ({ getOne }) } }))
+  const total = { workMs: 9000, cost: 12, entries: 80, distinctSessions: 61 }
+  const fetchTotals = vi.fn().mockResolvedValue({ total })
+  const readEntries = vi.fn().mockResolvedValue({ items: [], page: 1, totalPages: 0, totalItems: 0 })
+  vi.stubGlobal('useTotals', () => ({ fetchTotals }))
+  vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: () => ({ getOne, getList: readEntries }) } }))
   const canWrite = ref(true)
   const moveStatus = vi.fn()
   vi.stubGlobal('useAuth', () => ({ canWrite }))
@@ -20,7 +24,7 @@ async function setup() {
   vi.stubGlobal('useSessions', () => ({ fetchSessionTotals, fetchSessionsForTask }))
   vi.stubGlobal('useEntriesExplorer', () => ({ list }))
   const { useTaskDetail } = await import('../app/composables/useTaskDetail')
-  return { detail: useTaskDetail(), tasks, getOne, fetchSessionTotals, fetchSessionsForTask, list, canWrite, moveStatus }
+  return { detail: useTaskDetail(), tasks, getOne, fetchSessionTotals, fetchSessionsForTask, list, canWrite, moveStatus, fetchTotals, readEntries, total }
 }
 
 // Use the actual nested page's reactive task/project/client ownership context.
@@ -31,7 +35,8 @@ async function setupOwnedRoute() {
   const route = reactive({ params: { id: 'c', projectId: 'p', taskId: 'task-a' } })
   const bindings = {
     computed, ref, useRoute: () => route, useI18n: () => ({ t: (key: string) => key }), useHead: () => {},
-    useAuth: () => ({ canWrite: h.canWrite }), useTasks: () => ({ tasks: h.tasks }),
+    useAuth: () => ({ canWrite: h.canWrite }), useTasks: () => ({ tasks: h.tasks, ensureLoaded: async () => {} }),
+    useEntriesExplorer: () => ({ getOne: vi.fn(), listWorkRecords: vi.fn(), updateAssignment: vi.fn() }),
     useProjects: () => ({ projects: ref([project]), byId: (id: string) => id === project.id ? project : undefined, ensureLoaded: async () => {} }),
     useClients: () => ({ byId: (id: string) => clients[id], ensureLoaded: async () => {} }),
     useTaskDetail: () => h.detail, useToast: () => ({ error: vi.fn() }),
@@ -59,6 +64,197 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('task detail controller', () => {
+  it('refreshes summary, session membership and cached entries without a full load', async () => {
+    const h = await setup()
+    h.fetchSessionTotals.mockResolvedValue({ sessions: [{ sessionId: 's', entries: 2 }] })
+    await h.detail.load('task-a')
+    await h.detail.expandSession('s')
+    await h.detail.expandSession('untouched')
+    const untouched = h.detail.sessionEntries.value.untouched
+    h.list.mockResolvedValue({ items: [{ id: 'moved', task: 'other', session_id: 's' }], totalItems: 1 })
+    h.fetchSessionTotals.mockResolvedValue({ sessions: [] })
+    h.fetchTotals.mockResolvedValue({ total: { ...h.total, entries: 0, distinctSessions: 0, workMs: 0 } })
+    await h.detail.refreshAfterAssignment(['s'])
+    expect(h.detail.sessions.value).toEqual([])
+    expect(h.detail.summary.value).toMatchObject({ entries: 0, workMs: 0, sessionCount: 0 })
+    expect(h.detail.sessionEntries.value.s.items[0]).toMatchObject({ id: 'moved', task: 'other' })
+    expect(h.detail.sessionEntries.value.untouched).toBe(untouched)
+    expect(h.detail.loading.value).toBe(false)
+  })
+
+  it.each(['closed', 'owner', 'dispose', 'newer'])('fences an assignment refresh after %s', async reason => {
+    const h = await setup()
+    let owner = true
+    await h.detail.load('task-a', { validate: async () => true, isCurrent: () => owner })
+    await h.detail.expandSession('s')
+    let resolve!: (value: any) => void
+    h.fetchSessionTotals.mockImplementationOnce(() => new Promise(r => { resolve = r }))
+    let open = true
+    const pending = h.detail.refreshAfterAssignment(['s'], () => open)
+    await vi.waitFor(() => expect(resolve).toBeTypeOf('function'))
+    if (reason === 'closed') open = false
+    if (reason === 'owner') owner = false
+    if (reason === 'dispose') h.detail.dispose()
+    if (reason === 'newer') await h.detail.refreshAfterAssignment(['s'])
+    resolve({ sessions: [{ sessionId: 'stale', entries: 999 }] })
+    await pending
+    expect(h.detail.sessions.value.some(row => row.sessionId === 'stale')).toBe(false)
+  })
+
+  it('keeps failed totals unavailable and retries exact totals without probing global entries', async () => {
+    const h = await setup()
+    await h.detail.load('task-a')
+    h.fetchTotals.mockRejectedValueOnce(new Error('denied'))
+    h.list.mockClear()
+    await expect(h.detail.refreshAfterAssignment([''])).rejects.toThrow('Task detail refresh failed')
+    expect(h.detail.summary.value).toBeNull()
+    expect(h.detail.summaryUnavailable.value).toBe(true)
+    expect(h.list).not.toHaveBeenCalled()
+    await h.detail.refreshAfterAssignment([])
+    expect(h.fetchTotals).toHaveBeenLastCalledWith({ groupBy: 'none', filters: { task: 'task-a' } })
+    expect(h.detail.summary.value?.entries).toBe(80)
+  })
+
+  it('retires the task if its scoped reread returns a different owning project', async () => {
+    const h = await setup()
+    await h.detail.load('task-a', { validate: async () => true, isCurrent: () => true })
+    h.getOne.mockResolvedValueOnce({ ...task, project: 'foreign' })
+    await h.detail.refreshAfterAssignment([])
+    expect(h.detail.task.value).toBeNull()
+    expect(h.detail.summary.value).toBeNull()
+    expect(h.tasks.value[0].project).toBe('p')
+  })
+
+  it('reports refresh failures and allows a cached session reread retry', async () => {
+    const h = await setup()
+    await h.detail.load('task-a')
+    await h.detail.expandSession('s')
+    h.list.mockRejectedValueOnce(new Error('denied'))
+    await expect(h.detail.refreshAfterAssignment(['s'])).rejects.toThrow()
+    expect(h.detail.sessionEntries.value.s.loading).toBe(false)
+    h.list.mockResolvedValue({ items: [{ id: 'retry' }], totalItems: 1 })
+    await h.detail.refreshAfterAssignment(['s'])
+    expect(h.detail.sessionEntries.value.s.items[0].id).toBe('retry')
+  })
+  it('reads exact task-wide totals independently of the bounded session page and corrects blank IDs', async () => {
+    const { detail, fetchTotals, fetchSessionTotals, readEntries } = await setup()
+    fetchSessionTotals.mockResolvedValueOnce({ sessions: Array.from({ length: 50 }, (_, i) => ({ sessionId: `s${i}`, workMs: 1, cost: 1, entries: 1 })) })
+    readEntries.mockResolvedValueOnce({ items: [{ task: 'task-a', session_id: '' }], page: 1, totalPages: 1, totalItems: 1 })
+    await detail.load('task-a')
+    expect(fetchTotals).toHaveBeenCalledWith({ groupBy: 'none', filters: { task: 'task-a' } })
+    expect(detail.summary.value).toMatchObject({ workMs: 9000, cost: 12, entries: 80, sessionCount: 60 })
+    expect(detail.summary.value).not.toHaveProperty('distinctSessions')
+    expect(detail.summary.value?.workMsMayOverlap).toBe(true)
+    expect(fetchTotals).toHaveBeenCalledTimes(1)
+    expect(readEntries).toHaveBeenCalledWith(1, 1, { filter: 'task = "task-a" && session_id = ""', fields: 'task,session_id' })
+    expect(detail.summaryLoading.value).toBe(false)
+    expect(detail.summaryUnavailable.value).toBe(false)
+    expect(detail.sessions.value).toHaveLength(50)
+  })
+
+  it('keeps valid totals when the blank existence probe is ambiguous rather than fabricating zero', async () => {
+    const { detail, readEntries } = await setup()
+    readEntries.mockResolvedValueOnce({ items: [], page: 1, totalPages: 2, totalItems: 2001 })
+    await detail.load('task-a')
+    expect(detail.summary.value).toMatchObject({ workMs: 9000, cost: 12, entries: 80, sessionCount: null })
+    expect(detail.sessionCountUnavailable.value).toBe(true)
+    expect(detail.summaryUnavailable.value).toBe(false)
+  })
+
+  it('uses a single matching blank row as existence evidence even across many pages', async () => {
+    const { detail, readEntries } = await setup()
+    readEntries.mockResolvedValueOnce({ items: [{ task: 'task-a', session_id: '' }], page: 1, totalPages: 5000, totalItems: 5000 })
+    await detail.load('task-a')
+    expect(detail.summary.value?.sessionCount).toBe(60)
+    expect(readEntries).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the distinct count when the bounded probe proves no blank rows', async () => {
+    const { detail } = await setup()
+    await detail.load('task-a')
+    expect(detail.summary.value?.sessionCount).toBe(61)
+    expect(detail.sessionCountUnavailable.value).toBe(false)
+  })
+
+  it.each(['error', 'wrong-task', 'nonblank', 'invalid-count', 'negative-count', 'too-many', 'zero-with-blank'])('leaves session count unavailable for %s evidence', async reason => {
+    const { detail, readEntries, fetchTotals, total } = await setup()
+    if (reason === 'error') readEntries.mockRejectedValueOnce(new Error('denied'))
+    else if (reason.includes('count') || reason === 'too-many' || reason === 'zero-with-blank') {
+      const count = reason === 'invalid-count' ? 1.5 : reason === 'negative-count' ? -1 : reason === 'too-many' ? 81 : 0
+      fetchTotals.mockResolvedValueOnce({ total: { ...total, distinctSessions: count } })
+      if (reason === 'zero-with-blank') readEntries.mockResolvedValueOnce({ items: [{ task: 'task-a', session_id: '' }], page: 1, totalPages: 1, totalItems: 1 })
+    }
+    else readEntries.mockResolvedValueOnce({ items: [{ task: reason === 'wrong-task' ? 'other' : 'task-a', session_id: reason === 'nonblank' ? 's' : '' }], page: 1, totalPages: 1, totalItems: 1 })
+    await detail.load('task-a')
+    expect(detail.summary.value).toMatchObject({ workMs: 9000, entries: 80, sessionCount: null })
+    expect(detail.sessionCountUnavailable.value).toBe(true)
+  })
+
+  it('publishes sessions without waiting for a stalled summary and fences an old task total', async () => {
+    const { detail, fetchTotals, fetchSessionTotals, getOne } = await setup()
+    let resolve!: (value: unknown) => void
+    fetchTotals.mockImplementationOnce(() => new Promise(r => { resolve = r }))
+    fetchSessionTotals.mockResolvedValueOnce({ sessions: [{ sessionId: 's', entries: 1 }] })
+    const old = detail.load('task-a')
+    await vi.waitFor(() => expect(detail.sessions.value).toHaveLength(1))
+    expect(detail.sessionsLoading.value).toBe(false)
+    expect(detail.summaryLoading.value).toBe(true)
+    getOne.mockResolvedValueOnce({ ...task, id: 'task-b' })
+    await detail.load('task-b')
+    resolve({ total: { workMs: 1, cost: 1, entries: 1, distinctSessions: 1 } })
+    await old
+    expect(detail.summary.value?.workMs).toBe(9000)
+  })
+
+  it('retires a pending blank probe across ownership loss and restoration', async () => {
+    const { detail, readEntries, tasks } = await setup()
+    let resolve!: (value: unknown) => void
+    readEntries.mockImplementationOnce(() => new Promise(r => { resolve = r }))
+    const pending = detail.load('task-a', { validate: async () => true, isCurrent: () => true })
+    await vi.waitFor(() => expect(resolve).toBeTypeOf('function'))
+    tasks.value = [{ ...task, project: 'other' }]
+    tasks.value = [{ ...task }]
+    resolve({ items: [], page: 1, totalPages: 0, totalItems: 0 })
+    await pending
+    expect(detail.summary.value).toBeNull()
+    expect(detail.summaryUnavailable.value).toBe(true)
+    expect(detail.summaryLoading.value).toBe(false)
+  })
+
+  it.each(['missing', 'network'])('keeps sessions usable on %s summary failure and clears old totals', async failure => {
+    const { detail, fetchTotals, fetchSessionTotals } = await setup()
+    await detail.load('task-a')
+    const { TotalsRouteUnavailableError } = await import('../app/composables/useTotals')
+    fetchTotals.mockRejectedValueOnce(failure === 'missing' ? new TotalsRouteUnavailableError() : new Error('network'))
+    await detail.load('task-a')
+    expect(detail.summary.value).toBeNull()
+    expect(detail.summaryUnavailable.value).toBe(true)
+    expect(detail.summaryError.value).toBe(failure === 'network')
+    expect(detail.summaryLoading.value).toBe(false)
+    expect(fetchSessionTotals).toHaveBeenCalledTimes(2)
+    expect(detail.sessionsError.value).toBe(false)
+  })
+
+  it.each(['route', 'ownership', 'dispose'])('retires pending summary responses after %s invalidation', async invalidation => {
+    const { detail, fetchTotals, tasks } = await setup()
+    let resolve!: (value: unknown) => void
+    fetchTotals.mockImplementationOnce(() => new Promise(r => { resolve = r }))
+    const pending = detail.load('task-a', { validate: async () => true, isCurrent: () => true })
+    await vi.waitFor(() => expect(resolve).toBeTypeOf('function'))
+    expect(detail.summaryLoading.value).toBe(true)
+    if (invalidation === 'route') await detail.load('task-b', { validate: async () => false, isCurrent: () => true })
+    else if (invalidation === 'dispose') detail.dispose()
+    else {
+      tasks.value = [{ ...task, project: 'other' }]
+      expect(detail.summary.value).toBeNull()
+      tasks.value = [{ ...task }]
+    }
+    resolve({ total: { workMs: 99, cost: 99, entries: 99, distinctSessions: 99 } })
+    await pending
+    expect(detail.summary.value).toBeNull()
+    expect(detail.summaryLoading.value).toBe(false)
+  })
+
   it('loads a task directly by ID and merges it for shared status updates', async () => {
     const { detail, tasks, getOne, fetchSessionTotals } = await setup()
     await detail.load('task-a')
@@ -150,10 +346,11 @@ describe('task detail controller', () => {
   })
 
   it('validates ownership before publishing or reading sessions', async () => {
-    const { detail, fetchSessionTotals, list } = await setup()
+    const { detail, fetchSessionTotals, list, fetchTotals } = await setup()
     const validate = vi.fn().mockResolvedValue(false)
     await detail.load('task-a', { validate, isCurrent: () => true })
     expect(validate).toHaveBeenCalledWith(task)
+    expect(fetchTotals).not.toHaveBeenCalled()
     expect(detail.task.value).toBeNull()
     expect(fetchSessionTotals).not.toHaveBeenCalled()
     await detail.expandSession('s')
@@ -230,6 +427,8 @@ describe('task detail controller', () => {
     await old
     h.setOwnership(true, relation)
     expect(detail.task.value?.id).toBe('task-a')
+    expect(detail.summary.value).toBeNull()
+    expect(detail.summaryUnavailable.value).toBe(true)
     list.mockResolvedValueOnce({ items: [{ id: 'replacement' }], totalItems: 1 })
     await detail.expandSession('s')
     expect(list).toHaveBeenCalledTimes(4)

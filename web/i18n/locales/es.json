@@ -273,6 +273,8 @@
     },
     "detail": {
       "notFound": "Tarea no encontrada o no disponible",
+      "costInfo": "Información del coste",
+      "costUnknownHint": "Algunos registros de la tarea tienen un coste desconocido, por lo que no se puede determinar el coste total.",
       "sessions": {
         "title": "Sesiones",
         "empty": "Aún no hay sesiones.",

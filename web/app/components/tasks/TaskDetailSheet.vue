@@ -29,16 +29,18 @@
  * (`toSessionEntryRow`, re-evaluated live off `props.task.id` — never
  * cached at fetch time), are this component's own concern.
  */
-import { ChevronDown, Pencil } from '@lucide/vue'
+import { ChevronDown, Info, Pencil } from '@lucide/vue'
 import AgentBadge from '@/components/agents/AgentBadge.vue'
 import CopyButton from '@/components/commands/CopyButton.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import KpiCard from '@/components/dashboard/KpiCard.vue'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
-import type { SessionEntriesState } from '@/composables/useTaskDetail'
+import type { TaskEntryRecord, TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
+import type { TaskDetailSummary, SessionEntriesState } from '@/composables/useTaskDetail'
 export type { SessionEntriesState } from '@/composables/useTaskDetail'
 import { MIXED, type TaskSessionRow } from '@/lib/session-aggregate'
 import { toSessionEntryRow } from '@/lib/session-entries'
@@ -62,11 +64,18 @@ const props = withDefaults(defineProps<{
   canWrite?: boolean
   /** Reuse the existing presentation without a Sheet wrapper or injection. */
   pageMode?: boolean
+  summary?: TaskDetailSummary | null
+  summaryLoading?: boolean
+  summaryUnavailable?: boolean
+  summaryError?: boolean
+  sessionCountUnavailable?: boolean
+  /** Canonical links supplied only after the page validates ownership. */
+  context?: { client: { name: string, to: string }, project: { name: string, to: string } }
 }>(), {
   canWrite: true,
 })
 
-const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus]; expandSession: [sessionId: string] }>()
+const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus]; expandSession: [sessionId: string]; openEntry: [entry: TaskEntryRecord, origin: HTMLElement] }>()
 
 // Touch/keyboard-accessible status control (the "Mover a" board buttons'
 // replacement, TASKS-REQ-011): this Tabs segmented control uses the same
@@ -81,6 +90,39 @@ function onStatusTabChange(value: string | number) {
 
 const { t } = useI18n()
 const { formatCost, formatDateTime, formatDuration } = useFormatters()
+
+const summaryMetrics = computed(() => {
+  const total = props.summaryUnavailable ? null : props.summary
+  const approximate = !!total && (total.workMsMayOverlap || total.waitingUnavailableEntries > 0)
+  const costUnavailable = !!total?.costUnknownEntries
+  return [
+    { key: 'work', label: 'dashboard.kpi.workTime', value: total ? `${approximate ? '≈' : ''}${formatDuration(total.workMs)}` : '—', notice: total && total.waitingUnavailableEntries > 0 ? 'entries.detail.quality.upperBoundHint' : approximate ? 'tasks.detail.sessions.workApproxTitle' : undefined },
+    { key: 'cost', label: 'dashboard.kpi.cost', value: total && !costUnavailable ? `${total.costEstimatedEntries > 0 ? '≈' : ''}${formatCost(total.cost)}` : '—', notice: costUnavailable ? 'entries.detail.quality.costUnknown' : total && total.costEstimatedEntries > 0 ? 'entries.detail.quality.costEstimatedHint' : undefined },
+    { key: 'sessions', label: 'tasks.detail.sessions.title', value: total && !props.sessionCountUnavailable && total.sessionCount !== null ? String(total.sessionCount) : '—', notice: undefined },
+    { key: 'entries', label: 'tasks.detail.sessions.entries', value: total ? String(total.entries) : '—', notice: undefined },
+  ]
+})
+
+const toast = useToast()
+let workTimeToastId: number | undefined
+function showWorkTimeInfo() {
+  const notice = summaryMetrics.value.find(metric => metric.key === 'work')?.notice
+  if (!props.pageMode || !props.summary || props.summaryUnavailable || !notice || typeof toast.info !== 'function') return
+  if (workTimeToastId !== undefined && typeof toast.dismiss === 'function') toast.dismiss(workTimeToastId)
+  // Capture this click's quality explanation, not a later task's reactive state.
+  workTimeToastId = toast.info(t('dashboard.kpi.workTime'), t(notice), { duration: 0 })
+}
+
+let costToastId: number | undefined
+function showCostInfo() {
+  const notice = summaryMetrics.value.find(metric => metric.key === 'cost')?.notice
+  if (!props.pageMode || !props.summary || props.summaryUnavailable || !notice || typeof toast.info !== 'function') return
+  if (costToastId !== undefined && typeof toast.dismiss === 'function') toast.dismiss(costToastId)
+  const description = notice === 'entries.detail.quality.costUnknown'
+    ? `${t(notice)}. ${t('tasks.detail.costUnknownHint')}`
+    : t(notice)
+  costToastId = toast.info(t('dashboard.kpi.cost'), description, { duration: 0 })
+}
 
 // -- focus management: the page's SheetContent @open-auto-focus hands
 // focus here instead of the reka-ui default (first focusable element).
@@ -150,10 +192,13 @@ function toggleSessionEntries(sessionId: string) {
 /** Maps one session's raw fetched rows (`props.sessionEntries[sessionId].items`,
  * `TaskEntryRecord[]` with `expand: 'task'`) into the view model the
  * template renders — classified against the CURRENTLY-VIEWED task, live. */
+function openSessionEntry(entry: TaskEntryRecord, event: MouseEvent) {
+  if (props.pageMode && event.currentTarget instanceof HTMLElement) emit('openEntry', entry, event.currentTarget)
+}
 function sessionEntryRows(sessionId: string) {
   const state = props.sessionEntries[sessionId]
   if (!state) return []
-  return state.items.map(item => toSessionEntryRow(item, props.task.id))
+  return state.items.map(item => ({ ...toSessionEntryRow(item, props.task.id), record: item }))
 }
 
 defineOptions({ inheritAttrs: false })
@@ -162,8 +207,8 @@ defineOptions({ inheritAttrs: false })
 <template>
   <div data-testid="task-detail-body" class="flex min-h-0 flex-1 flex-col gap-6" :class="pageMode ? 'w-full min-w-0' : 'overflow-y-auto px-6 pt-8 pb-6'">
     <!-- Header -->
-    <div class="flex flex-col gap-3" :class="pageMode ? 'min-w-0' : 'pr-8'">
-      <div :data-testid="pageMode ? 'task-detail-header' : undefined" :class="pageMode ? 'flex min-w-0 items-center gap-3' : ''">
+    <div :data-testid="pageMode ? 'task-detail-header' : undefined" :class="pageMode ? 'flex min-w-0 flex-wrap items-start justify-between gap-4' : 'flex flex-col gap-3 pr-8'">
+      <div :class="pageMode ? 'flex min-w-0 flex-1 basis-64 items-center gap-3' : ''">
         <slot v-if="pageMode" name="back" />
         <div :class="pageMode ? 'min-w-0 flex-1' : ''">
       <component
@@ -176,11 +221,18 @@ defineOptions({ inheritAttrs: false })
       >
         {{ task.title }}
       </component>
-      <p v-if="pageMode" class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ projectName }}</p>
+      <p v-if="pageMode" class="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+        <template v-if="context">
+          <NuxtLink :to="context.client.to" class="hover:underline">{{ context.client.name }}</NuxtLink>
+          <span aria-hidden="true"> / </span>
+          <NuxtLink :to="context.project.to" class="hover:underline">{{ context.project.name }}</NuxtLink>
+        </template>
+        <template v-else>{{ projectName }}</template>
+      </p>
         </div>
       </div>
-      <p v-if="task.description" data-testid="task-detail-description" class="text-sm whitespace-pre-wrap break-words">{{ task.description }}</p>
-      <p v-if="task.external_ref" class="text-sm text-muted-foreground">{{ task.external_ref }}</p>
+      <p v-if="!pageMode && task.description" data-testid="task-detail-description" class="text-sm whitespace-pre-wrap break-words">{{ task.description }}</p>
+      <p v-if="!pageMode && task.external_ref" class="text-sm text-muted-foreground">{{ task.external_ref }}</p>
       <div v-if="!pageMode" class="flex flex-wrap items-center gap-2">
         <span class="text-xs text-muted-foreground">{{ projectName }}</span>
       </div>
@@ -189,7 +241,7 @@ defineOptions({ inheritAttrs: false })
         <span id="task-detail-status-label" class="text-xs font-medium text-muted-foreground">
           {{ t('common.status') }}
         </span>
-        <Tabs :model-value="task.status" aria-labelledby="task-detail-status-label" @update:model-value="onStatusTabChange">
+        <Tabs data-testid="task-detail-status" :model-value="task.status" aria-labelledby="task-detail-status-label" @update:model-value="onStatusTabChange">
           <TabsList>
             <TabsTrigger v-for="s in STATUSES" :key="s" :value="s">
               {{ t(`tasks.status.${s}`) }}
@@ -212,8 +264,42 @@ defineOptions({ inheritAttrs: false })
       </div>
     </div>
 
+    <template v-if="pageMode">
+      <div data-testid="task-detail-summary" class="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4" :aria-busy="summaryLoading">
+        <template v-for="metric in summaryMetrics" :key="metric.key">
+          <Skeleton v-if="summaryLoading && !summary" data-testid="task-summary-skeleton" class="h-28 w-full" :aria-label="t('common.loading')" />
+          <KpiCard v-else :title="t(metric.label)" :value="metric.value" :class="(metric.key === 'work' || metric.key === 'cost') && metric.notice ? 'relative [&_[data-slot=card-title]]:pr-3 [&_[data-slot=card-title]]:line-clamp-none [&_[data-slot=card-title]]:min-w-0 [&_[data-slot=card-title]]:[overflow-wrap:anywhere]' : undefined">
+            <button
+              v-if="(metric.key === 'work' || metric.key === 'cost') && metric.notice"
+              :data-testid="metric.key === 'work' ? 'task-detail-work-time-info' : 'task-detail-cost-info'"
+              type="button"
+              :aria-label="t(metric.key === 'work' ? 'dashboard.kpi.workTimeInfo' : 'tasks.detail.costInfo')"
+              :title="t(metric.key === 'work' ? 'dashboard.kpi.workTimeInfo' : 'tasks.detail.costInfo')"
+              class="absolute top-4 right-4 inline-flex rounded text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+              @click="metric.key === 'work' ? showWorkTimeInfo() : showCostInfo()"
+            >
+              <Info class="size-4" aria-hidden="true" />
+            </button>
+            <p v-else-if="metric.notice" class="mt-1 text-xs text-muted-foreground" :title="t(metric.notice)">{{ t(metric.notice) }}</p>
+            <p v-else-if="metric.value === '—'" class="mt-1 text-xs text-muted-foreground">{{ summaryLoading ? t('common.loading') : t('projects.detail.metricsUnavailable') }}</p>
+          </KpiCard>
+        </template>
+      </div>
+      <p v-if="summaryError" role="alert" class="text-sm text-muted-foreground">{{ t('common.error') }}</p>
+      <section v-if="task.description || task.external_ref" data-testid="task-detail-description-section" class="min-w-0 space-y-3">
+        <div v-if="task.description">
+          <h2 class="text-sm font-semibold">{{ t('common.description') }}</h2>
+          <p data-testid="task-detail-description" class="mt-1 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{{ task.description }}</p>
+        </div>
+        <div v-if="task.external_ref">
+          <h2 class="text-sm font-semibold">{{ t('common.externalRef') }}</h2>
+          <p data-testid="task-detail-reference" class="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ task.external_ref }}</p>
+        </div>
+      </section>
+    </template>
+
     <!-- Sessions -->
-    <section :class="pageMode ? 'min-w-0 space-y-4 pt-4' : 'space-y-3 border-t border-border pt-4'">
+    <section data-testid="task-detail-sessions" :class="pageMode ? 'min-w-0 space-y-4' : 'space-y-3 border-t border-border pt-4'">
       <component :is="pageMode ? 'h2' : 'h3'" class="text-sm" :class="pageMode ? 'font-bold' : 'font-medium'">
         {{ t('tasks.detail.sessions.title') }}
       </component>
@@ -225,8 +311,10 @@ defineOptions({ inheritAttrs: false })
 
       <EmptyState v-else-if="sessionRows.length === 0" :title="t('tasks.detail.sessions.empty')" />
 
-      <ul v-else class="space-y-3">
-        <li v-for="row in sessionRows" :key="row.session.sessionId" :class="pageMode ? 'flex min-w-0 flex-col gap-3 rounded-3xl border border-border bg-card p-2 text-sm sm:gap-5 sm:p-5' : 'space-y-3 overflow-x-auto rounded-md border border-border p-3 text-sm'">
+      <ul v-else data-testid="task-detail-sessions-list" :class="pageMode ? 'grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2' : 'space-y-3'">
+        <li v-for="row in sessionRows" :key="row.session.sessionId" :class="pageMode ? 'min-w-0' : 'space-y-3 overflow-x-auto rounded-md border border-border p-3 text-sm'">
+          <component :is="pageMode ? Card : 'div'" :data-testid="pageMode ? 'task-detail-session-card' : undefined" :class="pageMode ? 'min-w-0 gap-4 py-5 text-sm' : 'space-y-3'">
+          <component :is="pageMode ? CardHeader : 'div'" :class="pageMode ? 'pb-0' : 'contents'">
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <p class="min-w-0 truncate font-medium">
               {{ sessionName(row.session) }}
@@ -236,6 +324,8 @@ defineOptions({ inheritAttrs: false })
             </span>
           </div>
 
+          </component>
+          <component :is="pageMode ? CardContent : 'div'" :class="pageMode ? 'min-w-0 space-y-3' : 'space-y-3'">
           <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:grid-cols-3">
             <div class="min-w-0">
               <dt class="text-muted-foreground">
@@ -304,9 +394,9 @@ defineOptions({ inheritAttrs: false })
             </div>
           </dl>
 
-          <div v-if="row.resumeOk" class="flex items-start gap-1.5">
-            <pre class="min-w-0 flex-1 overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap break-words text-foreground">{{ row.resumeCommand }}</pre>
-            <CopyButton :text="row.resumeCommand" />
+          <div v-if="row.resumeOk" data-testid="task-detail-resume-command" class="relative min-h-10 min-w-0 rounded-md bg-muted">
+            <pre class="min-w-0 overflow-x-auto p-2 pr-12 font-mono text-xs whitespace-pre-wrap break-words text-foreground">{{ row.resumeCommand }}</pre>
+            <CopyButton data-testid="task-detail-copy" icon-only :text="row.resumeCommand" class="absolute top-1 right-1" />
           </div>
           <p v-else class="rounded-md border border-dashed border-border p-2 text-xs text-muted-foreground">
             {{ t('tasks.detail.sessions.resume.unsupportedAgent') }}
@@ -317,6 +407,7 @@ defineOptions({ inheritAttrs: false })
           <div class="border-t border-border pt-2">
             <button
               type="button"
+              data-testid="task-detail-disclosure"
               class="flex w-full items-center justify-between gap-2 text-xs font-medium"
               :aria-expanded="isSessionExpanded(row.session.sessionId)"
               :aria-controls="`session-entries-${row.session.sessionId}`"
@@ -334,7 +425,16 @@ defineOptions({ inheritAttrs: false })
               <template v-else-if="sessionEntries[row.session.sessionId]">
                 <EmptyState v-if="sessionEntryRows(row.session.sessionId).length === 0" :title="t('tasks.detail.sessions.entriesEmpty')" />
                 <ul v-else class="divide-y divide-border rounded-md border border-border text-xs">
-                  <li v-for="entry in sessionEntryRows(row.session.sessionId)" :key="entry.id" data-testid="session-entry-row" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1.5">
+                  <li v-for="entry in sessionEntryRows(row.session.sessionId)" :key="entry.id" data-testid="session-entry-row">
+                    <component
+                      :is="pageMode ? 'button' : 'div'"
+                      :type="pageMode ? 'button' : undefined"
+                      :data-testid="pageMode ? 'task-detail-entry-trigger' : undefined"
+                      :aria-label="pageMode ? t('entries.detail.viewEntry', { context: `${entry.record.session_name || entry.id} · ${formatDateTime(entry.startedAt)}` }) : undefined"
+                      class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1.5 text-left"
+                      :class="pageMode ? 'hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring' : ''"
+                      @click="openSessionEntry(entry.record, $event)"
+                    >
                     <span class="shrink-0 tabular-nums text-muted-foreground">{{ formatDateTime(entry.startedAt) }}</span>
                     <span class="min-w-0 flex-1 truncate">
                       <span v-if="entry.promptHidden" class="text-muted-foreground italic">{{ t('tasks.detail.sessions.entryPromptHidden') }}</span>
@@ -348,6 +448,7 @@ defineOptions({ inheritAttrs: false })
                     <Badge v-else-if="entry.taskBadge.kind === 'other-task'" variant="outline" class="shrink-0">
                       {{ t('tasks.detail.sessions.entryOtherTask', { title: entry.taskBadge.taskTitle }) }}
                     </Badge>
+                    </component>
                   </li>
                 </ul>
                 <p
@@ -362,6 +463,8 @@ defineOptions({ inheritAttrs: false })
               </template>
             </div>
           </div>
+          </component>
+          </component>
         </li>
       </ul>
     </section>

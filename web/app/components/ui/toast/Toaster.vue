@@ -40,7 +40,7 @@ const latestAssertive = computed(() => {
     {{ latestAssertive }}
   </div>
   <Teleport to="body">
-    <div data-testid="toast-viewport" class="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2">
+    <div data-testid="toast-viewport" class="pointer-events-none fixed bottom-4 left-4 right-4 z-[100] flex w-auto max-w-sm flex-col gap-2 sm:left-auto sm:w-full">
       <TransitionGroup name="toast">
         <div
           v-for="t in toasts"

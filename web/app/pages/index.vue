@@ -671,14 +671,15 @@ v-model="agentFilter" class="w-40" :placeholder="t('common.agent')" :options="[
       <Button variant="outline" size="sm" @click="load">{{ t('dashboard.chart.retry') }}</Button>
     </div>
 
-    <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
-      <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')">
+    <div class="grid grid-cols-2 gap-6 lg:grid-cols-4">
+      <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" :current-value="totals.workMs" :previous-value="previousTotals.workMs" polarity="neutral" :vs-label="t('dashboard.vsPrevious')" :class="workTimeQuality.upperBoundCount > 0 ? 'relative [&_[data-slot=card-title]]:pr-3 [&_[data-slot=card-title]]:line-clamp-none [&_[data-slot=card-title]]:min-w-0 [&_[data-slot=card-title]]:[overflow-wrap:anywhere]' : undefined">
         <button
           v-if="workTimeQuality.upperBoundCount > 0"
+          data-testid="dashboard-work-time-info"
           type="button"
           :aria-label="t('dashboard.kpi.workTimeInfo')"
           :title="t('dashboard.kpi.workTimeInfo')"
-          class="mt-1 inline-flex rounded text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+          class="absolute top-4 right-4 inline-flex rounded text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
           @click="showWorkTimeInfo"
         >
           <Info class="size-4" aria-hidden="true" />

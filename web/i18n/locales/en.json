@@ -273,6 +273,8 @@
     },
     "detail": {
       "notFound": "Task not found or unavailable",
+      "costInfo": "Cost information",
+      "costUnknownHint": "Some task entries have unknown costs, so the total task cost is unavailable.",
       "sessions": {
         "title": "Sessions",
         "empty": "No sessions yet.",

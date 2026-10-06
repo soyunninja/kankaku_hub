@@ -76,6 +76,36 @@ describe('dashboard quality information toast', () => {
     wrapper.unmount()
   })
 
+  it('positions only positive-quality work Info inside its card with reserved title space', async () => {
+    const quality = Vue.ref({ upperBoundCount: 0 })
+    const grid = page.match(/<div class="grid grid-cols-2 gap-6 [^"]+">/)![0]
+    const work = page.match(/<KpiCard :title="t\('dashboard.kpi.workTime'\)"[^>]*>[\s\S]*?<\/KpiCard>/)![0]
+    const wall = page.match(/<KpiCard :title="t\('dashboard.kpi.wallTime'\)"[^>]*\/>/)![0]
+    const component = compile(`<script setup lang="ts">import { Info } from '@lucide/vue'; const { workTimeQuality } = qualityGlobals; const totals = { workMs: 1, wallMs: 1 }; const previousTotals = totals; const t = (key: string) => key; const formatDuration = String; const showWorkTimeInfo = () => {};</script><template>${grid}${work}${wall}</div></template>`, { qualityGlobals: { workTimeQuality: quality } })
+    const card = Vue.defineComponent({ props: ['title', 'value'], template: '<div data-testid="kpi-card"><h3 data-slot="card-title">{{ title }}</h3><p>{{ value }}</p><slot /></div>' })
+    const wrapper = mount(component, { global: { components: { KpiCard: card } } })
+    expect(wrapper.classes()).toEqual(expect.arrayContaining(['grid-cols-2', 'lg:grid-cols-4']))
+    expect(wrapper.classes()).not.toContain('md:grid-cols-4')
+    expect(wrapper.findAll('[data-testid="kpi-card"]')[0]!.classes()).not.toContain('relative')
+    expect(wrapper.find('button').exists()).toBe(false)
+    quality.value.upperBoundCount = 2
+    await Vue.nextTick()
+    const cards = wrapper.findAll('[data-testid="kpi-card"]')
+    expect(cards[0]!.classes()).toEqual(expect.arrayContaining(['relative', '[&_[data-slot=card-title]]:pr-3', '[&_[data-slot=card-title]]:line-clamp-none', '[&_[data-slot=card-title]]:min-w-0', '[&_[data-slot=card-title]]:[overflow-wrap:anywhere]']))
+    const info = cards[0]!.get('[data-testid="dashboard-work-time-info"]')
+    expect(info.classes()).toEqual(expect.arrayContaining(['absolute', 'top-4', 'right-4']))
+    expect(info.classes()).not.toContain('mt-1')
+    expect(info.get('[aria-hidden="true"]').classes()).toContain('size-4')
+    expect(cards[1]!.classes()).not.toContain('relative')
+    quality.value.upperBoundCount = 0
+    await Vue.nextTick()
+    expect(cards[0]!.classes()).not.toContain('[&_[data-slot=card-title]]:pr-3')
+    expect(cards[0]!.classes()).not.toContain('[&_[data-slot=card-title]]:line-clamp-none')
+    expect(cards[0]!.classes()).not.toContain('[&_[data-slot=card-title]]:min-w-0')
+    expect(cards[0]!.classes()).not.toContain('[&_[data-slot=card-title]]:[overflow-wrap:anywhere]')
+    wrapper.unmount()
+  })
+
   it('shows only a positive-count icon and snapshots count and drilldown on each click', async () => {
     const quality = Vue.ref({ upperBoundCount: 0 })
     const drilldown = Vue.ref({ path: '/entries', query: { quality: 'waitingUnavailable', dateStart: '2026-01-01', dateEnd: '2026-01-31', agent: 'pi' } })
