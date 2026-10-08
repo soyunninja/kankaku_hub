@@ -137,28 +137,30 @@ routerAdd("POST", "/api/kankaku/engram/sessions", (e) => {
     // Cached per request, per project — several session ids commonly
     // belong to the same project, and the daemon has no per-session
     // filter (see engram-narrative.js's pick*ForSession doc comments).
-    const observationsCache = {};
-    const promptsCache = {};
+    const summariesIndexCache = new Map();
+    const promptsIndexCache = new Map();
     const headers = engramNarrative.authHeaders(config);
 
-    function observationsForProject(project) {
-      if (Object.prototype.hasOwnProperty.call(observationsCache, project)) {
-        return observationsCache[project];
+    function summariesForProject(project) {
+      if (summariesIndexCache.has(project)) {
+        return summariesIndexCache.get(project);
       }
       const url = engramNarrative.observationsUrl(config.url, project, OBSERVATIONS_LIMIT);
       const rows = asRowArray(httpGetJson(url, config.timeoutSeconds, headers), "observations");
-      observationsCache[project] = rows;
-      return rows;
+      const index = engramNarrative.buildSummarySelectionIndex(rows);
+      summariesIndexCache.set(project, index);
+      return index;
     }
 
     function promptsForProject(project) {
-      if (Object.prototype.hasOwnProperty.call(promptsCache, project)) {
-        return promptsCache[project];
+      if (promptsIndexCache.has(project)) {
+        return promptsIndexCache.get(project);
       }
       const url = engramNarrative.promptsUrl(config.url, project, PROMPTS_LIMIT);
       const rows = asRowArray(httpGetJson(url, config.timeoutSeconds, headers), "prompts");
-      promptsCache[project] = rows;
-      return rows;
+      const index = engramNarrative.buildPromptSelectionIndex(rows);
+      promptsIndexCache.set(project, index);
+      return index;
     }
 
     const sessions = {};
@@ -173,8 +175,8 @@ routerAdd("POST", "/api/kankaku/engram/sessions", (e) => {
         }
         const project = sessionJson.project;
 
-        const summary = engramNarrative.pickSummaryForSession(observationsForProject(project), id);
-        const prompt = summary ? null : engramNarrative.pickFirstPromptForSession(promptsForProject(project), id);
+        const summary = summariesForProject(project).get(id) || null;
+        const prompt = summary ? null : promptsForProject(project).get(id) || null;
 
         const narrative = engramNarrative.buildNarrative({
           sessionId: id,

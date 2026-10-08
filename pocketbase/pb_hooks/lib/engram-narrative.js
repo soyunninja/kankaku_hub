@@ -238,6 +238,69 @@ function pickSummaryForSession(observations, sessionId) {
 }
 
 /**
+ * Builds a request-local Map from session id to the winning source row.
+ * Rows are grouped once. String timestamps use a one-pass winner selection;
+ * groups containing truthy non-string timestamps use the legacy sort on a
+ * session-local copy because mixed relational comparisons are not a total
+ * order. Neither path mutates the fetched array.
+ */
+function buildSelectionIndex(rows, compare, selectForSession) {
+  var index = new Map();
+  if (!Array.isArray(rows)) {
+    return index;
+  }
+
+  var groups = new Map();
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row) {
+      continue;
+    }
+    var sessionId = row.session_id;
+    // The legacy selectors use ===, for which NaN never matches itself.
+    if (typeof sessionId === "number" && sessionId !== sessionId) {
+      continue;
+    }
+    var group = groups.get(sessionId);
+    if (!group) {
+      group = { rows: [], stringTimestamps: true };
+      groups.set(sessionId, group);
+    }
+    group.rows.push(row);
+    var createdAt = row.created_at || "";
+    if (typeof createdAt !== "string") {
+      group.stringTimestamps = false;
+    }
+  }
+
+  groups.forEach(function (group, sessionId) {
+    var winner;
+    if (group.stringTimestamps) {
+      winner = group.rows[0];
+      for (var i = 1; i < group.rows.length; i++) {
+        if (compare(group.rows[i], winner) < 0) {
+          winner = group.rows[i];
+        }
+      }
+    } else {
+      // Delegate to the unchanged public selector so odd comparator cases
+      // retain its exact filter order and native sort behavior.
+      winner = selectForSession(group.rows, sessionId);
+    }
+    index.set(sessionId, winner);
+  });
+  return index;
+}
+
+function buildSummarySelectionIndex(observations) {
+  return buildSelectionIndex(observations, compareDescByCreatedThenId, pickSummaryForSession);
+}
+
+function buildPromptSelectionIndex(prompts) {
+  return buildSelectionIndex(prompts, compareAscByCreatedThenId, pickFirstPromptForSession);
+}
+
+/**
  * Picks the earliest prompt belonging to `sessionId` (by `created_at`
  * asc, then `id` asc). Same session_id-filtering requirement as
  * pickSummaryForSession — the daemon does not filter /prompts/recent by
@@ -378,6 +441,8 @@ module.exports = {
   parseGoal: parseGoal,
   pickSummaryForSession: pickSummaryForSession,
   pickFirstPromptForSession: pickFirstPromptForSession,
+  buildSummarySelectionIndex: buildSummarySelectionIndex,
+  buildPromptSelectionIndex: buildPromptSelectionIndex,
   titleFrom: titleFrom,
   buildNarrative: buildNarrative,
   buildStatus: buildStatus,
