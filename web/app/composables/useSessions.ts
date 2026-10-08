@@ -40,6 +40,8 @@ interface IgnoredSessionRow {
 export interface SessionTotal extends TotalsGroup {
   sessionId: string
   elapsedMs: number
+  /** Server capability for interpreting historical member summary fields. */
+  sessionMemberSummaryAvailable?: boolean
   /** True when the session's rows disagree on `client` or `project`
    * (`distinctClient > 1 || distinctProject > 1`). NOT a parity field —
    * see the doc comment on `fetchSessionTotals`/`fetchUnassignedSessionTotals`
@@ -60,7 +62,7 @@ export interface SessionTotalsPage {
   totalPages: number
 }
 
-function toSessionTotal(g: TotalsGroup): SessionTotal {
+function toSessionTotal(g: TotalsGroup, sessionMemberSummaryAvailable?: boolean): SessionTotal {
   const startMs = Date.parse(g.minStartedAt)
   const endMs = Date.parse(g.maxEndedAt || g.minStartedAt)
   const elapsedMs = Number.isFinite(startMs) && Number.isFinite(endMs) ? Math.max(0, endMs - startMs) : 0
@@ -68,13 +70,14 @@ function toSessionTotal(g: TotalsGroup): SessionTotal {
     ...g,
     sessionId: g.groupKey,
     elapsedMs,
+    sessionMemberSummaryAvailable,
     mixed: g.distinctClient > 1 || g.distinctProject > 1,
   }
 }
 
-function toSessionTotalsPage(response: { groups: TotalsGroup[], page: number, perPage: number, totalGroups: number, totalPages: number }): SessionTotalsPage {
+function toSessionTotalsPage(response: { groups: TotalsGroup[], page: number, perPage: number, totalGroups: number, totalPages: number, sessionMemberSummaryAvailable?: boolean }): SessionTotalsPage {
   return {
-    sessions: response.groups.map(toSessionTotal),
+    sessions: response.groups.map(group => toSessionTotal(group, response.sessionMemberSummaryAvailable)),
     page: response.page,
     perPage: response.perPage,
     totalGroups: response.totalGroups,

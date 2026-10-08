@@ -9,29 +9,37 @@ const sourcePath = `${process.cwd()}/app/components/organization/OrganizationCat
 const source = readFileSync(sourcePath, 'utf8')
 
 describe('canonical Organization tabs', () => {
-  it('composes the existing catalogs with lazy visited views and selected-panel visibility', () => {
+  it('keeps only the three embedded catalogs in the Organization tabs row', () => {
     for (const [name, route] of [['Clients', 'clients'], ['Projects', 'projects'], ['Tasks', 'tasks']]) {
       expect(source).toContain(`import ${name}Page from '@/pages/${route}/index.vue'`)
     }
     expect(source).toContain('new Set<OrganizationTab>([activeTab.value])')
-    expect(source).toContain('watch(activeTab, tab => visited.add(tab)')
     expect(source).toContain('v-if="visited.has(tab)" embedded')
     expect(source).toContain('v-show="activeTab === tab"')
-    expect(source).toContain('force-mount')
+    expect(source).not.toContain('CatalogNavigation')
+    expect(source).not.toMatch(/<a\b[^>]*>\s*Team\s*<\/a>/i)
+    expect(ORGANIZATION_TABS).toHaveLength(3)
     expect(source).toContain('organizationTabQuery(route.query, value)')
-    expect(source).toContain('resolveOrganizationTab(route.query.tab)')
-    expect(source).not.toContain("t('organizationTabs.description')")
-    expect(source.match(/<h1\b/g)).toHaveLength(1)
     expect(source).toContain("useHead({ title: computed(() => t('nav.organization')) })")
     expect(source).toContain("{{ t('nav.organization') }}</h1>")
     expect(source).not.toMatch(/organizationPrototype|organizationOverview|nav\.prototype|experiment/)
   })
 
-  it('supports exactly the existing catalogs and validates deep links', () => {
+  it('supports only the three embedded catalogs and validates deep links', () => {
     expect(ORGANIZATION_TABS).toEqual(['clients', 'projects', 'tasks'])
     for (const tab of ORGANIZATION_TABS) expect(resolveOrganizationTab(tab)).toBe(tab)
     for (const value of [undefined, null, '', 'unknown', ['tasks'], ['clients', 'tasks']]) {
       expect(resolveOrganizationTab(value)).toBe('clients')
+    }
+  })
+
+  it('keeps Team route-based and retains localized nav labels', () => {
+    expect(source).not.toContain('TeamPage')
+    expect(source).not.toContain('team: TeamPage')
+    for (const locale of [en, es, ja]) {
+      expect(locale.nav.team).toBeTruthy()
+      expect(Object.keys(locale.team).sort()).toEqual(Object.keys(en.team).sort())
+      for (const text of Object.values(locale.team)) expect(text.trim()).not.toBe('')
     }
   })
 

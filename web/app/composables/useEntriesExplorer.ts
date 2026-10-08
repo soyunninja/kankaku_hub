@@ -10,6 +10,9 @@ import type { TaskEntryRecord } from '~/lib/pocketbase-types'
 export type QualityFilter = 'waitingUnavailable' | 'costUnknown'
 
 export interface EntriesExplorerFilters {
+  /** Omitted means all; empty string means unassigned. */
+  member?: string
+  department?: string
   client?: string
   project?: string
   task?: string
@@ -37,6 +40,8 @@ function escapeFilterValue(value: string) {
 
 function buildFilter(filters: EntriesExplorerFilters): string {
   const parts: string[] = []
+  if (filters.member !== undefined) parts.push(`member = "${escapeFilterValue(filters.member)}"`)
+  if (filters.department !== undefined) parts.push(`department = "${escapeFilterValue(filters.department)}"`)
   if (filters.client) parts.push(`client = "${filters.client}"`)
   if (filters.project) parts.push(`project = "${filters.project}"`)
   if (filters.task) parts.push(`task = "${filters.task}"`)

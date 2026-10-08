@@ -42,6 +42,7 @@ const ICONS: Record<string, typeof Users> = {
   '/clients': Users,
   '/projects': Boxes,
   '/tasks': ListTodo,
+  '/team': Users,
   '/unassigned': Inbox,
   '/sessions-without-task': Link2Off,
   '/entries': Search,

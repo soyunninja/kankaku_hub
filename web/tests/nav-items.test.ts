@@ -32,6 +32,7 @@ describe('NAV_ITEMS', () => {
       '/clients',
       '/projects',
       '/tasks',
+      '/team',
       '/unassigned',
       '/sessions-without-task',
       '/entries',

@@ -20,6 +20,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/clients', labelKey: 'nav.clients', sectionKey: 'nav.organization' },
   { to: '/projects', labelKey: 'nav.projects', sectionKey: 'nav.organization' },
   { to: '/tasks', labelKey: 'nav.tasks', sectionKey: 'nav.organization' },
+  { to: '/team', labelKey: 'nav.team', sectionKey: 'nav.organization' },
   { to: '/unassigned', labelKey: 'nav.unassigned' },
   { to: '/sessions-without-task', labelKey: 'nav.sessionsQueue' },
   { to: '/entries', labelKey: 'nav.entries' },

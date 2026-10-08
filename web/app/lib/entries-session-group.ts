@@ -21,6 +21,8 @@ export interface SessionGroupEntryLike {
   cost_quality?: CostQuality | ''
   client?: string
   project?: string
+  /** Historical task_entries.member relation; absent means legacy unknown. */
+  member?: string
 }
 
 export interface EntriesSessionGroup<T extends SessionGroupEntryLike> {
@@ -44,6 +46,10 @@ export interface EntriesSessionGroup<T extends SessionGroupEntryLike> {
   clientIds: string[]
   /** Same for `project` (`''` = no project). */
   projectIds: string[]
+  /** Page-local historical member values; absent fields remain unknown. */
+  memberIds: string[]
+  unassignedMemberEntries: number
+  unknownMemberEntries: number
 }
 
 /**
@@ -77,6 +83,9 @@ export function groupEntriesBySession<T extends SessionGroupEntryLike>(entries: 
       cost: sumCost(rows),
       clientIds: [...new Set(rows.map(e => e.client ?? ''))],
       projectIds: [...new Set(rows.map(e => e.project ?? ''))],
+      memberIds: [...new Set(rows.map(e => e.member).filter((member): member is string => !!member))],
+      unassignedMemberEntries: rows.filter(e => e.member === '').length,
+      unknownMemberEntries: rows.filter(e => e.member === undefined).length,
     })
   }
 

@@ -109,6 +109,17 @@ describe('groupEntriesBySession: what the group header can say once for every ro
     expect(group!.projectIds).toEqual(['p1'])
   })
 
+  it('keeps page-local historical member values and unknown legacy rows distinct', () => {
+    const [group] = groupEntriesBySession([
+      entry({ id: 'a', session_id: 's1', member: 'm1' }),
+      entry({ id: 'b', session_id: 's1', member: '' }),
+      entry({ id: 'c', session_id: 's1' }),
+    ])
+    expect(group!.memberIds).toEqual(['m1'])
+    expect(group!.unassignedMemberEntries).toBe(1)
+    expect(group!.unknownMemberEntries).toBe(1)
+  })
+
   it('lists every distinct client/project when the rows disagree, in first-seen order, so the rows must keep showing their own', () => {
     const [group] = groupEntriesBySession([
       entry({ id: 'a', session_id: 's1', client: 'c1', project: 'p1', started_at: '2026-01-01 10:00:00.000Z' }),

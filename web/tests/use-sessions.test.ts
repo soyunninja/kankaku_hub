@@ -46,9 +46,10 @@ function sessionGroup(overrides: Partial<TotalsGroup> = {}): TotalsGroup {
   }
 }
 
-function totalsResponse(groups: TotalsGroup[]): TotalsResponse {
+function totalsResponse(groups: TotalsGroup[], sessionMemberSummaryAvailable?: boolean): TotalsResponse {
   return {
     groups,
+    ...(sessionMemberSummaryAvailable === undefined ? {} : { sessionMemberSummaryAvailable }),
     total: { ...groups[0]!, count: groups[0]?.entries ?? 0 } as never,
     page: 1,
     perPage: 50,
@@ -155,6 +156,30 @@ describe('useSessions', () => {
     // row, inherited from TotalsGroup — no separate mapping needed.
     expect(page.sessions[0]!.distinctTask).toBe(1)
     expect(page.sessions[0]!.sampleTask).toBe('task-a')
+  })
+
+  it('fetchSessionTotalsForEntries: propagates explicit member-summary capability to each session display row', async () => {
+    const group = sessionGroup({ distinctMember: 1, sampleMember: 'member-a', unassignedMemberEntries: 0 })
+    const fetchTotals = vi.fn(async () => totalsResponse([group], false))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: {} }))
+    vi.stubGlobal('useTotals', () => ({ fetchTotals }))
+
+    const { useSessions } = await import('../app/composables/useSessions')
+    const { fetchSessionTotalsForEntries } = useSessions()
+    const page = await fetchSessionTotalsForEntries({ filters: {} })
+
+    expect(page.sessions[0]!.distinctMember).toBe(1)
+    expect(page.sessions[0]!.sessionMemberSummaryAvailable).toBe(false)
+
+    const capableFetchTotals = vi.fn(async () => totalsResponse([group], true))
+    vi.stubGlobal('useTotals', () => ({ fetchTotals: capableFetchTotals }))
+    const capable = await useSessions().fetchSessionTotalsForEntries({ filters: {} })
+    expect(capable.sessions[0]!.sessionMemberSummaryAvailable).toBe(true)
+
+    const legacyFetchTotals = vi.fn(async () => totalsResponse([group]))
+    vi.stubGlobal('useTotals', () => ({ fetchTotals: legacyFetchTotals }))
+    const legacy = await useSessions().fetchSessionTotalsForEntries({ filters: {} })
+    expect(legacy.sessions[0]!.sessionMemberSummaryAvailable).toBeUndefined()
   })
 
   it('fetchSessionTotalsForEntries: propagates TotalsRouteUnavailableError untouched', async () => {

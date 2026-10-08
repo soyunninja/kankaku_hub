@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { sessionMarkerLabel } from '@/lib/session-marker'
 import { ChevronDown, ChevronLeft, ChevronRight, Layers, List, X } from '@lucide/vue'
-import AgentIcon from '@/components/agents/AgentIcon.vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -28,6 +27,7 @@ import { formatCompactEntryDateTime } from '@/lib/entries-compact-date'
 import { deriveEntryTitle, statusPresentation } from '@/lib/entry-detail'
 import { canGroupEntriesFilters, entriesDateRangeToTotalsRange, splitEntriesFiltersForTotals } from '@/lib/entries-session-filters'
 import { type EntriesSessionGroup, groupEntriesBySession } from '@/lib/entries-session-group'
+import { pageMemberAttribution, sessionMemberAttribution, type MemberAttribution } from '@/lib/entries-member-attribution'
 import { buildEntriesDetailExport, createCsvExport, createXlsxExport } from '@/lib/export'
 import { LEGACY_AGENT } from '@/lib/measurement-quality'
 import { narrativeBody, narrativeBodyLineCount } from '@/lib/narrative-format'
@@ -49,6 +49,7 @@ const { fetchSessionTotalsForEntries } = useSessions()
 const { ensureStatus: ensureEngramStatus, forSessions: engramForSessions } = useEngramNarrative()
 const toast = useToast()
 const { canWrite } = useAuth()
+const { members: teamMembers, refresh: refreshTeamMembers } = useTeamCatalog()
 
 /** Deep-link support so the dashboard's measurement-quality notice can
  * navigate here pre-filtered (e.g. `/entries?quality=waitingUnavailable
@@ -124,6 +125,7 @@ onMounted(() => {
     if (usable(target) && (document.activeElement === document.body || document.activeElement === focused)) target.focus({ preventScroll: true })
   }
   update()
+  if (canWrite.value) void refreshTeamMembers().catch(() => {})
   media.addEventListener('change', update)
   onBeforeUnmount(() => {
     media.removeEventListener('change', update)
@@ -412,6 +414,24 @@ function taskName(id: string): string {
   return taskById(id)?.title ?? id
 }
 
+function memberLabel(attribution: MemberAttribution, pageLocal = false): string {
+  const label = attribution.kind === 'named' ? attribution.name : t(`entries.member.${attribution.kind}`)
+  return pageLocal ? t('entries.member.pageLocal', { label }) : label
+}
+
+function rowMemberLabel(member: string | undefined): string {
+  return memberLabel(pageMemberAttribution([member], canWrite.value ? teamMembers.value : undefined))
+}
+
+function sessionMemberLabel(row: SessionTotal): string {
+  return memberLabel(sessionMemberAttribution({
+    available: row.sessionMemberSummaryAvailable === true && row.distinctMember !== undefined && row.unassignedMemberEntries !== undefined,
+    distinctMember: row.distinctMember,
+    sampleMember: row.sampleMember,
+    unassignedEntries: row.unassignedMemberEntries,
+  }, canWrite.value ? teamMembers.value : undefined))
+}
+
 const displayTotalItems = computed(() => primaryGrouped.value ? sessionTotalGroups.value : totalItems.value)
 const displayTotalPages = computed(() => primaryGrouped.value ? sessionTotalPages.value : totalPages.value)
 
@@ -501,7 +521,7 @@ const groupOf = computed(() => {
 
 /** `true` when some group on this page disagrees on client or project —
  * the only case the extra column exists for. */
-const anyMixedGroup = computed(() => [...new Set(groupOf.value.values())].some(g => g.clientIds.length > 1 || g.projectIds.length > 1))
+const anyMixedGroup = computed(() => [...new Set(groupOf.value.values())].some(g => g.projectIds.length > 1))
 
 /** What a row still has to say itself while grouped: nothing when its
  * group agrees on client and project (the header already said it). */
@@ -509,26 +529,21 @@ function mixedGroupCell(entry: TaskEntryRecord): string {
   const group = groupOf.value.get(entry.id)
   if (!group) return ''
   const parts: string[] = []
-  if (group.clientIds.length > 1) parts.push(clientName(entry.client))
   if (group.projectIds.length > 1) parts.push(projectName(entry.project))
   return parts.join(' · ')
 }
 
-/** Columns the table currently renders. Flat mode: the 8 flat columns
- * (Inicio/Sesión/Cliente/Proyecto/Estado/Agente/Tiempo/Coste). The
- * primary server-backed grouped mode has its OWN 10 columns (Inicio/
- * Sesión/Cliente/Proyecto/Tarea/Agente/Entradas/Tiempo/Coste/chevron — 9
- * real columns + the chevron toggle: a session always has exactly one
- * agent, so Agente lives on this row, not the nested entries table) —
- * its expanded row is a single colspan-ed cell holding a *nested* table
- * with its own (narrower, agent-less) header, so this count only ever
- * governs the outer table's own rows. The fallback client-side grouping
- * still collapses session+client+project into one "only when they
- * differ" column, exactly as before. */
+/** Columns the table currently renders. Flat mode has seven columns
+ * (Inicio/Sesión/Cliente/Proyecto/Estado/Tiempo/Coste). The primary
+ * server-backed grouped mode has eight (Inicio/Sesión/Proyecto/Tarea/
+ * Entradas/Tiempo/Coste/chevron). Its expanded row is a single colspan-ed
+ * cell holding a nested four-column table; this count governs only the outer
+ * table. The fallback client-side grouping still collapses session+client+
+ * project into one "only when they differ" column. */
 const columnCount = computed(() => {
-  if (!groupBySession.value) return 8
+  if (!groupBySession.value) return 7
   if (groupingFallback.value) return anyMixedGroup.value ? 6 : 5
-  return 10
+  return 9
 })
 
 // Adapt existing grouped values, never introduce a new rollup rule.
@@ -1087,10 +1102,9 @@ function onDetailCloseAutoFocus(event: Event) {
             <TableRow v-if="primaryGrouped">
               <TableHead>{{ t('common.started') }}</TableHead>
               <TableHead>{{ t('entries.session') }}</TableHead>
-              <TableHead>{{ t('common.client') }}</TableHead>
               <TableHead>{{ t('common.project') }}</TableHead>
               <TableHead>{{ t('common.task') }}</TableHead>
-              <TableHead>{{ t('common.agent') }}</TableHead>
+              <TableHead>{{ t('entries.member.header') }}</TableHead>
               <TableHead class="text-right">{{ t('entries.sessionGroup.columns.entries') }}</TableHead>
               <TableHead class="text-right"><span :title="t('common.timeHint')">{{ t('common.time') }}</span></TableHead>
               <TableHead class="text-right">{{ t('common.cost') }}</TableHead>
@@ -1103,18 +1117,14 @@ function onDetailCloseAutoFocus(event: Event) {
                   <ChevronDown v-if="sort.replace('-', '') === 'started_at'" class="size-3" :class="{ 'rotate-180': sort === 'started_at' }" aria-hidden="true" />
                 </Button>
               </TableHead>
-              <!-- Flat mode: session, client and project each get their own
-                   column. Only the fallback client-side grouping collapses
-                   them into one "only when they differ" column below — see
-                   `columnCount`'s doc comment. -->
+              <!-- Flat mode keeps session and project; Client remains available in filters/details. -->
               <template v-if="!groupingFallback">
                 <TableHead>{{ t('entries.session') }}</TableHead>
-                <TableHead>{{ t('common.client') }}</TableHead>
                 <TableHead>{{ t('common.project') }}</TableHead>
               </template>
               <TableHead v-else-if="anyMixedGroup">{{ t('entries.sessionGroup.mixedColumn') }}</TableHead>
+              <TableHead>{{ t('entries.member.header') }}</TableHead>
               <TableHead>{{ t('common.status') }}</TableHead>
-              <TableHead>{{ t('common.agent') }}</TableHead>
               <TableHead class="text-right" :aria-sort="sort === 'work_ms' ? 'ascending' : sort === '-work_ms' ? 'descending' : 'none'">
                 <Button no-hover variant="ghost" size="sm" class="h-auto px-0" @click="toggleSort('work_ms')">
                   <span :title="t('common.timeHint')">{{ t('common.time') }}</span>
@@ -1164,13 +1174,6 @@ function onDetailCloseAutoFocus(event: Event) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <template v-if="row.distinctClient === 1">
-                      <ClientName v-if="clientById(row.sampleClient)" :client="clientById(row.sampleClient)!" size="xs" class="max-w-48" />
-                      <span v-else>{{ clientName(row.sampleClient) }}</span>
-                    </template>
-                    <span v-else class="text-muted-foreground">{{ t('entries.sessionGroup.clients', { count: row.distinctClient }) }}</span>
-                  </TableCell>
-                  <TableCell>
                     <span v-if="row.distinctProject === 1">{{ projectName(row.sampleProject) }}</span>
                     <span v-else class="text-muted-foreground">{{ t('entries.sessionGroup.projects', { count: row.distinctProject }) }}</span>
                   </TableCell>
@@ -1179,10 +1182,7 @@ function onDetailCloseAutoFocus(event: Event) {
                     <span v-else-if="row.sampleTask">{{ taskName(row.sampleTask) }}</span>
                     <span v-else class="text-muted-foreground" :title="t('entries.detail.noTask')">—</span>
                   </TableCell>
-                  <TableCell>
-                    <AgentIcon v-if="row.distinctAgent === 1" :agent="row.sampleAgent" size="sm" />
-                    <span v-else class="text-muted-foreground">{{ t('entries.sessionGroup.agents', { count: row.distinctAgent }) }}</span>
-                  </TableCell>
+                  <TableCell>{{ sessionMemberLabel(row) }}</TableCell>
                   <TableCell data-testid="session-entries-count" class="text-right tabular-nums">
                     {{ row.entries }}
                   </TableCell>
@@ -1207,9 +1207,8 @@ function onDetailCloseAutoFocus(event: Event) {
                 </TableRow>
                 <!-- Expanded: ONE full-width row holding a nested table of
                      this session's entries — the flat entry header MINUS
-                     session/client/project/agent/model (the parent row above
-                     already shows the agent; model remains in the detail).
-                     Nested rows open the same EntryDetailSheet as flat mode. -->
+                     session/client/project/agent/model. Nested rows open the
+                     same EntryDetailSheet as flat mode. -->
                 <TableRow v-if="expandedSessions.has(row.sessionId)" :id="`session-group-entries-${row.sessionId}`" data-testid="session-group-entries">
                   <TableCell :colspan="columnCount" class="bg-muted/30 p-2">
                     <!-- Engram narrative block, ABOVE the nested entries
@@ -1299,13 +1298,9 @@ function onDetailCloseAutoFocus(event: Event) {
                   <TableHead scope="colgroup" :colspan="columnCount" class="h-auto py-2 font-normal">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
                       <SessionMarker :session-id="dr.group.sessionId" :session-name="dr.group.sessionName" @click="filterToSession(dr.group.sessionId)" />
-                      <template v-if="dr.group.clientIds.length === 1">
-                        <ClientName v-if="clientById(dr.group.clientIds[0]!)" :client="clientById(dr.group.clientIds[0]!)!" size="xs" class="max-w-48 text-foreground" />
-                        <span v-else class="text-foreground">{{ clientName(dr.group.clientIds[0]!) }}</span>
-                      </template>
-                      <span v-else class="text-foreground">{{ t('entries.sessionGroup.clients', { count: dr.group.clientIds.length }) }}</span>
                       <span v-if="dr.group.projectIds.length === 1" class="text-foreground">{{ projectName(dr.group.projectIds[0]!) }}</span>
                       <span v-else class="text-foreground">{{ t('entries.sessionGroup.projects', { count: dr.group.projectIds.length }) }}</span>
+                      <span class="text-xs text-muted-foreground">{{ memberLabel(pageMemberAttribution(dr.group.entries.map(entry => entry.member), canWrite ? teamMembers : undefined), true) }}</span>
                       <span class="text-xs text-muted-foreground">{{ t('entries.sessionGroup.count', { count: dr.group.entries.length }) }}</span>
                       <span class="text-xs tabular-nums text-muted-foreground"><span :title="t('common.timeHint')">{{ t('common.time') }}</span>: {{ formatDuration(dr.group.workMs) }}</span>
                       <span class="text-xs tabular-nums text-muted-foreground">{{ t('common.cost') }}: {{ formatCost(dr.group.cost) }}</span>
@@ -1323,22 +1318,15 @@ function onDetailCloseAutoFocus(event: Event) {
                     <TableCell>
                       <SessionMarker :session-id="dr.entry.session_id" :session-name="dr.entry.session_name" @click="filterToSession(dr.entry.session_id)" />
                     </TableCell>
-                    <TableCell>
-                      <ClientName v-if="clientById(dr.entry.client)" :client="clientById(dr.entry.client)!" size="xs" class="max-w-36" />
-                      <span v-else>{{ clientName(dr.entry.client) }}</span>
-                    </TableCell>
                     <TableCell>{{ projectName(dr.entry.project) }}</TableCell>
                   </template>
-                  <!-- Grouped: empty unless the group's rows DISAGREE on client
-                       or project — then each row keeps saying its own, so
-                       lifting them to the header never hides a difference. -->
+                  <!-- Fallback grouped rows repeat project only when the
+                       page-local group contains multiple projects. -->
                   <TableCell v-else-if="anyMixedGroup" class="text-muted-foreground">
                     {{ mixedGroupCell(dr.entry) }}
                   </TableCell>
+                  <TableCell>{{ rowMemberLabel(dr.entry.member) }}</TableCell>
                   <TableCell><Badge :variant="statusPresentation(dr.entry.status).tone">{{ t(`entries.status.${dr.entry.status}`) }}</Badge></TableCell>
-                  <TableCell>
-                    <AgentIcon :agent="dr.entry.agent" size="sm" />
-                  </TableCell>
                   <TableCell class="text-right tabular-nums">
                     {{ formatDuration(dr.entry.work_ms) }}
                   </TableCell>

@@ -128,13 +128,17 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
       await expect(page.getByRole('button', { name: 'Sesiones', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
       // The primary grouped mode has its own header/columns (Inicio | Sesión
-      // | Cliente | Proyecto | Tarea | Agente | Entradas | Tiempo | Coste),
-      // each a real column — not a colspan-ed summary blob. Agente lives
-      // here (a session always has one agent), not on the nested table.
+      // | Proyecto | Tarea | Miembro | Entradas | Tiempo | Coste | chevron), each a real
+      // column — not a colspan-ed summary blob. Client and Agent remain
+      // available through filters/details, not as table columns.
+      await expect(page.getByRole('columnheader')).toHaveCount(9)
       await expect(page.getByRole('columnheader', { name: 'Sesión', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Cliente', exact: true })).toHaveCount(0)
       await expect(page.getByRole('columnheader', { name: 'Tarea', exact: true })).toBeVisible()
-      await expect(page.getByRole('columnheader', { name: 'Agente', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Miembro', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Agente', exact: true })).toHaveCount(0)
       await expect(page.getByRole('columnheader', { name: 'Entradas', exact: true })).toBeVisible()
+      await expect(page.getByPlaceholder('Agente')).toBeVisible()
 
       const groupHeaders = page.locator('[data-testid="session-group-row"]')
       await expect(groupHeaders).toHaveCount(2)
@@ -205,6 +209,10 @@ test.describe('entries: grouped by session (server-backed, default)', () => {
       await page.waitForTimeout(300)
       await expect(groupHeaders).toHaveCount(0)
       await expect(page.locator('table tbody tr')).toHaveCount(2)
+      await expect(page.getByRole('columnheader', { name: 'Cliente', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('columnheader', { name: 'Miembro', exact: true })).toBeVisible()
+      await expect(page.getByRole('columnheader', { name: 'Agente', exact: true })).toHaveCount(0)
+      await expect(page.getByPlaceholder('Agente')).toBeVisible()
       await expect(page.getByPlaceholder('Modelo')).toBeEnabled()
     }
     finally {

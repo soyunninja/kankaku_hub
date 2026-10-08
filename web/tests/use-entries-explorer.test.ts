@@ -58,6 +58,16 @@ function totalsResponse(groups: TotalsGroup[], totalPages = 1): TotalsResponse {
 }
 
 describe('useEntriesExplorer', () => {
+  it('keeps empty historical team filters and escapes identity values', async () => {
+    const getList = vi.fn(async () => ({ items: [], totalItems: 0, totalPages: 0 }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { collection: () => ({ getList }) } }))
+    vi.stubGlobal('useTotals', () => ({}))
+    const { useEntriesExplorer } = await import('../app/composables/useEntriesExplorer')
+    await useEntriesExplorer().list({ page: 2, perPage: 25, sort: '-started_at', filters: { member: '', department: 'quoted"id' } })
+    expect(getList).toHaveBeenCalledWith(2, 25, expect.objectContaining({
+      filter: `member = "" && department = ${JSON.stringify('quoted"id')}`,
+    }))
+  })
   it.each([
     ['plain', 'model-a', 'machine-a', 'model = "model-a" && machine = "machine-a"'],
     ['quoted', 'model "preview"', 'host "office"', String.raw`model = "model \"preview\"" && machine = "host \"office\""`],

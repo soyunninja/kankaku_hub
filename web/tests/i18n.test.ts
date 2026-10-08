@@ -75,6 +75,23 @@ describe('i18n locale parity', () => {
   })
 })
 
+describe('department cost-share copy', () => {
+  it('provides localized known, zero and unavailable labels without client or project terminology', () => {
+    for (const [name, dict] of LOCALES) {
+      for (const key of ['departmentCostShare', 'departmentCostShareZero', 'departmentCostShareUnavailable']) {
+        const value = getValue(dict, `team.${key}`)
+        expect(typeof value, `${name}.team.${key}`).toBe('string')
+        expect((value as string).length, `${name}.team.${key}`).toBeGreaterThan(0)
+      }
+    }
+    expect(en.team.departmentCostShare).toContain('{department}')
+    expect(es.team.departmentCostShare).toContain('{teamCost}')
+    expect(ja.team.departmentCostShareUnavailable).toContain('{department}')
+    const shareCopy = LOCALES.flatMap(([, dict]) => ['departmentCostShare', 'departmentCostShareZero', 'departmentCostShareUnavailable'].map(key => getValue(dict, `team.${key}`))).join(' ').toLowerCase()
+    expect(shareCopy).not.toMatch(/client|project|cliente|proyecto/)
+  })
+})
+
 describe('shared search copy', () => {
   it('provides localized combobox empty text and search labels', () => {
     expect(en.common.search).toBe('Search')

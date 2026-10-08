@@ -5,10 +5,15 @@ import TasksPage from '@/pages/tasks/index.vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ORGANIZATION_TABS, organizationTabQuery, resolveOrganizationTab } from '@/components/organization/tabs'
 import type { OrganizationTab } from '@/components/organization/tabs'
+import { legacyTeamRedirect } from '@/components/team/routes'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+if (route.query.tab === 'team') {
+  const destination = legacyTeamRedirect(route.path, route.query, route.hash)
+  if (destination) void navigateTo(destination, { replace: true })
+}
 useHead({ title: computed(() => t('nav.organization')) })
 
 const activeTab = computed(() => resolveOrganizationTab(route.query.tab))
