@@ -22,7 +22,7 @@ optional read-only demo account, distinguished by a `role` field: `owner`
 
 `service` keeps create/update access on `task_entries` and `work_records`
 (the sync client's contract below is unaffected by this migration).
-`viewer` can list/view every collection and call every hook route, exactly
+`viewer` can list/view existing non-team collections and call their hook routes, exactly
 like `owner`/`service`, but cannot create, update, or delete anything —
 every write attempt (including on `task_entries`/`work_records`) 403s.
 `owner` is unchanged. See
@@ -81,7 +81,8 @@ service account at sync time.
 
 ## Collections and fields
 
-All collections require `@request.auth.id != ""` to list/view. See
+Existing collections require `@request.auth.id != ""` to list/view.
+The team catalogs below are owner-only, including reads. See
 `AGENTS.md` and the migration files in `pocketbase/pb_migrations/` for the
 authoritative field list — this is a summary for the sync client's
 mapping code.
@@ -196,6 +197,121 @@ Write access: owner only. The sync client only *reads* this collection.
 
 Write access: owner only. The sync client only *reads* this collection
 (to link a `task_entries` row to an existing task, phase 4).
+
+### Team catalogs (migration `1790183806`)
+
+These are managed profiles, **not auth users**. Only `role: owner` may
+list/view/create/update `departments`, `team_members`, and `machines`.
+Service and viewer accounts have no catalog access. REST deletion is
+locked even for the owner; use `active: false` to retain historical identities.
+Superusers remain privileged as with all PocketBase API rules.
+Send `active: true` explicitly when creating an active catalog record.
+
+| collection | fields |
+|---|---|
+| `departments` | required `name` (text, max 200), `active` (bool) |
+| `team_members` | required `name` (text, max 200), optional `department` (single relation), `active` (bool), server-owned `department_history` (JSON) |
+| `machines` | required unique immutable `key` (text, max 200), optional `name` (text, max 200), optional `member` (single relation), `active` (bool), server-owned `assignment_history` (JSON) |
+
+Machine `key` matches `task_entries.machine` exactly, case-sensitively; use
+an existing hostname/alias verbatim. Multiple machines may reference one
+member. Empty `member` means unassigned. Catalog creation and changes to
+`machines.member` or `team_members.department` append server-timestamped
+history `{ at: <UTC instant>, value: <relation id or empty string> }`.
+Submitted history is ignored; unchanged assignments retain their history.
+Assignment changes and their histories are saved atomically. Histories
+cannot be backdated through the API. `active` controls catalog selection,
+not historical attribution; to end responsibility, explicitly clear `member`.
+
+On entry creation, the server resolves the machine's member and that member's
+department **at `started_at`**, with inclusive change boundaries. Activity
+before the first effective assignment stays unassigned, including late first
+uploads. Missing machine keys also stay unassigned. No migration backfill
+attributes existing entries, and registering a machine does not retroactively
+claim earlier activity. Changing a department preserves earlier attribution.
+Entries crossing a change boundary use their start instant, not their end.
+
+`task_entries.attributed_machine`, `member`, and `department` are optional
+single relations populated only by the server. Client-supplied values are
+ignored on create/update. Updates preserve the stored attribution, including
+empty values; changes to `task_id`, `machine`, or `started_at` are rejected.
+Ordinary measurement retries may still extend `ended_at` and update totals.
+All existing entry read rules remain unchanged, so unassigned entries remain
+visible. Relation expansion requires catalog read permission; non-owner
+entry readers see relation IDs but cannot expand the private team catalogs.
+Consumers may filter entries by these relation IDs (empty string selects
+unassigned). The daily totals view does not include team dimensions; the
+session-grouped totals response includes the additive member summary described
+below. Aggregate only consolidated `task_entries`, never `work_records`.
+
+This section specifies the new migration/hook behavior; unlike the captured
+legacy examples, it has not been verified against a running PocketBase API.
+
+#### Owner-only atomic member creation (T1)
+
+`POST /api/kankaku/team-members/create-with-machine` accepts
+`{ "name": "Ada Lovelace", "department": "<optional active department id>",
+"machine_id": "<registered machine id>" }`. `department` may be omitted or
+empty. The route requires an authenticated `users` record with `role: owner`;
+missing authentication returns 401 and service/viewer roles return 403.
+
+The name is trimmed and must be non-empty (maximum 200 characters). Unknown
+fields, mistyped values, or an invalid/inactive department return 400. The
+machine must still exist, be active, and have no assigned member at the time
+of the request; a missing, inactive, or occupied machine returns 409. In one
+PocketBase transaction the route revalidates the machine, creates an active
+managed member via normal record save/hooks, and assigns it to the machine via
+normal record save/hooks. Any failed save aborts the transaction; no partial
+member is retained. The normal model hooks preserve server-generated
+department and assignment history used by historical entry attribution.
+
+Success returns `{ "member": { "id", "name", "department", "active" },
+"machine": { "id", "key", "name", "member", "active" } }` after commit.
+This operation creates a managed profile only; it does not create an auth
+account or alter standalone member CRUD permissions.
+
+#### Owner-only historical backfill (T6, runtime unverified)
+
+`POST /api/kankaku/team-backfill/preview` accepts only
+`{ "machine_id": "<registered machine id>" }`. An authenticated `users`
+record with `role: owner` is required for both routes; service, viewer and
+other auth collections are rejected. Unknown machines return 404; machines
+without a current member return 400.
+
+Preview returns `{ machine_id, machine_key, member, count, snapshot }`.
+It selects **all** entries with the exact case-sensitive machine key and
+empty `member`, regardless of entry date or machine assignment history.
+Entries already linked to a different `attributed_machine` are excluded.
+No entry with an existing member is selected. The opaque SHA256 snapshot covers machine
+identity/assignment history, member identity/department history, and the
+ordered eligible entry IDs, start dates and stored attribution fields.
+The operation fails closed above 10,000 eligible entries (no partial batch).
+
+`POST /api/kankaku/team-backfill/apply` accepts the complete preview object,
+unchanged, with no extra fields. In one transaction it reloads the catalogs
+and eligible rows, rechecks identity, snapshot and count, then updates only
+those exact IDs still matching the exact key and empty member. Stale previews
+return 409; database/concurrency failures abort rather than report partial
+success. Existing attributed rows remain untouched. Each selected entry gains
+`member` and `attributed_machine`; an existing `department` is preserved.
+An empty department is filled only from that member's dated
+`department_history` at `started_at`, and remains empty when no history
+establishes a department. Current department is never projected
+into the past. Measurement fields and legacy machine text are unchanged.
+
+Success returns `{ machine_id, machine_key, member, updated_count }` only
+after commit, with the exact number of rows updated. Request values use bound
+SQL parameters. This privileged route intentionally uses transactional SQL:
+ordinary browser bulk PATCH cannot backfill because the existing entry model
+hook preserves stored attribution. Direct SQL does not emit per-record model
+hooks/realtime notifications; consumers should refetch after success.
+
+Focused Node tests and a disposable PocketBase 0.40.4 integration fixture
+verify preview/apply, Goja SHA256/SQL APIs, stale-preview rejection, owner
+versus service authorization, and preservation of unrelated attribution.
+The fixture does not establish concurrent-writer behavior or verify an
+existing owner's database. No backfill has been applied to owner data by
+this implementation.
 
 ### `task_entries` — what the sync client writes
 
@@ -534,11 +650,12 @@ defaulting to `"none"`):
     "unassigned_only": true, "without_task": true,
     "exclude_unassigned_client": "<id>", "session_fully_unassigned": true
   },
-  "group_by": "none | day | client | project | task | session | agent | model | machine | legacy_label",
+  "group_by": "none | day | client | project | task | session | agent | model | machine | legacy_label | member | department",
   "day_boundaries": ["...UTC instant...", "..."],
   "sort": "-cost",
   "page": 1,
-  "per_page": 50
+  "per_page": 50,
+  "include_ignored_sessions": false
 }
 ```
 
@@ -547,7 +664,7 @@ defaulting to `"none"`):
   normalized to space form before comparison) or omitted for an all-time
   total.
 - `filters` — a fixed whitelist (`client`, `project`, `task`, `agent`,
-  `status`, `machine`, `session_id`, `unassigned_only`, `without_task`,
+  `status`, `machine`, `member`, `department`, `session_id`, `unassigned_only`, `without_task`,
   `exclude_unassigned_client`, `session_fully_unassigned`); any other key
   is a `400`.
   `agent: ""` matches rows with no reported agent (the `LEGACY_AGENT`
@@ -567,7 +684,27 @@ defaulting to `"none"`):
   narrows the row set to `task=''` before the sibling check could see a
   triaged row in the same session. Adds no bound parameter (boolean-only,
   fixed SQL fragment).
-- `group_by` — one of the 10 listed values; anything else is a `400`.
+- `member` and `department` filters match historical attribution on
+  `task_entries`, never current machine/member assignments. Omission includes
+  all rows; an empty string selects unassigned attribution (including legacy
+  entries). Values are bound parameters. Grouping by either dimension returns
+  relation IDs as `group_key`, retaining an empty-string unassigned group.
+  Names are resolved through the owner-only team catalog, not exposed by totals.
+  For `group_by: "member"`, each group additionally has `active_projects`: a
+  distinct count of currently active, non-sentinel projects with one or more
+  historical `task_entries` attributed to that member by `te.member`. A project
+  counts only when its catalog row exists, its client relation matches the
+  entry's client, and that client is not `unassigned`; archived, unknown,
+  empty/malformed, and cross-client project relations do not count. The count
+  has no date cutoff when the request omits `from`/`to`, and includes no
+  project identities. Grouped member responses also set
+  `active_projects_available: true`, including empty responses. A missing
+  marker or missing per-group count means the running API is too old to provide
+  this metric; clients must report it unavailable rather than display zero.
+  A successfully loaded member with no group has zero recorded activity.
+  The owner activity screen `/organizacion/equipo/actividad` uses these same
+  filters for paginated consolidated entries and full filtered server totals.
+- `group_by` — one of the listed values; anything else is a `400`.
   This is a fixed server-side whitelist mapped to a hard-coded SQL
   fragment — request text is never used as a SQL identifier.
 - `day_boundaries` — required (and only valid) when `group_by: "day"`: an
@@ -585,6 +722,17 @@ defaulting to `"none"`):
   default `-cost`. Anything else is a `400` (same whitelist-to-fragment
   rule as `group_by`).
 - `page`/`per_page` — 1-based, `per_page` capped at 200.
+- `include_ignored_sessions` — optional boolean, valid only with
+  `group_by: "session"`. Omitted or `false` preserves the existing behavior
+  of excluding session IDs present in `ignored_sessions`. `true` includes all
+  recorded rows and labels each session group with `ignored_session: true`
+  when its ID is in that table. The response includes
+  `ignored_sessions_included: true` only when this opt-in was honored; older
+  hooks may reject the request or omit the marker, and callers requiring the
+  opt-in must report the capability unavailable rather than claim complete
+  history. In this opt-in mode only, session `distinct_task` excludes the
+  empty-string unassigned task sentinel. Other groupings and existing callers
+  are unchanged.
 
 Response shape:
 
@@ -620,7 +768,29 @@ row's `machine`), and `distinct_client`/`sample_client`,
 rows disagree on that field — display "mixed"; otherwise `sample_*` is
 the unanimous value). These five field pairs are present but empty/zero
 for every other `group_by`, so every response shares one fixed column
-shape. For `group_by: "machine"`, `group_key` and `machine` both carry
+shape.
+
+For `group_by: "session"`, current schemas additionally return
+`distinct_member` (count of distinct non-empty historical `task_entries.member`
+IDs), `sample_member` (the sole member ID when the count is one, otherwise an
+empty string; returned only to owners), and `unassigned_member_entries` (entry
+count with empty/null `member`). Counts are computed from the same scoped
+`task_entries` rows as the session totals; no `work_records` aggregation or
+current machine assignment is involved. A session can therefore be both
+assigned and unassigned (`distinct_member: 1` and
+`unassigned_member_entries > 0`), multiple (`distinct_member > 1`), or wholly
+unassigned (`distinct_member: 0` and unassigned count equal to `entries`).
+Unknown member IDs remain IDs, not names; resolve names only through the
+owner-only team catalog. Non-owners receive the aggregate counts but never
+`sample_member`.
+
+`session_member_summary_available` is present on session-grouped responses.
+`true` means the historical member column was detected and the per-group
+summary fields are available; `false` means an older schema or failed
+capability check, so clients must treat attribution as unknown, not
+unassigned. On that legacy path the per-group summary fields are omitted. Older
+API responses may omit the marker entirely and likewise mean unknown. Session
+pagination and totals remain server-side and unchanged. For `group_by: "machine"`, `group_key` and `machine` both carry
 the actual machine value (case preserved); null, empty and ASCII-whitespace-only
 values share the empty-string unknown bucket. Machine cost totals sum all scoped
 `task_entries` before grouped pagination, using the same filters and quality

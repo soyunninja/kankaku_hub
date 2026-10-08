@@ -79,6 +79,11 @@ routerAdd("POST", "/api/kankaku/totals", (e) => {
     machine_out: "",
     distinct_agent: 0,
     sample_agent: "",
+    active_projects: 0,
+    ignored_session: 0,
+    distinct_member: 0,
+    sample_member: "",
+    unassigned_member_entries: 0,
     total_groups_window: 0,
   }, AGG_SHAPE);
 
@@ -87,7 +92,7 @@ routerAdd("POST", "/api/kankaku/totals", (e) => {
    * placeholder `day_index` field for non-day group_bys handled by the
    * caller). */
   function toGroupJson(row) {
-    return {
+    const group = {
       group_key: row.group_key,
       group_key2: row.group_key2,
       entries: row.entries,
@@ -118,7 +123,15 @@ routerAdd("POST", "/api/kankaku/totals", (e) => {
       machine: row.machine_out,
       distinct_agent: row.distinct_agent,
       sample_agent: row.sample_agent,
+      active_projects: row.active_projects,
+      ignored_session: row.ignored_session === 1,
     };
+    if (req.groupBy === "session" && memberColumnAvailable) {
+      group.distinct_member = row.distinct_member;
+      group.unassigned_member_entries = row.unassigned_member_entries;
+      if (isOwner) group.sample_member = row.sample_member;
+    }
+    return group;
   }
 
   function toTotalJson(row) {
@@ -157,9 +170,25 @@ routerAdd("POST", "/api/kankaku/totals", (e) => {
   }
 
   const req = validated.value;
+  const isOwner = !!e.auth && e.auth.collection().name === "users" && e.auth.getString("role") === "owner";
+  let memberColumnAvailable = false;
+  if (req.groupBy === "session") {
+    try {
+      const memberColumn = runQuery({
+        sql: "SELECT name FROM pragma_table_info('task_entries') WHERE name = 'member'",
+        params: {},
+      }, { name: "" });
+      memberColumnAvailable = totalsQuery.hasMemberColumn(memberColumn);
+    }
+    catch (_err) {
+      // Older SQLite/PocketBase schemas keep the legacy session response
+      // usable; the explicit false marker means attribution is unknown.
+      memberColumnAvailable = false;
+    }
+  }
   let queries;
   try {
-    queries = totalsQuery.buildQueries(req);
+    queries = totalsQuery.buildQueries(req, { memberColumnAvailable: memberColumnAvailable });
   }
   catch (err) {
     return e.json(400, { data: {}, message: "Could not build totals query.", status: 400 });
@@ -217,12 +246,25 @@ routerAdd("POST", "/api/kankaku/totals", (e) => {
   }
   const totalPages = totalGroups === 0 ? 0 : Math.ceil(totalGroups / req.perPage);
 
-  return e.json(200, {
+  const response = {
     groups: pageRows.map(toGroupJson),
     total: total,
     page: req.page,
     per_page: req.perPage,
     total_groups: totalGroups,
     total_pages: totalPages,
-  });
+  };
+  if (req.groupBy === "member") response.active_projects_available = true;
+  if (req.groupBy === "session") {
+    response.session_member_summary_available = memberColumnAvailable;
+    response.ignored_sessions_included = req.includeIgnoredSessions === true;
+    if (!memberColumnAvailable) {
+      response.groups = response.groups.map((group) => {
+        delete group.distinct_member;
+        delete group.unassigned_member_entries;
+        return group;
+      });
+    }
+  }
+  return e.json(200, response);
 }, $apis.requireAuth());

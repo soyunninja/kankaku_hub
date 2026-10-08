@@ -51,6 +51,16 @@ export interface TotalsGroupRaw extends TotalsRowRaw {
   machine: string
   distinct_agent: number
   sample_agent: string
+  /** Present on current totals hooks; omitted by older PocketBase instances. */
+  active_projects?: number
+  /** Session-only historical attribution; absent on old APIs/schemas. */
+  distinct_member?: number
+  /** Owner-only relation ID, present when exactly one member is assigned. */
+  sample_member?: string
+  /** Session-only count of entries without historical member attribution. */
+  unassigned_member_entries?: number
+  /** Session-only marker for membership in ignored_sessions. */
+  ignored_session?: boolean | number
 }
 
 export interface TotalsResponseRaw {
@@ -60,6 +70,12 @@ export interface TotalsResponseRaw {
   per_page: number
   total_groups: number
   total_pages: number
+  /** Explicit capability marker also covers an empty member-group response. */
+  active_projects_available?: boolean
+  /** Session attribution capability; false means unknown, not all-unassigned. */
+  session_member_summary_available?: boolean
+  /** True only when the response honored include_ignored_sessions. */
+  ignored_sessions_included?: boolean
 }
 
 export interface TotalsRow {
@@ -101,6 +117,11 @@ export interface TotalsGroup extends TotalsRow {
   machine: string
   distinctAgent: number
   sampleAgent: string
+  activeProjects?: number
+  distinctMember?: number
+  sampleMember?: string
+  unassignedMemberEntries?: number
+  ignoredSession?: boolean
 }
 
 export interface TotalsResponse {
@@ -110,6 +131,9 @@ export interface TotalsResponse {
   perPage: number
   totalGroups: number
   totalPages: number
+  activeProjectsAvailable?: boolean
+  sessionMemberSummaryAvailable?: boolean
+  ignoredSessionsIncluded?: boolean
 }
 
 export function mapTotalsRow(raw: TotalsRowRaw): TotalsRow {
@@ -151,6 +175,11 @@ export function mapTotalsGroup(raw: TotalsGroupRaw): TotalsGroup {
     machine: raw.machine,
     distinctAgent: raw.distinct_agent,
     sampleAgent: raw.sample_agent,
+    ...(raw.active_projects === undefined ? {} : { activeProjects: raw.active_projects }),
+    ...(raw.distinct_member === undefined ? {} : { distinctMember: raw.distinct_member }),
+    ...(raw.sample_member === undefined ? {} : { sampleMember: raw.sample_member }),
+    ...(raw.unassigned_member_entries === undefined ? {} : { unassignedMemberEntries: raw.unassigned_member_entries }),
+    ...(raw.ignored_session === undefined ? {} : { ignoredSession: Boolean(raw.ignored_session) }),
   }
 }
 
@@ -162,6 +191,9 @@ export function mapTotalsResponse(raw: TotalsResponseRaw): TotalsResponse {
     perPage: raw.per_page,
     totalGroups: raw.total_groups,
     totalPages: raw.total_pages,
+    ...(raw.active_projects_available === undefined ? {} : { activeProjectsAvailable: raw.active_projects_available }),
+    ...(raw.session_member_summary_available === undefined ? {} : { sessionMemberSummaryAvailable: raw.session_member_summary_available }),
+    ...(raw.ignored_sessions_included === undefined ? {} : { ignoredSessionsIncluded: raw.ignored_sessions_included }),
   }
 }
 

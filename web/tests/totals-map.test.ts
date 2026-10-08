@@ -56,6 +56,12 @@ function rawGroup(key: string, overrides: Partial<TotalsGroupRaw> = {}): TotalsG
   }
 }
 
+describe('historical team group identities', () => {
+  it.each(['', 'member-id', 'department-id'])('preserves group key %s without requiring catalog names', (key) => {
+    expect(mapTotalsGroup(rawGroup(key)).groupKey).toBe(key)
+  })
+})
+
 describe('mapTotalsRow', () => {
   it('renames every snake_case field to camelCase without changing values', () => {
     const raw = rawRow()
@@ -91,12 +97,44 @@ describe('mapTotalsGroup / mapTotalsResponse', () => {
       per_page: 50,
       total_groups: 2,
       total_pages: 1,
+      session_member_summary_available: true,
+      ignored_sessions_included: true,
     }
     const mapped = mapTotalsResponse(raw)
     expect(mapped.totalGroups).toBe(2)
     expect(mapped.perPage).toBe(50)
     expect(mapped.groups.map(g => g.groupKey)).toEqual(['client-a', 'client-b'])
     expect(mapped.groups[0]!.cost).toBe(3)
+    expect(mapped.sessionMemberSummaryAvailable).toBe(true)
+    expect(mapped.ignoredSessionsIncluded).toBe(true)
+    expect(mapTotalsResponse({ ...raw, session_member_summary_available: undefined, ignored_sessions_included: undefined }).sessionMemberSummaryAvailable).toBeUndefined()
+    expect(mapTotalsResponse({ ...raw, ignored_sessions_included: undefined }).ignoredSessionsIncluded).toBeUndefined()
+  })
+
+  it('maps active project counts independently from session distinct-project metadata', () => {
+    const mapped = mapTotalsGroup(rawGroup('member-1', { active_projects: 3, distinct_project: 8, sample_project: 'sample' }))
+    expect(mapped.activeProjects).toBe(3)
+    expect(mapped.distinctProject).toBe(8)
+    expect(mapped.sampleProject).toBe('sample')
+  })
+
+  it('maps the optional session member summary and keeps legacy absence unknown', () => {
+    const mapped = mapTotalsGroup(rawGroup('session-1', {
+      distinct_member: 1,
+      sample_member: 'member-id',
+      unassigned_member_entries: 2,
+      ignored_session: 1,
+    }))
+    expect(mapped.distinctMember).toBe(1)
+    expect(mapped.sampleMember).toBe('member-id')
+    expect(mapped.unassignedMemberEntries).toBe(2)
+    expect(mapped.ignoredSession).toBe(true)
+
+    const legacy = mapTotalsGroup(rawGroup('old-session'))
+    expect(legacy.distinctMember).toBeUndefined()
+    expect(legacy.sampleMember).toBeUndefined()
+    expect(legacy.unassignedMemberEntries).toBeUndefined()
+    expect(legacy.ignoredSession).toBeUndefined()
   })
 
   it('maps the session-specific fields', () => {

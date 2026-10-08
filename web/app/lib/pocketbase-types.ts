@@ -33,6 +33,25 @@ export interface ClientRecord {
   updated: string
 }
 
+export interface DepartmentRecord {
+  id: string
+  name: string
+  active: boolean
+  created: string
+  updated: string
+}
+
+export interface TeamMemberRecord extends DepartmentRecord {
+  department: string
+  department_history: { at: string, value: string }[] | null
+}
+
+export interface MachineRecord extends DepartmentRecord {
+  key: string
+  member: string
+  assignment_history: { at: string, value: string }[] | null
+}
+
 export interface ProjectRecord {
   id: string
   name: string
@@ -93,6 +112,8 @@ export interface TaskEntryRecord {
   session_id: string
   session_name: string
   machine: string
+  /** Historical team member relation ID; absent on pre-attribution records. */
+  member?: string
   model: string
   /** The model's reasoning effort as the agent names it; "" when unknown. */
   thinking_level?: string

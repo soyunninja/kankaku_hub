@@ -24,7 +24,7 @@ var MAX_PER_PAGE = 200;
 var MAX_BODY_CHARS = 60000; // generous headroom over a 401-boundary array (~30 chars/entry)
 var MAX_STRING_LEN = 400; // generic cap for any single filter value
 
-var GROUP_BY_VALUES = ["none", "day", "client", "project", "task", "session", "agent", "model", "machine", "legacy_label"];
+var GROUP_BY_VALUES = ["none", "day", "client", "project", "task", "session", "agent", "model", "machine", "legacy_label", "member", "department"];
 var STATUS_VALUES = ["completed", "aborted", "interrupted"];
 
 // sort key -> literal ORDER BY SQL fragment. Never derived from request text.
@@ -92,7 +92,7 @@ function validateDate(value, fieldName, errors) {
 }
 
 var FILTER_KEYS = [
-  "client", "project", "task", "agent", "status", "machine",
+  "client", "project", "task", "agent", "status", "machine", "member", "department",
   "session_id", "unassigned_only", "without_task", "exclude_unassigned_client",
   "session_fully_unassigned",
 ];
@@ -120,7 +120,7 @@ function validateRequest(body) {
     return { ok: false, errors: ["body_not_serializable"] };
   }
 
-  var allowedTopKeys = { from: 1, to: 1, filters: 1, group_by: 1, day_boundaries: 1, sort: 1, page: 1, per_page: 1 };
+  var allowedTopKeys = { from: 1, to: 1, filters: 1, group_by: 1, day_boundaries: 1, sort: 1, page: 1, per_page: 1, include_ignored_sessions: 1 };
   for (var key in body) {
     if (Object.prototype.hasOwnProperty.call(body, key) && !allowedTopKeys[key]) {
       errors.push("unknown_param:" + key);
@@ -130,6 +130,18 @@ function validateRequest(body) {
   var groupBy = body.group_by === undefined ? "none" : body.group_by;
   if (GROUP_BY_VALUES.indexOf(groupBy) === -1) {
     errors.push("invalid_group_by");
+  }
+  var includeIgnoredSessions = false;
+  if (body.include_ignored_sessions !== undefined) {
+    if (typeof body.include_ignored_sessions !== "boolean") {
+      errors.push("invalid_include_ignored_sessions");
+    }
+    else if (groupBy !== "session") {
+      errors.push("include_ignored_sessions_only_valid_for_session");
+    }
+    else {
+      includeIgnoredSessions = body.include_ignored_sessions;
+    }
   }
 
   var from = null;
@@ -192,10 +204,10 @@ function validateRequest(body) {
           }
           filters[fkey] = fval;
         }
-        else if (fkey === "agent") {
+        else if (fkey === "agent" || fkey === "member" || fkey === "department") {
           // '' is a valid value here (means "legacy / not reported").
           if (typeof fval !== "string" || fval.length > MAX_STRING_LEN) {
-            errors.push("invalid_filter_agent");
+            errors.push("invalid_filter_" + fkey);
             continue;
           }
           filters[fkey] = fval;
@@ -245,6 +257,7 @@ function validateRequest(body) {
       sort: sort,
       page: page,
       perPage: perPage,
+      includeIgnoredSessions: includeIgnoredSessions,
     },
   };
 }
@@ -273,6 +286,8 @@ function buildWhere(req) {
   }
 
   var f = req.filters;
+  if (f.member !== undefined) { clauses.push("COALESCE(te.member, '') = {:p_member}"); params.p_member = f.member; }
+  if (f.department !== undefined) { clauses.push("COALESCE(te.department, '') = {:p_department}"); params.p_department = f.department; }
   if (f.client) { clauses.push("te.client = {:p_client}"); params.p_client = f.client; }
   if (f.project) { clauses.push("te.project = {:p_project}"); params.p_project = f.project; }
   if (f.task) { clauses.push("te.task = {:p_task}"); params.p_task = f.task; }
@@ -348,7 +363,8 @@ var SESSION_PLACEHOLDER_COLUMNS =
   "0 as distinct_client, '' as sample_client," +
   "0 as distinct_project, '' as sample_project," +
   "0 as distinct_task, '' as sample_task," +
-  "'' as machine_out, 0 as distinct_agent, '' as sample_agent";
+  "'' as machine_out, 0 as distinct_agent, '' as sample_agent, 0 as active_projects, 0 as ignored_session," +
+  "0 as distinct_member, '' as sample_member, 0 as unassigned_member_entries";
 
 var SESSION_REAL_COLUMNS =
   // COALESCE: a session where no entry carries a name makes the subquery
@@ -360,7 +376,14 @@ var SESSION_REAL_COLUMNS =
   "COUNT(DISTINCT te.project) as distinct_project, MIN(te.project) as sample_project," +
   "COUNT(DISTINCT te.task) as distinct_task, MIN(te.task) as sample_task," +
   "(SELECT te3.machine FROM task_entries te3 WHERE te3.session_id = te.session_id ORDER BY te3.started_at DESC LIMIT 1) as machine_out," +
-  "COUNT(DISTINCT te.agent) as distinct_agent, MIN(te.agent) as sample_agent";
+  "COUNT(DISTINCT te.agent) as distinct_agent, MIN(te.agent) as sample_agent," +
+  "CASE WHEN EXISTS (SELECT 1 FROM ignored_sessions ig WHERE ig.session_id = te.session_id) THEN 1 ELSE 0 END as ignored_session";
+
+var SESSION_MEMBER_COLUMNS =
+  "COUNT(DISTINCT CASE WHEN COALESCE(te.member, '') != '' THEN te.member END) as distinct_member," +
+  "CASE WHEN COUNT(DISTINCT CASE WHEN COALESCE(te.member, '') != '' THEN te.member END) = 1 " +
+  "THEN COALESCE(MIN(CASE WHEN COALESCE(te.member, '') != '' THEN te.member END), '') ELSE '' END as sample_member," +
+  "CAST(COALESCE(SUM(CASE WHEN COALESCE(te.member, '') = '' THEN 1 ELSE 0 END), 0) AS INTEGER) as unassigned_member_entries";
 
 /**
  * Builds the group-by SELECT/GROUP BY fragment for one branch. Returns
@@ -371,7 +394,7 @@ var SESSION_REAL_COLUMNS =
 // values verbatim, including case and surrounding whitespace.
 var MACHINE_GROUP_SQL = "CASE WHEN TRIM(COALESCE(te.machine, ''), char(9, 10, 11, 12, 13, 32)) = '' THEN '' ELSE te.machine END";
 
-function buildGroupBranch(groupBy, params) {
+function buildGroupBranch(groupBy, params, options) {
   switch (groupBy) {
     case "none":
       return { selectExtra: "'' as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "", having: "" };
@@ -383,6 +406,27 @@ function buildGroupBranch(groupBy, params) {
       return { selectExtra: "te.project as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "te.project", having: "" };
     case "task":
       return { selectExtra: "te.task as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "te.task", having: "" };
+    case "member":
+      params.p_real_client = 0;
+      return {
+        selectExtra: "COALESCE(te.member, '') as group_key, '' as group_key2, -1 as day_index," +
+          SESSION_PLACEHOLDER_COLUMNS.replace("0 as active_projects", "(" +
+            "SELECT CAST(COUNT(DISTINCT te_projects.project) AS INTEGER) " +
+            "FROM task_entries te_projects " +
+            "JOIN projects p ON p.id = te_projects.project " +
+            "JOIN clients c ON c.id = p.client " +
+            "WHERE te_projects.member = te.member " +
+            "AND te_projects.member != '' " +
+            "AND TRIM(COALESCE(te_projects.project, '')) != '' " +
+            "AND te_projects.client = p.client " +
+            "AND COALESCE(p.active, 0) = 1 " +
+            "AND COALESCE(c.unassigned, 0) = {:p_real_client}" +
+          ") as active_projects"),
+        groupBy: "COALESCE(te.member, '')",
+        having: "",
+      };
+    case "department":
+      return { selectExtra: "COALESCE(te.department, '') as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "COALESCE(te.department, '')", having: "" };
     case "agent":
       return { selectExtra: "te.agent as group_key, '' as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "te.agent", having: "" };
     case "model":
@@ -395,7 +439,15 @@ function buildGroupBranch(groupBy, params) {
         having: "",
       };
     case "session":
-      return { selectExtra: "te.session_id as group_key, '' as group_key2, -1 as day_index," + SESSION_REAL_COLUMNS, groupBy: "te.session_id", having: "" };
+      var sessionMemberColumns = options.memberColumnAvailable === false ? "" : "," + SESSION_MEMBER_COLUMNS;
+      var sessionColumns = SESSION_REAL_COLUMNS;
+      if (options.includeIgnoredSessions === true) {
+        sessionColumns = sessionColumns.replace(
+          "COUNT(DISTINCT te.task) as distinct_task, MIN(te.task) as sample_task",
+          "COUNT(DISTINCT CASE WHEN te.task != '' THEN te.task END) as distinct_task, COALESCE(MIN(CASE WHEN te.task != '' THEN te.task END), '') as sample_task",
+        );
+      }
+      return { selectExtra: "te.session_id as group_key, '' as group_key2, -1 as day_index," + sessionColumns + sessionMemberColumns, groupBy: "te.session_id", having: "" };
     case "legacy_label":
       return { selectExtra: "te.legacy_client_label as group_key, te.repo_project as group_key2, -1 as day_index," + SESSION_PLACEHOLDER_COLUMNS, groupBy: "te.legacy_client_label, te.repo_project", having: "" };
     default:
@@ -413,13 +465,14 @@ function buildGroupBranch(groupBy, params) {
  * Every returned `params` object binds via `dbx`'s `{:name}` syntax —
  * see pocketbase/pb_hooks/totals.pb.js.
  */
-function buildQueries(req) {
+function buildQueries(req, options) {
+  options = options || {};
   var whereParams = {};
   var whereInfo = buildWhere(req);
   var where = whereInfo.where;
   for (var k in whereInfo.params) whereParams[k] = whereInfo.params[k];
 
-  var isSessionExclusion = req.groupBy === "session";
+  var isSessionExclusion = req.groupBy === "session" && !req.includeIgnoredSessions;
   var sessionExclusionClause = isSessionExclusion
     ? " AND te.session_id NOT IN (SELECT session_id FROM ignored_sessions)"
     : "";
@@ -438,7 +491,7 @@ function buildQueries(req) {
     dayCaseSql = buildDayCase(req.dayBoundaries, dayParams);
   }
 
-  var branch = buildGroupBranch(req.groupBy, dayParams);
+  var branch = buildGroupBranch(req.groupBy, dayParams, Object.assign({}, options, { includeIgnoredSessions: req.includeIgnoredSessions }));
 
   // For group_by=day, `day_index` must be computed once via a subquery
   // (CASE referencing only bound params, no request text) so both the
@@ -496,6 +549,12 @@ function buildQueries(req) {
   };
 }
 
+function hasMemberColumn(columns) {
+  return Array.isArray(columns) && columns.some(function (column) {
+    return column && column.name === "member";
+  });
+}
+
 function shallowCopy(obj) {
   var out = {};
   for (var k in obj) out[k] = obj[k];
@@ -505,6 +564,7 @@ function shallowCopy(obj) {
 module.exports = {
   validateRequest: validateRequest,
   buildQueries: buildQueries,
+  hasMemberColumn: hasMemberColumn,
   GROUP_BY_VALUES: GROUP_BY_VALUES,
   FILTER_KEYS: FILTER_KEYS,
   MAX_DAY_BOUNDARIES: MAX_DAY_BOUNDARIES,

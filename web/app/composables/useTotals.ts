@@ -2,9 +2,12 @@ import type { DateRange } from '~/lib/period'
 import { localDateRangeToUtcFilters } from '~/lib/local-day'
 import { mapTotalsResponse, type TotalsResponse, type TotalsResponseRaw } from '~/lib/totals-map'
 
-export type TotalsGroupBy = 'none' | 'day' | 'client' | 'project' | 'task' | 'session' | 'agent' | 'model' | 'machine' | 'legacy_label'
+export type TotalsGroupBy = 'none' | 'day' | 'client' | 'project' | 'task' | 'session' | 'agent' | 'model' | 'machine' | 'legacy_label' | 'member' | 'department'
 
 export interface TotalsFilters {
+  /** Omitted means all; empty string matches historical unassigned attribution. */
+  member?: string
+  department?: string
   client?: string
   project?: string
   task?: string
@@ -37,6 +40,8 @@ export interface TotalsRequest {
   sort?: string
   page?: number
   perPage?: number
+  /** Opt-in session grouping mode that includes ignored_sessions rows. */
+  includeIgnoredSessions?: boolean
 }
 
 /** Thrown/returned distinctly from any other error so callers can fall
@@ -74,6 +79,7 @@ export function useTotals() {
     if (req.sort) body.sort = req.sort
     if (req.page) body.page = req.page
     if (req.perPage) body.per_page = req.perPage
+    if (req.includeIgnoredSessions !== undefined) body.include_ignored_sessions = req.includeIgnoredSessions
 
     try {
       const raw = await $pb.send<TotalsResponseRaw>('/api/kankaku/totals', { method: 'POST', body })

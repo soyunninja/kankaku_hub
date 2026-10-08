@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { validateRequest, buildQueries, MAX_DAY_BOUNDARIES, MAX_PER_PAGE } = require("./totals-query.js");
+const { validateRequest, buildQueries, hasMemberColumn, MAX_DAY_BOUNDARIES, MAX_PER_PAGE } = require("./totals-query.js");
 
 function valid(body) {
   const r = validateRequest(body);
@@ -19,6 +19,58 @@ function invalid(body) {
 // ---------------------------------------------------------------------
 // Basic acceptance
 // ---------------------------------------------------------------------
+
+test("team dimensions bind values and retain unassigned activity", () => {
+  for (const dimension of ["member", "department"]) {
+    for (const value of ["", "id' OR 1=1 --"]) {
+      const queries = buildQueries(valid({ group_by: dimension, filters: { [dimension]: value } }));
+      assert.equal(queries.grandTotal.params["p_" + dimension], value);
+      assert.ok(queries.grandTotal.sql.includes("COALESCE(te." + dimension + ", '') = {:p_" + dimension + "}"));
+      assert.ok(queries.page.sql.includes("GROUP BY COALESCE(te." + dimension + ", '')"));
+      assert.ok(!queries.page.sql.includes("OR 1=1"));
+      assert.ok(!queries.page.sql.includes("work_records"));
+    }
+    assert.ok(invalid({ filters: { [dimension]: false } }).includes("invalid_filter_" + dimension));
+  }
+  assert.ok(invalid({ group_by: "member; DROP TABLE task_entries" }).includes("invalid_group_by"));
+});
+
+test("detects the historical member column without treating an old schema as unassigned", () => {
+  assert.equal(hasMemberColumn([{ name: "id" }, { name: "member" }]), true);
+  assert.equal(hasMemberColumn([{ name: "id" }]), false);
+  assert.equal(hasMemberColumn([]), false);
+});
+
+test("session groups summarize historical member attribution and preserve pagination", () => {
+  const queries = buildQueries(valid({ group_by: "session", page: 3, per_page: 7 }), { memberColumnAvailable: true });
+  assert.ok(queries.page.sql.includes("COUNT(DISTINCT CASE WHEN COALESCE(te.member, '') != '' THEN te.member END) as distinct_member"));
+  assert.ok(queries.page.sql.includes("sample_member"));
+  assert.ok(queries.page.sql.includes("unassigned_member_entries"));
+  assert.equal(queries.page.params.p_limit, 7);
+  assert.equal(queries.page.params.p_offset, 14);
+  assert.ok(!queries.page.sql.includes("work_records"));
+});
+
+test("session member summary can fall back for schemas without the historical member column", () => {
+  const queries = buildQueries(valid({ group_by: "session" }), { memberColumnAvailable: false });
+  assert.ok(!queries.page.sql.includes("te.member"));
+  assert.ok(!queries.page.sql.includes("distinct_member"));
+  assert.ok(!queries.page.sql.includes("unassigned_member_entries"));
+});
+
+test("member groups expose a bound distinct active-real-project count without changing entry aggregates", () => {
+  const queries = buildQueries(valid({ group_by: "member", page: 2, per_page: 10 }));
+  assert.ok(queries.page.sql.includes("COUNT(DISTINCT te_projects.project)"));
+  assert.ok(queries.page.sql.includes("te_projects.member = te.member"));
+  assert.ok(queries.page.sql.includes("te_projects.client = p.client"));
+  assert.ok(queries.page.sql.includes("COALESCE(p.active, 0) = 1"));
+  assert.ok(queries.page.sql.includes("COALESCE(c.unassigned, 0) = {:p_real_client}"));
+  assert.equal(queries.page.params.p_real_client, 0);
+  assert.equal(queries.page.params.p_limit, 10);
+  assert.equal(queries.page.params.p_offset, 10);
+  assert.ok(queries.page.sql.includes("SUM(te.work_ms)"));
+  assert.ok(queries.page.sql.includes("SUM(te.cost)"));
+});
 
 test("accepts a minimal all-time request (group_by defaults to none)", () => {
   const v = valid({});
@@ -48,10 +100,18 @@ test("accepts a T-separated date and normalizes it to space form", () => {
 });
 
 test("accepts every documented group_by value", () => {
-  const values = ["none", "client", "project", "task", "session", "agent", "model", "machine", "legacy_label"];
+  const values = ["none", "client", "project", "task", "session", "agent", "model", "machine", "legacy_label", "member", "department"];
   for (const g of values) {
     valid({ group_by: g });
   }
+});
+
+test("accepts opt-in ignored session inclusion only for session grouping", () => {
+  const request = valid({ group_by: "session", include_ignored_sessions: true });
+  assert.equal(request.includeIgnoredSessions, true);
+  assert.ok(invalid({ group_by: "session", include_ignored_sessions: "true" }).includes("invalid_include_ignored_sessions"));
+  assert.ok(invalid({ group_by: "project", include_ignored_sessions: true }).includes("include_ignored_sessions_only_valid_for_session"));
+  assert.ok(invalid({ group_by: "project", include_ignored_sessions: false }).includes("include_ignored_sessions_only_valid_for_session"));
 });
 
 test("accepts group_by=day with day_boundaries", () => {
@@ -237,10 +297,17 @@ test("buildQueries for group_by=day binds one param per boundary instant, never 
   assert.ok(Object.values(q.page.params).every(val => typeof val === "string" || typeof val === "number"));
 });
 
-test("buildQueries adds the ignored_sessions exclusion only for group_by=session", () => {
+test("buildQueries keeps ignored-session exclusion by default and opts in with an ignored marker", () => {
   const vSession = valid({ group_by: "session" });
   const qSession = buildQueries(vSession);
   assert.ok(qSession.page.sql.includes("ignored_sessions"));
+  assert.ok(qSession.page.sql.includes("EXISTS (SELECT 1 FROM ignored_sessions"));
+  assert.ok(qSession.page.sql.includes("COUNT(DISTINCT te.task)"));
+
+  const included = buildQueries(valid({ group_by: "session", include_ignored_sessions: true }));
+  assert.ok(!included.page.sql.includes("session_id NOT IN (SELECT session_id FROM ignored_sessions)"));
+  assert.ok(included.page.sql.includes("CASE WHEN EXISTS (SELECT 1 FROM ignored_sessions"));
+  assert.ok(included.page.sql.includes("COUNT(DISTINCT CASE WHEN te.task != '' THEN te.task END)"));
 
   const vClient = valid({ group_by: "client" });
   const qClient = buildQueries(vClient);
