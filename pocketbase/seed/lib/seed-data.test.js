@@ -18,6 +18,14 @@ const {
   noTaskBucketKey,
   makeSessionAssigner,
   RICH_PROFILE,
+  LINKED_PROFILE,
+  catalogNaturalKey,
+  buildLinkedEntryPlan,
+  buildLinkedHistoricalPlan,
+  buildLinkedHistoricalEntryPayload,
+  buildLinkedEntryPayload,
+  buildLinkedWorkRecordPayloads,
+  hasSingleLinkedHistoryEvent,
   buildRichEntryPayload,
   buildRichWorkRecordPayloads,
 } = require("./seed-data.js");
@@ -168,6 +176,147 @@ test("makeSessionAssigner is deterministic for the same stream key and call sequ
   assert.deepEqual(run(), run());
 });
 
+// --- linked profile -------------------------------------------------------
+
+test("catalogNaturalKey uses task refs for external_ref and preserves other catalog keys", () => {
+  assert.equal(catalogNaturalKey({ ref: "SEED-LINKED-001", external_ref: undefined }, "external_ref"), "SEED-LINKED-001");
+  assert.equal(catalogNaturalKey({ code: "linked-client" }, "code"), "linked-client");
+  assert.equal(catalogNaturalKey({ name: "Engineering" }, "name"), "Engineering");
+});
+
+test("LINKED_PROFILE is a small deterministic connected catalog", () => {
+  assert.equal(LINKED_PROFILE.CLIENTS.length, 3);
+  assert.equal(LINKED_PROFILE.PROJECTS.length, 6);
+  assert.equal(LINKED_PROFILE.TASKS.length, 12);
+  assert.equal(LINKED_PROFILE.DEPARTMENTS.length, 2);
+  assert.equal(LINKED_PROFILE.MEMBERS.length, 4);
+  assert.equal(LINKED_PROFILE.MACHINES.length, 4);
+  const clientCodes = new Set(LINKED_PROFILE.CLIENTS.map((client) => client.code));
+  const projectCodes = new Set(LINKED_PROFILE.PROJECTS.map((project) => project.code));
+  assert.ok(LINKED_PROFILE.PROJECTS.every((project) => clientCodes.has(project.client)));
+  assert.ok(LINKED_PROFILE.TASKS.every((task) => projectCodes.has(task.project)));
+  assert.ok(LINKED_PROFILE.MEMBERS.every((member) => LINKED_PROFILE.DEPARTMENTS.some((department) => department.key === member.department)));
+  assert.ok(LINKED_PROFILE.MACHINES.every((machine) => LINKED_PROFILE.MEMBERS.some((member) => member.key === machine.member)));
+  for (const client of LINKED_PROFILE.CLIENTS) {
+    assert.equal(LINKED_PROFILE.PROJECTS.filter((project) => project.client === client.code).length, 2);
+  }
+  for (const project of LINKED_PROFILE.PROJECTS) {
+    assert.equal(LINKED_PROFILE.TASKS.filter((task) => task.project === project.code).length, 2);
+  }
+});
+
+test("linked profile expands to 15 entries per task with stable additive keys and balanced machines", () => {
+  const first = buildLinkedEntryPlan(LINKED_PROFILE.TASKS, LINKED_PROFILE.MACHINES);
+  const second = buildLinkedEntryPlan(LINKED_PROFILE.TASKS, LINKED_PROFILE.MACHINES);
+  assert.deepEqual(first, second);
+  assert.equal(first.length, 180);
+
+  const byTask = new Map(LINKED_PROFILE.TASKS.map((task) => [task.ref, []]));
+  const machineCounts = new Map(LINKED_PROFILE.MACHINES.map((machine) => [machine.key, 0]));
+  for (const row of first) {
+    byTask.get(row.taskRef).push(row);
+    machineCounts.set(row.machine, machineCounts.get(row.machine) + 1);
+  }
+  for (const [taskIndex, task] of LINKED_PROFILE.TASKS.entries()) {
+    const rows = byTask.get(task.ref);
+    assert.equal(rows.length, 15);
+    for (let n = 0; n < 3; n++) {
+      assert.equal(rows[n].taskId, `seed-te-linked-${String(taskIndex * 3 + n + 1).padStart(3, "0")}`);
+      assert.equal(rows[n].machine, LINKED_PROFILE.MACHINES[(taskIndex + n) % LINKED_PROFILE.MACHINES.length].key);
+    }
+    for (let n = 3; n < 15; n++) {
+      assert.equal(rows[n].taskId, `seed-te-linked-${task.ref}-${String(n + 1).padStart(2, "0")}`);
+      assert.equal(rows[n].machine, LINKED_PROFILE.MACHINES[(taskIndex + n) % LINKED_PROFILE.MACHINES.length].key);
+    }
+    assert.equal(new Set(rows.map((row) => row.taskId)).size, 15);
+  }
+  assert.deepEqual([...machineCounts.values()], [45, 45, 45, 45]);
+});
+
+test("linked historical planning is additive, UTC-calendar based, unique, and balanced", () => {
+  const now = Date.parse("2026-09-22T23:59:59Z");
+  const plan = buildLinkedHistoricalPlan(LINKED_PROFILE.TASKS, LINKED_PROFILE.MACHINES, now);
+  assert.equal(plan.length, 120);
+  assert.deepEqual([...new Set(plan.map((row) => row.date))], Array.from({ length: 10 }, (_, i) => `2026-09-${String(12 + i).padStart(2, "0")}`));
+  assert.equal(new Set(plan.map((row) => row.taskId)).size, 120);
+  assert.ok(plan.every((row) => row.taskId.endsWith(`${row.taskRef}-${row.date}`)));
+  for (let day = 0; day < 10; day++) {
+    const rows = plan.slice(day * 12, day * 12 + 12);
+    assert.equal(new Set(rows.map((row) => row.taskRef)).size, 12);
+    assert.deepEqual(LINKED_PROFILE.MACHINES.map((m) => rows.filter((r) => r.machine === m.key).length), [3, 3, 3, 3]);
+  }
+  assert.deepEqual(plan, buildLinkedHistoricalPlan(LINKED_PROFILE.TASKS, LINKED_PROFILE.MACHINES, now));
+  assert.throws(() => buildLinkedHistoricalPlan(LINKED_PROFILE.TASKS, [], now), /machines/);
+});
+
+test("historical linked payloads stay inside their UTC date with coherent minute-scale duration", () => {
+  const payload = buildLinkedHistoricalEntryPayload({ taskId: "k", clientId: "c", projectId: "p", taskRecordId: "t", machine: "m", date: "2026-09-12" }, mulberry32(9));
+  assert.match(payload.started_at, /^2026-09-12 /);
+  assert.match(payload.ended_at, /^2026-09-12 /);
+  assert.ok(payload.wall_ms >= 60_000 && payload.wall_ms <= 240_000);
+  assert.equal(payload.waiting_ms + payload.work_ms, payload.wall_ms);
+  assert.equal(Object.hasOwn(payload, "member"), false);
+});
+
+test("linked profile produces 15 task entries and related work_records per task", () => {
+  const now = Date.parse("2026-09-22T00:00:10Z");
+  const historyFloor = now - 5_000;
+  const clientIds = new Map(LINKED_PROFILE.CLIENTS.map((client, i) => [client.code, `client-${i}`]));
+  const projectIds = new Map(LINKED_PROFILE.PROJECTS.map((project, i) => [project.code, `project-${i}`]));
+  const taskIds = new Map(LINKED_PROFILE.TASKS.map((task, i) => [task.ref, `task-${i}`]));
+  const entriesPerTask = new Map();
+  const rand = mulberry32(101);
+  let entryCount = 0;
+  let workRecordCount = 0;
+
+  const plan = buildLinkedEntryPlan(LINKED_PROFILE.TASKS, LINKED_PROFILE.MACHINES);
+  for (const { taskRef, taskIndex, taskId, machine: machineKey } of plan) {
+    const task = LINKED_PROFILE.TASKS[taskIndex];
+    const project = LINKED_PROFILE.PROJECTS.find((item) => item.code === task.project);
+    const machine = LINKED_PROFILE.MACHINES.find((item) => item.key === machineKey);
+    const entry = buildLinkedEntryPayload({
+      taskId, clientId: clientIds.get(project.client), projectId: projectIds.get(project.code),
+      taskRecordId: taskIds.get(task.ref), machine: machine.key, now,
+    }, rand);
+    const started = Date.parse(entry.started_at);
+    const ended = Date.parse(entry.ended_at);
+    assert.ok(started > historyFloor && started <= ended && ended <= now);
+    assert.equal(entry.client, clientIds.get(project.client));
+    assert.equal(entry.project, projectIds.get(project.code));
+    assert.equal(entry.task, taskIds.get(task.ref));
+    assert.equal(entry.machine, machine.key);
+    assert.equal(entry.waiting_ms + entry.work_ms, entry.wall_ms);
+    assert.equal(entry.status, "completed");
+    for (const hookField of ["attributed_machine", "member", "department"]) {
+      assert.equal(Object.hasOwn(entry, hookField), false, "creation hook owns attribution fields");
+    }
+    const { orchestrator, subagents } = buildLinkedWorkRecordPayloads(entry, entry.subagent_count, rand);
+    assert.ok(subagents.every((subagent) => subagent.parent_pid === orchestrator.pid));
+    const records = [orchestrator, ...subagents].map((record, i) => ({
+      kankaku_id: `${taskId}-${i ? `sub-${i}` : "orch"}`,
+      task_entry: `entry-${taskId}`,
+      rollup: record.rollup,
+      role: record.role,
+      started_at: record.started_at,
+      settled_at: record.settled_at,
+      wall_ms: record.wall_ms,
+      waiting_ms: record.waiting_ms,
+      work_ms: record.work_ms,
+    }));
+    assert.equal(records.length, 2);
+    assert.ok(records.every((record) => record.task_entry === `entry-${taskId}` && record.rollup === false));
+    assert.ok(records.every((record) => Date.parse(record.settled_at) - Date.parse(record.started_at) === record.wall_ms));
+    assert.ok(records.every((record) => Date.parse(record.started_at) >= Date.parse(entry.started_at) && Date.parse(record.settled_at) <= Date.parse(entry.ended_at)));
+    assert.ok(records.every((record) => record.waiting_ms + record.work_ms === record.wall_ms));
+    entriesPerTask.set(taskRef, (entriesPerTask.get(taskRef) || 0) + 1);
+    entryCount++;
+    workRecordCount += records.length;
+  }
+  assert.equal(entryCount, 180);
+  assert.equal(workRecordCount, 360);
+  assert.ok([...entriesPerTask.values()].every((count) => count === 15));
+});
+
 // --- rich profile catalog -------------------------------------------------
 
 test("RICH_PROFILE.CLIENTS has ~12 fictional clients with only .example/.test websites", () => {
@@ -256,6 +405,33 @@ test("buildRichEntryPayload is deterministic for the same rand sequence", () => 
   const a = buildRichEntryPayload(params, mulberry32(555));
   const b = buildRichEntryPayload(params, mulberry32(555));
   assert.deepEqual(a, b);
+});
+
+test("linked raw records have contained intervals and coherent wall/work accounting", () => {
+  const start = "2026-09-12 09:00:00.000Z";
+  const end = "2026-09-12 09:04:00.000Z";
+  const entry = { started_at: start, ended_at: end, wall_ms: 240_000,
+    waiting_ms: 20_000, work_ms: 220_000, runs: 1, turns: 4, status: "completed", model: "claude-sonnet-5",
+    input: 1000, output: 100, cache_read: 0, cache_write: 0, cost: 0.01, segments: {}, session_id: "s", machine: "m" };
+  const { orchestrator, subagents } = buildLinkedWorkRecordPayloads(entry, 1, mulberry32(44));
+  assert.equal(subagents.length, 1);
+  for (const record of [orchestrator, ...subagents]) {
+    const started = Date.parse(record.started_at);
+    const settled = Date.parse(record.settled_at);
+    assert.equal(settled - started, record.wall_ms);
+    assert.ok(started >= Date.parse(entry.started_at));
+    assert.ok(settled <= Date.parse(entry.ended_at));
+    assert.equal(record.waiting_ms + record.work_ms, record.wall_ms);
+  }
+  assert.equal(subagents[0].parent_pid, orchestrator.pid);
+});
+
+test("linked historical readiness rejects any extra transition even if an older event matches", () => {
+  const cutoff = Date.parse("2026-09-12T00:00:00Z");
+  assert.equal(hasSingleLinkedHistoryEvent([{ at: "2026-09-10T00:00:00Z", value: "m1" }], "m1", cutoff), true);
+  assert.equal(hasSingleLinkedHistoryEvent([
+    { at: "2026-09-10T00:00:00Z", value: "m1" }, { at: "2026-09-15T00:00:00Z", value: "m2" },
+  ], "m1", cutoff), false);
 });
 
 test("buildRichWorkRecordPayloads returns one orchestrator and N subagents that never exceed the parent's totals", () => {

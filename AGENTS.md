@@ -99,9 +99,11 @@ web sources, no docs beyond `README.md`/`LICENSE`. See `package.json`'s
 ## PocketBase specifics worth knowing
 
 - `bool` and `number` fields in PocketBase 0.40 have no schema-level
-  default. `active: true` for a new client/project/task is enforced by
-  the caller (seed script, sync client), not by PocketBase. Always send
-  it explicitly.
+  default. `active: true` for a new client/project is enforced by the
+  caller (seed script, sync client), not by PocketBase. Always send it
+  explicitly. Tasks have no `active` field: explicitly send their required
+  `status` instead (for example, `status: "open"`), as defined in
+  `1758300004_tasks_collection.js`. Do not add nonexistent fields to payloads.
 - Unique constraints are plain SQL indexes (`CREATE UNIQUE INDEX ...`) on
   the collection's `indexes` array, not a field property.
 - `app.findFirstRecordByFilter(...)` throws (does not return `null`) when

@@ -129,6 +129,70 @@ function noTaskBucketKey(client, project) {
   return `no-task:${client || ""}:${project || ""}`;
 }
 
+// Seed catalog rows use `ref` as the source for PocketBase's `external_ref`.
+// All other collections already carry their natural key under the field name.
+function catalogNaturalKey(row, field) {
+  return field === "external_ref" && row.ref !== undefined ? row.ref : row[field];
+}
+
+function buildLinkedEntryPlan(tasks, machines, entriesPerTask = 15) {
+  return tasks.flatMap((task, taskIndex) => Array.from({ length: entriesPerTask }, (_, sequence) => ({
+    taskRef: task.ref,
+    taskIndex,
+    sequence,
+    taskId: sequence < 3
+      ? `seed-te-linked-${String(taskIndex * 3 + sequence + 1).padStart(3, "0")}`
+      : `seed-te-linked-${task.ref}-${String(sequence + 1).padStart(2, "0")}`,
+    machine: machines[(taskIndex + sequence) % machines.length].key,
+  })));
+}
+
+function hasSingleLinkedHistoryEvent(events, expectedValue, cutoff) {
+  if (!Array.isArray(events) || events.length !== 1) return false;
+  const [event] = events;
+  if (!event || typeof event !== "object" || Object.keys(event).length !== 2 || event.value !== expectedValue) return false;
+  const at = Date.parse(event.at);
+  return Number.isFinite(at) && at <= cutoff;
+}
+
+function buildLinkedHistoricalPlan(tasks, machines, now) {
+  if (!Array.isArray(machines) || machines.length === 0) throw new Error("Historical linked planning requires machines");
+  const today = new Date(now);
+  if (!Number.isFinite(today.getTime())) throw new Error("Invalid historical planning time");
+  const firstDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - 10 * 86400000;
+  return Array.from({ length: 10 }, (_, dayIndex) => {
+    const date = new Date(firstDay + dayIndex * 86400000).toISOString().slice(0, 10);
+    return tasks.map((task, taskIndex) => ({
+      taskRef: task.ref, taskIndex, date,
+      taskId: `seed-te-linked-history-${task.ref}-${date}`,
+      machine: machines[taskIndex % machines.length].key,
+    }));
+  }).flat();
+}
+
+function buildLinkedHistoricalEntryPayload(params, rand) {
+  const { taskId, clientId, projectId, taskRecordId, machine, date } = params;
+  const startMinute = 9 * 60 + randInt(rand, 0, 7 * 60);
+  const startedAt = new Date(`${date}T00:00:00.000Z`);
+  startedAt.setUTCMinutes(startMinute);
+  const wallMs = randInt(rand, 60_000, 240_000);
+  const waitingMs = randInt(rand, 0, Math.floor(wallMs * 0.2));
+  const input = randInt(rand, 500, 5000);
+  const output = randInt(rand, 100, 1500);
+  return {
+    task_id: taskId, client: clientId, project: projectId, task: taskRecordId,
+    started_at: toPbDate(startedAt), ended_at: toPbDate(new Date(startedAt.getTime() + wallMs)),
+    wall_ms: wallMs, waiting_ms: waitingMs, work_ms: wallMs - waitingMs,
+    input, output, cache_read: 0, cache_write: 0,
+    cost: Number((input * 0.000003 + output * 0.000015).toFixed(6)),
+    segments: {}, subagent_count: 1, runs: 1, turns: 4, status: "completed",
+    session_id: `session-${taskId}`, session_name: "Linked historical demo", machine,
+    model: "claude-sonnet-5", prompt: "", legacy_client_label: "", repo_project: "",
+    schema: 1, agent: "pi", plugin: "kankaku", waiting_quality: "measured",
+    cost_quality: "measured", subagent_linkage: "linked",
+  };
+}
+
 /**
  * @param {string} streamKey - seeds this assigner's own isolated PRNG, so it
  *   never advances any shared `rand` sequence and always reproduces the same
@@ -196,6 +260,75 @@ function makeSessionAssigner(streamKey, options = {}) {
 
     target.remaining--;
     return { session_id: target.sessionId, session_name: target.sessionName, machine: target.machine };
+  };
+}
+
+// --- linked profile: small fictional catalog with team attribution --------
+
+const LINKED_PROFILE = {
+  CLIENTS: [
+    { name: "Juniper Workshop", code: "linked-juniper", website: "https://juniper-workshop.example" },
+    { name: "Copper Finch Foods", code: "linked-copper-finch", website: "https://copper-finch.example" },
+    { name: "Tidal Grove Library", code: "linked-tidal-grove", website: "https://tidal-grove.example" },
+  ],
+  PROJECTS: [
+    { name: "Workshop Portal", code: "linked-workshop-portal", client: "linked-juniper", repo: "/home/dev/repos/linked-workshop-portal" },
+    { name: "Inventory Console", code: "linked-inventory-console", client: "linked-juniper", repo: "/home/dev/repos/linked-inventory-console" },
+    { name: "Kitchen Planner", code: "linked-kitchen-planner", client: "linked-copper-finch", repo: "/home/dev/repos/linked-kitchen-planner" },
+    { name: "Supplier Desk", code: "linked-supplier-desk", client: "linked-copper-finch", repo: "/home/dev/repos/linked-supplier-desk" },
+    { name: "Reading Room", code: "linked-reading-room", client: "linked-tidal-grove", repo: "/home/dev/repos/linked-reading-room" },
+    { name: "Archive Search", code: "linked-archive-search", client: "linked-tidal-grove", repo: "/home/dev/repos/linked-archive-search" },
+  ],
+  TASKS: [
+    { ref: "SEED-LINKED-001", title: "Add workshop dashboard", project: "linked-workshop-portal" },
+    { ref: "SEED-LINKED-002", title: "Improve booking search", project: "linked-workshop-portal" },
+    { ref: "SEED-LINKED-003", title: "Add stock alerts", project: "linked-inventory-console" },
+    { ref: "SEED-LINKED-004", title: "Export inventory report", project: "linked-inventory-console" },
+    { ref: "SEED-LINKED-005", title: "Plan weekly menu", project: "linked-kitchen-planner" },
+    { ref: "SEED-LINKED-006", title: "Track ingredient orders", project: "linked-kitchen-planner" },
+    { ref: "SEED-LINKED-007", title: "Review supplier updates", project: "linked-supplier-desk" },
+    { ref: "SEED-LINKED-008", title: "Add invoice search", project: "linked-supplier-desk" },
+    { ref: "SEED-LINKED-009", title: "Build reading lists", project: "linked-reading-room" },
+    { ref: "SEED-LINKED-010", title: "Improve book discovery", project: "linked-reading-room" },
+    { ref: "SEED-LINKED-011", title: "Index archive records", project: "linked-archive-search" },
+    { ref: "SEED-LINKED-012", title: "Add archive filters", project: "linked-archive-search" },
+  ],
+  DEPARTMENTS: [{ key: "engineering", name: "Engineering" }, { key: "operations", name: "Operations" }],
+  MEMBERS: [
+    { key: "mira-chen", name: "Mira Chen", department: "engineering" },
+    { key: "noah-rivera", name: "Noah Rivera", department: "engineering" },
+    { key: "leo-martin", name: "Leo Martin", department: "operations" },
+    { key: "sana-patel", name: "Sana Patel", department: "operations" },
+  ],
+  MACHINES: [
+    { key: "linked-dev-01", name: "Mira's Dev Machine", member: "mira-chen" },
+    { key: "linked-dev-02", name: "Noah's Dev Machine", member: "noah-rivera" },
+    { key: "linked-ops-01", name: "Leo's Ops Machine", member: "leo-martin" },
+    { key: "linked-ops-02", name: "Sana's Ops Machine", member: "sana-patel" },
+  ],
+};
+
+function buildLinkedEntryPayload(params, rand) {
+  const { taskId, clientId, projectId, taskRecordId, machine, now } = params;
+  // `now` is captured after waiting for all catalog histories to age by at
+  // least five seconds. Keep these entries inside that elapsed window: their
+  // complete intervals are after assignment-history anchors and not future.
+  const startedAt = new Date(now - 4_000 + randInt(rand, 0, 1_000));
+  const wallMs = randInt(rand, 500, 1_000);
+  const waitingMs = randInt(rand, 0, Math.floor(wallMs * 0.2));
+  const input = randInt(rand, 500, 5000);
+  const output = randInt(rand, 100, 1500);
+  return {
+    task_id: taskId, client: clientId, project: projectId, task: taskRecordId,
+    started_at: toPbDate(startedAt), ended_at: toPbDate(new Date(startedAt.getTime() + wallMs)),
+    wall_ms: wallMs, waiting_ms: waitingMs, work_ms: wallMs - waitingMs,
+    input, output, cache_read: 0, cache_write: 0,
+    cost: Number((input * 0.000003 + output * 0.000015).toFixed(6)),
+    segments: {}, subagent_count: 1, runs: 1, turns: 4, status: "completed",
+    session_id: `session-${taskId}`, session_name: "Linked demo task", machine,
+    model: "claude-sonnet-5", prompt: "", legacy_client_label: "", repo_project: "",
+    schema: 1, agent: "pi", plugin: "kankaku", waiting_quality: "measured",
+    cost_quality: "measured", subagent_linkage: "linked",
   };
 }
 
@@ -535,6 +668,34 @@ function buildRichWorkRecordPayloads(entry, subagentCount, rand) {
   return { orchestrator, subagents };
 }
 
+// Linked demo records model an explicit process tree: all children belong to
+// their generated orchestrator. Keep the generic rich/standard builder's
+// independent parent_pid draws unchanged.
+function buildLinkedWorkRecordPayloads(entry, subagentCount, rand) {
+  const { orchestrator, subagents } = buildRichWorkRecordPayloads(entry, subagentCount, rand);
+  const entryStarted = Date.parse(entry.started_at);
+  const entryEnded = Date.parse(entry.ended_at);
+  if (!Number.isFinite(entryStarted) || !Number.isFinite(entryEnded) || entryEnded - entryStarted !== entry.wall_ms) {
+    throw new Error("Linked entry interval must match wall_ms");
+  }
+  return {
+    orchestrator,
+    subagents: subagents.map((subagent) => {
+      if (subagent.wall_ms > entry.wall_ms) throw new Error("Linked subagent interval exceeds its task entry");
+      const startedAt = entryStarted;
+      const settledAt = startedAt + subagent.wall_ms;
+      return {
+        ...subagent,
+        started_at: toPbDate(new Date(startedAt)),
+        settled_at: toPbDate(new Date(settledAt)),
+        waiting_ms: 0,
+        work_ms: subagent.wall_ms,
+        parent_pid: orchestrator.pid,
+      };
+    }),
+  };
+}
+
 module.exports = {
   mulberry32,
   hashString,
@@ -550,7 +711,15 @@ module.exports = {
   buildTaggedSegments,
   noTaskBucketKey,
   makeSessionAssigner,
+  catalogNaturalKey,
+  buildLinkedEntryPlan,
+  hasSingleLinkedHistoryEvent,
+  buildLinkedHistoricalPlan,
+  buildLinkedHistoricalEntryPayload,
+  LINKED_PROFILE,
+  buildLinkedEntryPayload,
   RICH_PROFILE,
   buildRichEntryPayload,
   buildRichWorkRecordPayloads,
+  buildLinkedWorkRecordPayloads,
 };

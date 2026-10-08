@@ -41,6 +41,18 @@ isolated stack, see below) never needs the flag.
 
 - `standard` — today's small realistic dataset: 5 clients, 10 projects, 25
   tasks, ~437 task_entries over 60 days.
+- `linked` — a compact, fully fictional connected catalog: 3 clients, 6
+  projects, 12 tasks, 2 departments, 4 members, 4 machines, 180 consolidated
+  task entries and 360 linked `work_records` (15 entries per task; 45 per
+  machine/member). The original 36 entry keys, task mappings and machine
+  assignments are preserved. Entries use
+  completed, seconds-scale synthetic intervals in a short elapsed window
+  after the latest catalog history; they are not future-dated. Creation
+  hooks populate member/department attribution normally. Existing historical
+  entries are not backfilled. Optional `SEED_LINKED_HISTORY=1` adds 12 linked
+  entries/day for the previous ten UTC calendar days (120 entries, 240 raw
+  records), only if all eight member/machine history anchors cover that range.
+  This mode does not prepare history or alter standard/rich data.
 - `rich` — a much larger, still fully fictional dataset for screenshots and
   a future public demo: ~12 clients, ~30 projects, ~90 tasks, ~3000
   task_entries over 180 days grouped into sessions, a `thinking_level`/
@@ -52,9 +64,27 @@ isolated stack, see below) never needs the flag.
 
 ```bash
 SEED_PROFILE=rich PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
+SEED_PROFILE=linked PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
 ```
 
-Both profiles are idempotent: every row has a stable natural key, so
+Run `linked` against a fresh isolated PocketBase instance on a non-live
+port (for example `:8092`), never against `:8090`. For history mode, stop
+PocketBase, make a disposable copy under `/tmp/kankaku-linked-history-*`,
+write the marker `.kankaku-linked-history-fixture` with contents
+`kankaku-linked-history-fixture-v1`, and run
+`python3 pocketbase/seed/prepare-linked-history.py /tmp/kankaku-linked-history-COPY`
+against that copy's `fixturedata.db` only. The helper fails closed if the
+copy, marker, exact linked catalogs, one-event histories, or closed-database
+check is invalid. Start PocketBase on the prepared copy, then opt in with:
+
+```bash
+SEED_PROFILE=linked SEED_LINKED_HISTORY=1 PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
+```
+
+Never run the preparation helper against a live database. The isolated-stack
+`--seed-profile` option currently supports only `standard|rich`; start the
+isolated instance separately, then run the command above. All profiles are
+idempotent: every row has a stable natural key, so
 re-running the script never duplicates data. The pure catalogs/generators
 live in `pocketbase/seed/lib/seed-data.js` (unit tested by
 `pocketbase/seed/lib/seed-data.test.js` / `npm run seed:test`); `seed.js`

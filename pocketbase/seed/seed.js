@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 // Dev-only seed script. No dependencies, Node >= 20 (uses global fetch).
 //
-// Two profiles, selected via SEED_PROFILE (default "standard"):
+// Three profiles, selected via SEED_PROFILE (default "standard"):
+//
+//   linked              A small fictional catalog with task_entries created
+//                        after team members/machines, so creation hooks give
+//                        every new entry current member/department attribution.
+//                        Entries are recent; existing history is not backdated.
+//                        SEED_LINKED_HISTORY=1 adds ten prior UTC days only when
+//                        every linked attribution history already covers them.
 //
 //   standard (default)  Today's small realistic dataset: 5 clients, 10
 //                        projects, 25 tasks, task_entries spread over the
 //                        last 60 days (some with subagents -> work_records
-//                        children), plus a batch of "Sin determinar"
+//                        children), plus a batch of "Unassigned"
 //                        entries with varied legacy_client_label spellings
 //                        to exercise the reassignment queue described in
 //                        docs/proposal.md §5.3. Unchanged from before this
@@ -35,7 +42,7 @@
 //                        seed-data.test.js); this file only orchestrates
 //                        the PocketBase calls.
 //
-// Both profiles are deterministic and re-runnable: every row has a stable
+// All profiles are deterministic and re-runnable: every row has a stable
 // natural key (clients.code, projects.code, tasks.external_ref,
 // task_entries.task_id, work_records.kankaku_id) and the script looks up
 // existing rows before creating, so running it twice never duplicates
@@ -53,6 +60,7 @@
 // Usage:
 //   PB_URL=http://127.0.0.1:8090 node pocketbase/seed/seed.js --i-know
 //   SEED_PROFILE=rich PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
+//   SEED_PROFILE=linked PB_URL=http://127.0.0.1:8092 node pocketbase/seed/seed.js
 
 const seedData = require("./lib/seed-data.js");
 
@@ -79,6 +87,7 @@ const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
 const SUPERUSER_EMAIL = process.env.PB_SUPERUSER_EMAIL || "admin@kankaku.local";
 const SUPERUSER_PASSWORD = process.env.PB_SUPERUSER_PASSWORD || "kankaku-dev-admin";
 const SEED_PROFILE = process.env.SEED_PROFILE || "standard";
+const SEED_LINKED_HISTORY = process.env.SEED_LINKED_HISTORY === "1";
 
 function isPort8090(url) {
   try {
@@ -98,8 +107,12 @@ if (isPort8090(PB_URL) && !args["i-know"]) {
   process.exit(1);
 }
 
-if (SEED_PROFILE !== "standard" && SEED_PROFILE !== "rich") {
-  console.error(`Unknown SEED_PROFILE "${SEED_PROFILE}" — expected "standard" or "rich".`);
+if (!["standard", "rich", "linked"].includes(SEED_PROFILE)) {
+  console.error(`Unknown SEED_PROFILE "${SEED_PROFILE}" — expected "standard", "rich", or "linked".`);
+  process.exit(1);
+}
+if (SEED_LINKED_HISTORY && SEED_PROFILE !== "linked") {
+  console.error("SEED_LINKED_HISTORY=1 is available only with SEED_PROFILE=linked.");
   process.exit(1);
 }
 
@@ -167,6 +180,20 @@ async function fetchAllValues(collection, field) {
   return values;
 }
 
+async function fetchAllRecords(collection, filter = "") {
+  const records = [];
+  let page = 1;
+  for (;;) {
+    const query = new URLSearchParams({ page: String(page), perPage: "500" });
+    if (filter) query.set("filter", filter);
+    const data = await pbFetch(`/api/collections/${collection}/records?${query}`);
+    records.push(...data.items);
+    if (page >= data.totalPages) break;
+    page++;
+  }
+  return records;
+}
+
 async function batchCreate(requests) {
   const results = [];
   for (let i = 0; i < requests.length; i += BATCH_SIZE) {
@@ -220,7 +247,7 @@ const CLIENTS = [
     website: "https://www.cajamar.es",
     contact_email: "proyectos@cajamar.es",
     contact_phone: "+34 950 210 100",
-    notes: "Banca cooperativa.\nContacto habitual: departamento de sistemas.\nPrefieren reuniones los jueves.",
+    notes: "Cooperative bank.\nUsual contact: IT department.\nPrefers meetings on Thursdays.",
   },
   {
     name: "Turismo Níjar",
@@ -228,7 +255,7 @@ const CLIENTS = [
     website: "https://www.turismonijar.com",
     contact_email: "info@turismonijar.com",
     contact_phone: "+34 950 360 001",
-    notes: "Ayuntamiento / oficina de turismo.\nPicos de trabajo antes de Semana Santa y verano.",
+    notes: "Town hall / tourism office.\nWork peaks before Easter and during summer.",
   },
   {
     name: "Acme",
@@ -244,7 +271,7 @@ const CLIENTS = [
     website: "https://ferreteriasoto.example",
     contact_email: "pedidos@ferreteriasoto.example",
     contact_phone: "+34 950 440 220",
-    notes: "Negocio familiar, un solo interlocutor (Manuel).",
+    notes: "Family-owned business, with a single point of contact (Manuel).",
   },
   {
     name: "Clínica Dental Vega",
@@ -252,21 +279,21 @@ const CLIENTS = [
     website: "https://clinicadentalvega.example",
     contact_email: "administracion@clinicadentalvega.example",
     contact_phone: "+34 950 550 330",
-    notes: "Datos de pacientes: extremar cuidado con capturas/demos.",
+    notes: "Patient data: take extra care with screenshots/demos.",
   },
 ];
 
 const PROJECTS = [
-  { name: "Portal Cliente", code: "cajamar-portal", client: "cajamar", repo: "/home/dev/repos/cajamar-portal" },
-  { name: "App Móvil", code: "cajamar-app", client: "cajamar", repo: "/home/dev/repos/cajamar-app" },
+  { name: "Client Portal", code: "cajamar-portal", client: "cajamar", repo: "/home/dev/repos/cajamar-portal" },
+  { name: "Mobile App", code: "cajamar-app", client: "cajamar", repo: "/home/dev/repos/cajamar-app" },
   { name: "Backoffice", code: "cajamar-backoffice", client: "cajamar", repo: "/home/dev/repos/cajamar-backoffice" },
-  { name: "Web Turismo", code: "turismo-nijar-web", client: "turismo-nijar", repo: "/home/dev/repos/turismo-nijar-web" },
-  { name: "Reservas", code: "turismo-nijar-reservas", client: "turismo-nijar", repo: "/home/dev/repos/turismo-nijar-reservas" },
-  { name: "ERP Interno", code: "acme-erp", client: "acme", repo: "/home/dev/repos/acme-erp" },
+  { name: "Tourism Website", code: "turismo-nijar-web", client: "turismo-nijar", repo: "/home/dev/repos/turismo-nijar-web" },
+  { name: "Reservations", code: "turismo-nijar-reservas", client: "turismo-nijar", repo: "/home/dev/repos/turismo-nijar-reservas" },
+  { name: "Internal ERP", code: "acme-erp", client: "acme", repo: "/home/dev/repos/acme-erp" },
   { name: "Landing", code: "acme-landing", client: "acme", repo: "/home/dev/repos/acme-landing" },
-  { name: "Tienda Online", code: "ferreteria-soto-tienda", client: "ferreteria-soto", repo: "/home/dev/repos/ferreteria-soto-tienda" },
-  { name: "Agenda Pacientes", code: "clinica-dental-vega-agenda", client: "clinica-dental-vega", repo: "/home/dev/repos/clinica-dental-vega-agenda" },
-  { name: "Web Corporativa", code: "clinica-dental-vega-web", client: "clinica-dental-vega", repo: "/home/dev/repos/clinica-dental-vega-web" },
+  { name: "Online Store", code: "ferreteria-soto-tienda", client: "ferreteria-soto", repo: "/home/dev/repos/ferreteria-soto-tienda" },
+  { name: "Patient Scheduler", code: "clinica-dental-vega-agenda", client: "clinica-dental-vega", repo: "/home/dev/repos/clinica-dental-vega-agenda" },
+  { name: "Corporate Website", code: "clinica-dental-vega-web", client: "clinica-dental-vega", repo: "/home/dev/repos/clinica-dental-vega-web" },
 ];
 
 const TASK_TITLES = [
@@ -662,7 +689,7 @@ async function seedStandardProfile() {
   // (see the header comment above: this is the one exception to "create
   // only, never touch existing rows" in this script, because contact
   // fields on the demo clients are pure display data, not owner-authored
-  // state). Never touches "Sin determinar" (not in CLIENTS).
+  // state). Never touches "Unassigned" (not in CLIENTS).
   const clientContactUpdates = CLIENTS.filter((c) => existingClients.has(c.code) && !createdClients.some((cc) => cc.key === c.code)).map((c) => ({
     key: c.code,
     collection: "clients",
@@ -756,10 +783,10 @@ async function seedStandardProfile() {
     });
   }
 
-  // 5. task_entries: "Sin determinar" queue, varied legacy labels ---------
+  // 5. task_entries: "Unassigned" queue, varied legacy labels ---------
   const unassignedClientId = clientIdByCode.get("sin-determinar");
   if (!unassignedClientId) {
-    throw new Error('"Sin determinar" client not found — did migrations run?');
+    throw new Error('"Unassigned" client not found — did migrations run?');
   }
 
   const assignUnassignedSession = makeSessionAssigner("session-groups-unassigned");
@@ -1056,10 +1083,10 @@ async function seedRichProfile() {
     });
   }
 
-  // 5. task_entries: a handful of "Sin determinar" legacy rows -------------
+  // 5. task_entries: a handful of "Unassigned" legacy rows -------------
   const unassignedClientId = clientIdByCode.get("sin-determinar");
   if (!unassignedClientId) {
-    throw new Error('"Sin determinar" client not found — did migrations run?');
+    throw new Error('"Unassigned" client not found — did migrations run?');
   }
 
   const assignRichUnassignedSession = seedData.makeSessionAssigner("rich-session-groups-unassigned", {
@@ -1139,13 +1166,162 @@ async function seedRichProfile() {
   console.log("Seed complete (rich).");
 }
 
+async function seedLinkedProfile() {
+  const profile = seedData.LINKED_PROFILE;
+  console.log(`Seeding ${PB_URL} (profile=linked) ...`);
+  await authenticate();
+
+  const decodeHistory = (value) => {
+    if (typeof value === "string") {
+      try { value = JSON.parse(value); } catch (_err) { return []; }
+    }
+    return Array.isArray(value) ? value : [];
+  };
+  if (SEED_LINKED_HISTORY) {
+    const firstDay = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) - 10 * 86400000;
+    const [clientRows, projectRows, taskRows, departmentRows, memberRows, machineRows] = await Promise.all([
+      fetchAllRecords("clients"), fetchAllRecords("projects"), fetchAllRecords("tasks"),
+      fetchAllRecords("departments"), fetchAllRecords("team_members"), fetchAllRecords("machines"),
+    ]);
+    const clientByCode = new Map(clientRows.map((row) => [row.code, row]));
+    const projectByCode = new Map(projectRows.map((row) => [row.code, row]));
+    const taskByRef = new Map(taskRows.map((row) => [row.external_ref, row]));
+    const departmentByName = new Map(departmentRows.map((row) => [row.name, row.id]));
+    const memberByName = new Map(memberRows.map((row) => [row.name, row]));
+    const machineByKey = new Map(machineRows.map((row) => [row.key, row]));
+    if (profile.CLIENTS.some((row) => clientByCode.get(row.code)?.name !== row.name) ||
+        profile.PROJECTS.some((row) => projectByCode.get(row.code)?.name !== row.name || projectByCode.get(row.code)?.client !== clientByCode.get(row.client)?.id) ||
+        profile.TASKS.some((row) => taskByRef.get(row.ref)?.title !== row.title || taskByRef.get(row.ref)?.project !== projectByCode.get(row.project)?.id) ||
+        profile.MEMBERS.some((member) => !memberByName.has(member.name)) || profile.MACHINES.some((machine) => !machineByKey.has(machine.key))) {
+      throw new Error("linked history mode requires the existing connected fictional catalogs; no records were seeded");
+    }
+    for (const member of profile.MEMBERS) {
+      const row = memberByName.get(member.name);
+      const departmentId = departmentByName.get(profile.DEPARTMENTS.find((item) => item.key === member.department).name);
+      if (row.department !== departmentId || !seedData.hasSingleLinkedHistoryEvent(decodeHistory(row.department_history), departmentId, firstDay)) {
+        throw new Error(`linked history mode requires covered department history for ${member.name}; no records were seeded`);
+      }
+    }
+    for (const machine of profile.MACHINES) {
+      const row = machineByKey.get(machine.key);
+      const memberId = memberByName.get(profile.MEMBERS.find((item) => item.key === machine.member).name).id;
+      if (row.name !== machine.name || row.member !== memberId || !seedData.hasSingleLinkedHistoryEvent(decodeHistory(row.assignment_history), memberId, firstDay)) {
+        throw new Error(`linked history mode requires covered assignment history for ${machine.key}; no records were seeded`);
+      }
+    }
+  }
+
+  const ensureCatalog = async (collection, keyField, rows, bodyFor) => {
+    const existing = await fetchAllValues(collection, keyField);
+    const creates = rows.filter((row) => !existing.has(seedData.catalogNaturalKey(row, keyField))).map((row) => ({
+      key: seedData.catalogNaturalKey(row, keyField), collection, body: bodyFor(row),
+    }));
+    const created = await batchCreate(creates);
+    for (const { key, record } of created) existing.set(key, record);
+    return new Map([...existing].map(([key, record]) => [key, record.id]));
+  };
+
+  const clients = await ensureCatalog("clients", "code", profile.CLIENTS, (row) => ({
+    name: row.name, code: row.code, website: row.website, active: true, unassigned: false,
+  }));
+  const projects = await ensureCatalog("projects", "code", profile.PROJECTS, (row) => ({
+    name: row.name, code: row.code, client: clients.get(row.client), repo_paths: [row.repo], active: true,
+  }));
+  const tasks = await ensureCatalog("tasks", "external_ref", profile.TASKS, (row) => ({
+    title: row.title, project: projects.get(row.project), status: "open", external_ref: row.ref,
+  }));
+  const departments = await ensureCatalog("departments", "name", profile.DEPARTMENTS, (row) => ({ name: row.name, active: true }));
+  const members = await ensureCatalog("team_members", "name", profile.MEMBERS, (row) => ({
+    name: row.name, department: departments.get(profile.DEPARTMENTS.find((item) => item.key === row.department).name), active: true,
+  }));
+  const machines = await ensureCatalog("machines", "key", profile.MACHINES, (row) => ({
+    key: row.key, name: row.name, member: members.get(profile.MEMBERS.find((item) => item.key === row.member).name), active: true,
+  }));
+
+  // Read the real hook-generated anchors; never supply or forge history. Leave
+  // a short elapsed window so every synthetic task completes after all anchors.
+  const historyRows = [
+    ...await Promise.all(profile.MEMBERS.map((member) => pbFetch(`/api/collections/team_members/records/${members.get(member.name)}`))),
+    ...await Promise.all(profile.MACHINES.map((machine) => pbFetch(`/api/collections/machines/records/${machines.get(machine.key)}`))),
+  ];
+  const historyFloor = Math.max(...historyRows.flatMap((row) =>
+    decodeHistory(row.department_history || row.assignment_history).map((item) => Date.parse(item.at)).filter(Number.isFinite)
+  ));
+  if (!Number.isFinite(historyFloor)) throw new Error("linked profile catalog histories are missing or invalid");
+  if (SEED_LINKED_HISTORY) {
+    const firstDay = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) - 10 * 86400000;
+    const required = [
+      ...profile.MEMBERS.map((member) => ({ id: members.get(member.name), identity: member.name, identityField: "name", field: "department_history", value: departments.get(profile.DEPARTMENTS.find((item) => item.key === member.department).name) })),
+      ...profile.MACHINES.map((machine) => ({ id: machines.get(machine.key), identity: machine.key, identityField: "key", field: "assignment_history", value: members.get(profile.MEMBERS.find((item) => item.key === machine.member).name) })),
+    ];
+    for (const expected of required) {
+      const record = historyRows.find((row) => row.id === expected.id);
+      const relation = expected.field === "department_history" ? record && record.department : record && record.member;
+      if (!record || record[expected.identityField] !== expected.identity || relation !== expected.value) {
+        throw new Error(`linked history catalog identity/relationship mismatch for ${expected.id}`);
+      }
+      const events = decodeHistory(record[expected.field]);
+      if (!seedData.hasSingleLinkedHistoryEvent(events, expected.value, firstDay)) {
+        throw new Error(`linked history mode requires ${expected.field} for ${expected.id} to cover ${new Date(firstDay).toISOString()}`);
+      }
+    }
+  }
+  const waitMs = historyFloor + 5_000 - Date.now();
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+  const existingEntries = await fetchAllValues("task_entries", "task_id");
+  const now = Date.now();
+  const rand = seedData.mulberry32(6072026);
+  const entryCreates = [];
+  for (const planned of seedData.buildLinkedEntryPlan(profile.TASKS, profile.MACHINES)) {
+    if (existingEntries.has(planned.taskId)) continue;
+    const task = profile.TASKS[planned.taskIndex];
+    const project = profile.PROJECTS.find((item) => item.code === task.project);
+    entryCreates.push({ key: planned.taskId, collection: "task_entries", body: seedData.buildLinkedEntryPayload({
+      taskId: planned.taskId, clientId: clients.get(project.client), projectId: projects.get(project.code),
+      taskRecordId: tasks.get(task.ref), machine: planned.machine, now,
+    }, rand) });
+  }
+  if (SEED_LINKED_HISTORY) {
+    const plan = seedData.buildLinkedHistoricalPlan(profile.TASKS, profile.MACHINES, Date.now());
+    for (const planned of plan) {
+      if (existingEntries.has(planned.taskId)) continue;
+      const task = profile.TASKS[planned.taskIndex];
+      const project = profile.PROJECTS.find((item) => item.code === task.project);
+      entryCreates.push({ key: planned.taskId, collection: "task_entries", body: seedData.buildLinkedHistoricalEntryPayload({
+        taskId: planned.taskId, clientId: clients.get(project.client), projectId: projects.get(project.code),
+        taskRecordId: tasks.get(task.ref), machine: planned.machine, date: planned.date,
+      }, seedData.mulberry32(seedData.hashString(planned.taskId))) });
+    }
+  }
+  const createdEntries = await batchCreate(entryCreates);
+
+  const linkedEntries = await fetchAllRecords("task_entries", 'task_id ~ "seed-te-linked-"');
+  const existingWorkRecords = await fetchAllValues("work_records", "kankaku_id");
+  const workRecordCreates = [];
+  for (const entry of linkedEntries.filter((row) => row.task_id.startsWith("seed-te-linked-") && (row.subagent_count || 0) > 0)) {
+    const local = seedData.mulberry32(seedData.hashString(`linked-work-${entry.task_id}`));
+    const { orchestrator, subagents } = seedData.buildLinkedWorkRecordPayloads(entry, entry.subagent_count, local);
+    const candidates = [
+      { key: `${entry.task_id}-orch`, body: orchestrator },
+      ...subagents.map((body, index) => ({ key: `${entry.task_id}-sub-${index + 1}`, body })),
+    ];
+    for (const candidate of candidates) {
+      if (existingWorkRecords.has(candidate.key)) continue;
+      workRecordCreates.push({ key: candidate.key, collection: "work_records", body: {
+        kankaku_id: candidate.key, task_entry: entry.id, ...candidate.body,
+      } });
+    }
+  }
+  await batchCreate(workRecordCreates);
+  console.log(`[linked] clients ${clients.size}, projects ${projects.size}, tasks ${tasks.size}; departments ${departments.size}, members ${members.size}, machines ${machines.size}; task_entries ${createdEntries.length} created, work_records ${workRecordCreates.length} created`);
+  console.log("Seed complete (linked). New entries use post-catalog attribution history; older entries are not backfilled.");
+}
+
 async function main() {
-  if (SEED_PROFILE === "rich") {
-    await seedRichProfile();
-  }
-  else {
-    await seedStandardProfile();
-  }
+  if (SEED_PROFILE === "rich") await seedRichProfile();
+  else if (SEED_PROFILE === "linked") await seedLinkedProfile();
+  else await seedStandardProfile();
 }
 
 main().catch((err) => {
