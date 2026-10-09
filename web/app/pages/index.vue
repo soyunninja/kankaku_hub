@@ -5,6 +5,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
 import ExportMenu from '@/components/common/ExportMenu.vue'
 import BreakdownTable from '@/components/dashboard/BreakdownTable.vue'
+import MemberCostRanking from '@/components/dashboard/MemberCostRanking.vue'
 import DateRangePicker from '@/components/dashboard/DateRangePicker.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
 import { Button } from '@/components/ui/button'
@@ -32,9 +33,10 @@ import {
   ZERO_TOTALS_ROW,
 } from '@/lib/totals-map'
 import { TotalsRouteUnavailableError, type TotalsFilters } from '@/composables/useTotals'
+import { memberRankingFailureState, rankMemberCosts, type MemberCostRow } from '@/lib/dashboard-member-ranking'
 
 const { t } = useI18n()
-const { user } = useAuth()
+const { user, isOwner } = useAuth()
 const displayName = computed(() => user.value?.name?.trim() ?? '')
 const toast = useToast()
 useHead({ title: computed(() => t('dashboard.title')) })
@@ -101,8 +103,8 @@ const workTimeQuality = ref(summarizeWorkTimeQualityFromTotal(ZERO_TOTALS_ROW))
 const averageCost = ref(computeAverageCostFromTotal(ZERO_TOTALS_ROW))
 const byClient = ref<(GroupTotalsLike & { label: string })[]>([])
 const byProject = ref<(GroupTotalsLike & { label: string })[]>([])
-const byMachine = ref<(GroupTotalsLike & { label: string })[]>([])
-const machineUnavailable = ref(false)
+const memberRanking = ref<MemberCostRow[]>([])
+const memberRankingState = ref<'loading' | 'ready' | 'error' | 'unavailable'>('loading')
 const topExpensive = ref<Pick<TaskEntryRecord, 'id' | 'client' | 'project' | 'cost' | 'work_ms' | 'model'>[]>([])
 const agentOptions = ref<string[]>([])
 // Keep export metadata paired with the data, even if a later load fails.
@@ -320,6 +322,78 @@ function retryChart() {
   if (chartDataGeneration === loadGeneration && chartSnapshot) void loadChart(snapshotLoad(), loadGeneration)
 }
 
+function memberRankingCurrent(generation: number) {
+  return isCurrent(generation) && isOwner.value
+}
+
+async function fetchMemberRanking(snapshot: LoadSnapshot, generation: number, from: string, to: string, filters: TotalsFilters) {
+  if (!isCurrent(generation)) return
+  memberRanking.value = []
+  if (!isOwner.value || totalsRouteUnavailable.value) {
+    memberRankingState.value = 'unavailable'
+    return
+  }
+  memberRankingState.value = 'loading'
+  try {
+    const [groups, catalog] = await Promise.all([
+      fetchMemberGroups(generation, from, to, filters),
+      fetchMemberCatalog(generation),
+    ])
+    if (!memberRankingCurrent(generation) || !groups || !catalog) return
+    memberRanking.value = rankMemberCosts(groups, catalog)
+    memberRankingState.value = 'ready'
+  }
+  catch (error) {
+    if (!memberRankingCurrent(generation)) return
+    memberRanking.value = []
+    memberRankingState.value = memberRankingFailureState(error, error instanceof TotalsRouteUnavailableError)
+  }
+}
+
+async function fetchMemberGroups(generation: number, from: string, to: string, filters: TotalsFilters) {
+  const pageSize = 200
+  const maxPages = 100
+  const groups: TotalsGroup[] = []
+  let expectedTotalGroups: number | undefined
+  for (let page = 1; page <= maxPages; page++) {
+    if (!memberRankingCurrent(generation)) return null
+    const response = await fetchTotals({ from, to, groupBy: 'member', sort: '-cost', filters, page, perPage: pageSize })
+    if (!memberRankingCurrent(generation)) return null
+    if (!Number.isSafeInteger(response.page) || response.page !== page
+      || !Number.isSafeInteger(response.totalGroups) || response.totalGroups < 0
+      || (expectedTotalGroups !== undefined && response.totalGroups !== expectedTotalGroups)
+      || !Number.isSafeInteger(response.totalPages) || response.totalPages !== Math.ceil(response.totalGroups / pageSize)
+      || response.totalPages > maxPages || !Array.isArray(response.groups)) throw new Error('Incomplete member totals')
+    if (expectedTotalGroups === undefined) expectedTotalGroups = response.totalGroups
+    const expectedCount = Math.max(0, Math.min(pageSize, response.totalGroups - (page - 1) * pageSize))
+    if (response.groups.length !== expectedCount) throw new Error('Incomplete member totals')
+    groups.push(...response.groups)
+    if (page === response.totalPages || response.totalPages === 0) return groups
+  }
+  throw new Error('Member totals exceed bounded pagination')
+}
+
+async function fetchMemberCatalog(generation: number): Promise<Map<string, string> | null> {
+  const pageSize = 200
+  const maxPages = 100
+  const names = new Map<string, string>()
+  let catalogTotalItems: number | undefined
+  for (let page = 1; page <= maxPages; page++) {
+    if (!memberRankingCurrent(generation)) return null
+    const response = await $pb.collection('team_members').getList<{ id: string, name: string }>(page, pageSize, { fields: 'id,name' })
+    if (!memberRankingCurrent(generation)) return null
+    if (catalogTotalItems === undefined) catalogTotalItems = response.totalItems
+    const expectedPages = Math.ceil(response.totalItems / pageSize)
+    const expectedItems = Math.max(0, Math.min(pageSize, response.totalItems - (page - 1) * pageSize))
+    if (response.page !== page || !Number.isSafeInteger(response.totalItems) || response.totalItems !== catalogTotalItems || response.totalItems < 0
+      || !Number.isSafeInteger(response.totalPages) || response.totalPages !== expectedPages || response.totalPages > maxPages
+      || response.items.length !== expectedItems) throw new Error('Incomplete team member catalog')
+    for (const member of response.items) if (member.id && member.name) names.set(member.id, member.name)
+    if (response.totalPages === 0 || page === response.totalPages) return names
+  }
+  throw new Error('Team member catalog exceeds bounded pagination')
+}
+
 async function fetchTopExpensive(snapshot: LoadSnapshot) {
   const utc = localDateRangeToUtcFilters(snapshot.range)
   const parts = [`started_at >= "${utc.start}"`, `started_at <= "${utc.end}"`]
@@ -376,7 +450,7 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
   const utcPrev = localDateRangeToUtcFilters(prevRange)
   const filters = buildServerFilters(snapshot)
 
-  const [currentResp, previousResp, clientResp, projectResp, agentResp, topExpensiveRows, machineResp] = await Promise.all([
+  const [currentResp, previousResp, clientResp, projectResp, agentResp, topExpensiveRows] = await Promise.all([
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'none', filters }),
     fetchTotals({ from: utcPrev.start, to: utcPrev.end, groupBy: 'none', filters }),
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'client', filters, perPage: 200 }),
@@ -388,8 +462,6 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
     // list out from under itself.
     fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'agent', sort: 'group_key', perPage: 200 }),
     fetchTopExpensive(snapshot),
-    // Isolate older backends without this grouping and transient machine failures.
-    fetchTotals({ from: utcCurrent.start, to: utcCurrent.end, groupBy: 'machine', sort: '-cost', filters, page: 1, perPage: 5 }).catch(() => null),
   ])
 
   if (!isCurrent(generation)) return
@@ -400,11 +472,9 @@ async function loadServer(snapshot: LoadSnapshot, generation: number) {
 
   byClient.value = groupsToGroupTotals(clientResp.groups, currentResp.total).map(g => ({ ...g, label: clientName(g.key) }))
   byProject.value = groupsToGroupTotals(projectResp.groups.filter(g => g.groupKey !== ''), currentResp.total).map(g => ({ ...g, label: projectName(g.key) }))
-  machineUnavailable.value = machineResp === null
-  byMachine.value = machineResp
-    ? groupsToGroupTotals(machineResp.groups, currentResp.total).map(g => ({ ...g, label: g.key || t('dashboard.unknownMachine') }))
-    : []
   topExpensive.value = topExpensiveRows
+  await fetchMemberRanking(snapshot, generation, utcCurrent.start, utcCurrent.end, filters)
+  if (!isCurrent(generation)) return
   exportSnapshot.value = { ...snapshot, metadata: {
     dataSource: 'totals_endpoint',
     clientBreakdownLimit: 200, projectBreakdownLimit: 200, topExpensiveLimit: 10,
@@ -490,21 +560,8 @@ async function loadFallback(snapshot: LoadSnapshot, generation: number) {
 
   byClient.value = groupByClient(visibleCurrent).map(g => ({ ...toTotalsRow(visibleCurrent.filter(e => e.client === g.key)), key: g.key, costShare: g.costShare, workMsShare: g.workMsShare, label: clientName(g.key) }))
   byProject.value = groupByProject(visibleCurrent.filter(e => e.project)).map(g => ({ ...toTotalsRow(visibleCurrent.filter(e => e.project === g.key)), key: g.key, costShare: g.costShare, workMsShare: g.workMsShare, label: projectName(g.key) }))
-  // Never rank a truncated legacy scan as if it were a complete scope.
-  machineUnavailable.value = current.truncated
-  const machineBuckets = new Map<string, TaskEntryRecord[]>()
-  if (!current.truncated) {
-    for (const entry of visibleCurrent) {
-      const key = !entry.machine || /^[\t\n\v\f\r ]*$/.test(entry.machine) ? '' : entry.machine
-      const bucket = machineBuckets.get(key) ?? []
-      bucket.push(entry)
-      machineBuckets.set(key, bucket)
-    }
-  }
-  byMachine.value = [...machineBuckets].map(([key, entries]) => {
-    const row = toTotalsRow(entries)
-    return { ...row, key, label: key || t('dashboard.unknownMachine'), costShare: totals.value.cost > 0 ? row.cost / totals.value.cost : 0, workMsShare: totals.value.workMs > 0 ? row.workMs / totals.value.workMs : 0 }
-  }).sort((a, b) => b.cost - a.cost).slice(0, 5)
+  memberRanking.value = []
+  memberRankingState.value = 'unavailable'
   topExpensive.value = [...visibleCurrent].sort((a, b) => b.cost - a.cost).slice(0, 10)
   exportSnapshot.value = { ...snapshot, metadata: {
     dataSource: 'fallback_task_entries',
@@ -623,6 +680,13 @@ onBeforeUnmount(() => {
 
 watch(range, load, { deep: true })
 watch([includeUnassigned, agentFilter], load)
+watch(isOwner, (owner) => {
+  if (!owner) {
+    memberRanking.value = []
+    memberRankingState.value = 'unavailable'
+  }
+  if (mounted) void load()
+}, { flush: 'sync' })
 watch(metric, () => {
   if (restoringPreferences) return
   persistPreferences()
@@ -756,13 +820,12 @@ v-model="stackBy" class="w-40" :aria-label="t('dashboard.chart.stackBy')" :optio
       </Card>
     </div>
 
-    <Card data-testid="breakdown-by-machine" role="region" :aria-label="t('dashboard.topMachines')">
+    <Card v-if="isOwner" data-testid="breakdown-by-member" role="region" :aria-label="t('dashboard.memberRanking.title')">
       <CardHeader><CardTitle class="text-sm font-medium text-foreground">
-        {{ t('dashboard.topMachines') }}
+        {{ t('dashboard.memberRanking.title') }}
       </CardTitle></CardHeader>
       <CardContent>
-        <p v-if="machineUnavailable" role="status" class="text-sm text-muted-foreground">{{ t('dashboard.machineUnavailable') }}</p>
-        <BreakdownTable v-else :rows="byMachine" :name-header="t('dashboard.machine')" :max-rows="5" />
+        <MemberCostRanking :rows="memberRanking" :state="memberRankingState" />
       </CardContent>
     </Card>
   </div>

@@ -282,6 +282,19 @@
     "machine": "Machine",
     "unknownMachine": "Unknown machine",
     "machineUnavailable": "Machine ranking is unavailable: the backend could not provide complete machine totals.",
+    "memberRanking": {
+      "title": "Team members by cost",
+      "member": "Team member",
+      "loading": "Loading member ranking…",
+      "error": "Member ranking could not be loaded completely.",
+      "unavailable": "Member ranking is unavailable for this backend.",
+      "empty": "No member-attributed work in this period.",
+      "unattributed": "Unattributed work",
+      "unresolved": "Identity unavailable ({id})",
+      "estimated": "Estimated cost",
+      "incomplete": "Known subtotal; some costs unknown",
+      "unknown": "Cost unknown"
+    },
     "share": "Share",
     "noData": "No data in this period",
     "liveUpdate": "Live updated"

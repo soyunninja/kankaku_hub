@@ -5,8 +5,10 @@ import { mount } from '@vue/test-utils'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 import { groupsToGroupTotals, ZERO_TOTALS_ROW, computeAverageCostFromTotal, summarizeWorkTimeQualityFromTotal } from '../app/lib/totals-map'
+import { memberRankingFailureState, rankMemberCosts } from '../app/lib/dashboard-member-ranking'
 import { groupByClient, groupByProject, sumTaskEntries } from '../app/lib/aggregate'
 import { computeAverageCost, listDistinctAgents, summarizeWorkTimeQuality } from '../app/lib/measurement-quality'
+import { TotalsRouteUnavailableError } from '../app/composables/useTotals'
 
 const page = readFileSync('app/pages/index.vue', 'utf8')
 const breakdown = readFileSync('app/components/dashboard/BreakdownTable.vue', 'utf8')
@@ -37,28 +39,37 @@ function renderBreakdown() {
 // Execute the actual page functions with isolated dependencies, not a copy
 // of their logic; no network, credentials or database access is involved.
 function pageFunction(name: string, end: string, globals: Record<string, unknown>) {
-  const start = page.indexOf(`function ${name}(`)
+  const sourceStartName = name === 'fetchMemberRanking' ? 'memberRankingCurrent' : name
+  const start = page.indexOf(`function ${sourceStartName}(`)
   const source = page.slice(page.slice(start - 6, start) === 'async ' ? start - 6 : start, page.indexOf(end, start))
   return new Function(...Object.keys(globals), ts.transpile(source, { target: ts.ScriptTarget.ESNext }) + `; return ${name};`)(...Object.values(globals))
 }
 
-function serverHarness(current = true, unsupported = false) {
+function serverHarness(current: boolean | (() => boolean) = true, unsupported = false, memberResponse?: () => Promise<any>) {
+  const isCurrent = typeof current === 'function' ? current : () => current
   const total = { ...ZERO_TOTALS_ROW, entries: 20, count: 20, cost: 100 }
   const fetchTotals = vi.fn(async (request: any) => {
-    if (request.groupBy === 'machine' && unsupported) throw new Error('invalid_group_by')
-    return { total, totalGroups: 8, groups: request.groupBy === 'machine' ? [
-      { ...ZERO_TOTALS_ROW, groupKey: 'Host', cost: 60 },
-      { ...ZERO_TOTALS_ROW, groupKey: '', cost: 10 },
-    ] : [] }
+    if (request.groupBy === 'member' && memberResponse) return memberResponse()
+    if (request.groupBy === 'member' && unsupported) throw Object.assign(new Error('PocketBase request failed'), { status: 400, data: { data: { errors: ['invalid_group_by'] }, message: 'Invalid totals request.', status: 400 } })
+    const groups = request.groupBy === 'member' ? [
+      { ...ZERO_TOTALS_ROW, groupKey: 'm1', entries: 2, count: 2, cost: 60, costKnownSum: 50, costKnownEntries: 1, costUnknownEntries: 1, costEstimatedEntries: 0 },
+      { ...ZERO_TOTALS_ROW, groupKey: '', entries: 1, count: 1, costUnknownEntries: 1 },
+    ] : []
+    return { total, totalGroups: groups.length, page: 1, totalPages: groups.length ? 1 : 0, groups }
   })
-  const state = Object.fromEntries(['totals', 'previousTotals', 'workTimeQuality', 'averageCost', 'byClient', 'byProject', 'topExpensive', 'exportSnapshot', 'agentOptions', 'byMachine', 'machineUnavailable'].map(key => [key, Vue.ref(null)]))
+  const state = Object.fromEntries(['totals', 'previousTotals', 'workTimeQuality', 'averageCost', 'byClient', 'byProject', 'topExpensive', 'exportSnapshot', 'agentOptions', 'memberRanking', 'memberRankingState'].map(key => [key, Vue.ref(null)]))
+  const memberGlobals = {
+    ...state, fetchTotals, rankMemberCosts, memberRankingFailureState, TotalsRouteUnavailableError, isOwner: Vue.ref(true), isCurrent, totalsRouteUnavailable: false,
+    $pb: { collection: () => ({ getList: async () => ({ page: 1, totalPages: 1, totalItems: 1, items: [{ id: 'm1', name: 'Member One' }] }) }) },
+  }
+  const fetchMemberRanking = pageFunction('fetchMemberRanking', 'async function fetchTopExpensive', memberGlobals)
   const load = pageFunction('loadServer', '/** Adapts', {
-    ...state, fetchTotals, groupsToGroupTotals, computeAverageCostFromTotal, summarizeWorkTimeQualityFromTotal,
+    ...state, fetchTotals, fetchMemberRanking, groupsToGroupTotals, computeAverageCostFromTotal, summarizeWorkTimeQualityFromTotal, rankMemberCosts, memberRankingFailureState,
     localDateRangeToUtcFilters: (range: any) => range,
     previousEquivalentPeriod: (range: any) => range,
     buildServerFilters: pageFunction('buildServerFilters', 'let loadGeneration', { LEGACY_AGENT: 'legacy' }),
     fetchTopExpensive: vi.fn(async () => [{ id: 'export-only' }]),
-    isCurrent: () => current, clientName: String, projectName: String,
+    isCurrent, clientName: String, projectName: String,
     t: (key: string) => key, LEGACY_AGENT: 'legacy', loadChart: vi.fn(), chartDataGeneration: 0, chartSnapshot: null,
   })
   return { load, fetchTotals, state }
@@ -95,19 +106,118 @@ describe('compact dashboard summaries', () => {
     expect(projectHref('missing')).toBeUndefined()
   })
 
-  it.each([false, true])('commits scoped machine groups or explicit unavailable state (unsupported=%s)', async unsupported => {
+  it.each([false, true])('requests date/filter-scoped member groups or explicit unavailable state (unsupported=%s)', async unsupported => {
     const { load, fetchTotals, state } = serverHarness(true, unsupported)
     await load({ range: { start: 'start', end: 'end' }, agent: 'pi', unassignedClientId: 'unassigned', includeUnassigned: false }, 1)
-    expect(fetchTotals).toHaveBeenCalledWith({ from: 'start', to: 'end', groupBy: 'machine', sort: '-cost', filters: { agent: 'pi', exclude_unassigned_client: 'unassigned' }, page: 1, perPage: 5 })
-    expect(state.machineUnavailable!.value).toBe(unsupported)
-    expect(state.byMachine!.value).toHaveLength(unsupported ? 0 : 2)
-    if (!unsupported) {
-      expect(state.byMachine!.value[0].costShare).toBe(0.6) // denominator is all 100, not the returned 70
-      expect(state.byMachine!.value[1].label).toBe('dashboard.unknownMachine')
-    }
+    expect(fetchTotals).toHaveBeenCalledWith({ from: 'start', to: 'end', groupBy: 'member', sort: '-cost', filters: { agent: 'pi', exclude_unassigned_client: 'unassigned' }, page: 1, perPage: 200 })
+    expect(state.memberRankingState!.value).toBe(unsupported ? 'unavailable' : 'ready')
+    expect(state.memberRanking!.value).toHaveLength(unsupported ? 0 : 2)
+    if (!unsupported) expect(state.memberRanking!.value[0]).toMatchObject({ id: 'm1', label: 'Member One', costState: 'incomplete', costKnownSum: 50 })
     expect(state.totals!.value.cost).toBe(100)
     expect(state.topExpensive!.value).toEqual([{ id: 'export-only' }])
     expect(state.exportSnapshot!.value.metadata.topExpensiveLimit).toBe(10)
+  })
+
+  it('pages all member groups before ranking by displayed known subtotal', async () => {
+    const groups = Array.from({ length: 201 }, (_, i) => ({
+      groupKey: `m${String(i).padStart(3, '0')}`, entries: 1, workMs: 1,
+      cost: i < 5 ? 100 : i === 200 ? 90 : 0,
+      costKnownSum: i === 200 ? 90 : 0,
+      costKnownEntries: i === 200 ? 1 : 0,
+      costUnknownEntries: i === 200 ? 0 : 1,
+      costEstimatedEntries: 0,
+    }))
+    const requests: any[] = []
+    const fetchTotals = vi.fn(async (request: any) => {
+      requests.push(request)
+      const pageSize = request.perPage
+      const offset = (request.page - 1) * pageSize
+      return { page: request.page, totalPages: Math.ceil(groups.length / pageSize), totalGroups: groups.length, groups: groups.slice(offset, offset + pageSize) }
+    })
+    const memberRanking = Vue.ref<any[]>([])
+    const memberRankingState = Vue.ref('loading')
+    const fetchRanking = pageFunction('fetchMemberRanking', 'async function fetchTopExpensive', {
+      memberRanking, memberRankingState, fetchTotals, rankMemberCosts, memberRankingFailureState, TotalsRouteUnavailableError,
+      isOwner: Vue.ref(true), totalsRouteUnavailable: false, isCurrent: () => true,
+      $pb: { collection: () => ({ getList: async () => ({ page: 1, totalPages: 0, totalItems: 0, items: [] }) }) },
+    })
+    await fetchRanking({ range: {}, agent: '' }, 1, 'from', 'to', {})
+    expect(requests.map(request => request.page)).toEqual([1, 2])
+    expect(requests[0]).toMatchObject({ groupBy: 'member', sort: '-cost', perPage: 200 })
+    expect(memberRanking.value[0]).toMatchObject({ id: 'm200', costKnownSum: 90 })
+    expect(memberRanking.value).toHaveLength(5)
+  })
+
+  it('does not request the next catalog page after owner access is revoked mid-page', async () => {
+    let releasePage!: (value: any) => void
+    const owner = Vue.ref(true)
+    const catalogRequests: number[] = []
+    const fetchTotals = vi.fn(async () => ({ page: 1, totalPages: 0, totalGroups: 0, groups: [] }))
+    const pageOne = new Promise(resolve => { releasePage = resolve })
+    const memberRanking = Vue.ref<any[]>([])
+    const memberRankingState = Vue.ref('loading')
+    const fetchRanking = pageFunction('fetchMemberRanking', 'async function fetchTopExpensive', {
+      memberRanking, memberRankingState, fetchTotals, rankMemberCosts, memberRankingFailureState, TotalsRouteUnavailableError,
+      isOwner: owner, totalsRouteUnavailable: false, isCurrent: () => true,
+      $pb: { collection: () => ({ getList: async (page: number) => {
+        catalogRequests.push(page)
+        if (page === 1) return pageOne
+        return { page: 2, totalPages: 2, totalItems: 201, items: [{ id: 'late', name: 'Late' }] }
+      } }) },
+    })
+    const pending = fetchRanking({ range: {}, agent: '' }, 1, 'from', 'to', {})
+    await vi.waitFor(() => expect(catalogRequests).toEqual([1]))
+    owner.value = false
+    releasePage({ page: 1, totalPages: 2, totalItems: 201, items: Array.from({ length: 200 }, (_, i) => ({ id: `m${i}`, name: `Member ${i}` })) })
+    await pending
+    expect(catalogRequests).toEqual([1])
+    expect(memberRanking.value).toEqual([])
+    expect(memberRankingState.value).toBe('loading')
+  })
+
+  it.each([
+    [{ status: 400, data: { data: { errors: ['invalid_group_by'] }, message: 'Invalid totals request.', status: 400 } }, 'unavailable'],
+    [{ status: 500, data: { data: {}, message: 'Failed to compute totals.', status: 500 } }, 'unavailable'],
+  ])('classifies backend member-group envelopes without relying on raw SQL text', async (apiError, expectedState) => {
+    const error = Object.assign(new Error('PocketBase request failed'), apiError)
+    const memberRanking = Vue.ref<any[]>([])
+    const memberRankingState = Vue.ref('loading')
+    const fetchRanking = pageFunction('fetchMemberRanking', 'async function fetchTopExpensive', {
+      memberRanking, memberRankingState, fetchTotals: async () => { throw error }, rankMemberCosts, memberRankingFailureState, TotalsRouteUnavailableError,
+      isOwner: Vue.ref(true), totalsRouteUnavailable: false, isCurrent: () => true,
+      $pb: { collection: () => ({ getList: async () => ({ page: 1, totalPages: 0, totalItems: 0, items: [] }) }) },
+    })
+    await fetchRanking({ range: {}, agent: '' }, 1, 'from', 'to', {})
+    expect(memberRankingState.value).toBe(expectedState)
+    expect(memberRanking.value).toEqual([])
+  })
+
+  it('does not commit export, agent, or chart state after a superseded ranking await', async () => {
+    let active = true
+    let releaseMember!: (value: any) => void
+    const memberResponse = new Promise(resolve => { releaseMember = resolve })
+    const { load, state, fetchTotals } = serverHarness(() => active, false, () => memberResponse)
+    const pending = load({ range: { start: 'start', end: 'end' }, agent: '' }, 1)
+    await vi.waitFor(() => expect(fetchTotals).toHaveBeenCalledWith(expect.objectContaining({ groupBy: 'member' })))
+    active = false
+    releaseMember({ page: 1, totalPages: 1, totalGroups: 1, groups: [{ groupKey: 'm1', entries: 1, costKnownSum: 1, costKnownEntries: 1, costUnknownEntries: 0, costEstimatedEntries: 0, workMs: 1 }] })
+    await pending
+    expect(state.exportSnapshot!.value).toBeNull()
+    expect(state.agentOptions!.value).toBeNull()
+  })
+
+  it('withholds the whole ranking when the member catalog page fails', async () => {
+    const memberRanking = Vue.ref<any[]>([])
+    const memberRankingState = Vue.ref('loading')
+    const fetchTotals = vi.fn(async () => ({ page: 1, totalPages: 1, totalGroups: 1, groups: [{ groupKey: 'member-id', entries: 1, cost: 5, costKnownSum: 5, costKnownEntries: 1, costUnknownEntries: 0, costEstimatedEntries: 0, workMs: 1 }] }))
+    const fetchRanking = pageFunction('fetchMemberRanking', 'async function fetchTopExpensive', {
+      memberRanking, memberRankingState, fetchTotals, rankMemberCosts, memberRankingFailureState, TotalsRouteUnavailableError,
+      isOwner: Vue.ref(true), totalsRouteUnavailable: false, isCurrent: () => true,
+      $pb: { collection: () => ({ getList: async () => { throw new Error('catalog failed') } }) },
+    })
+    await fetchRanking({ range: {}, agent: '' }, 1, 'from', 'to', {})
+    expect(memberRanking.value).toEqual([])
+    expect(memberRankingState.value).toBe('error')
   })
 
   it.each([false, true])('ranks all fallback entries only when the scan is complete (truncated=%s)', async truncated => {
@@ -115,7 +225,7 @@ describe('compact dashboard summaries', () => {
       { machine: 'Host', cost: 3 }, { machine: 'Host', cost: 4 },
       { machine: 'host', cost: 2 }, { machine: '', cost: 1 }, { machine: ' \t', cost: 2 },
     ].map((row, i) => ({ ...row, id: String(i), client: 'c', project: 'p', agent: 'pi', work_ms: 1 }))
-    const state = Object.fromEntries(['totals', 'previousTotals', 'workTimeQuality', 'averageCost', 'byClient', 'byProject', 'topExpensive', 'exportSnapshot', 'agentOptions', 'byMachine', 'machineUnavailable'].map(key => [key, Vue.ref(null)]))
+    const state = Object.fromEntries(['totals', 'previousTotals', 'workTimeQuality', 'averageCost', 'byClient', 'byProject', 'topExpensive', 'exportSnapshot', 'agentOptions', 'memberRanking', 'memberRankingState'].map(key => [key, Vue.ref(null)]))
     const toTotalsRow = pageFunction('toTotalsRow', '/** Pre-totals-route', { sumTaskEntries })
     const load = pageFunction('loadFallback', 'async function loadFallbackChart', {
       ...state, toTotalsRow, groupByClient, groupByProject, computeAverageCost, listDistinctAgents, summarizeWorkTimeQuality,
@@ -125,8 +235,8 @@ describe('compact dashboard summaries', () => {
       t: (key: string) => key, loadChart: vi.fn(), fallbackRows: null, chartSnapshot: null, chartDataGeneration: 0,
     })
     await load({ range: { start: 'start', end: 'end' } }, 1)
-    expect(state.machineUnavailable!.value).toBe(truncated)
-    expect(state.byMachine!.value.map((row: any) => [row.key, row.cost])).toEqual(truncated ? [] : [['Host', 7], ['', 3], ['host', 2]])
+    expect(state.memberRanking!.value).toEqual([])
+    expect(state.memberRankingState!.value).toBe('unavailable')
     expect(state.exportSnapshot!.value.metadata.fallbackRowsTruncated).toBe(truncated)
   })
 
@@ -136,10 +246,10 @@ describe('compact dashboard summaries', () => {
     expect(filters({ agent: '', includeUnassigned: true, unassignedClientId: 'u' })).toEqual({})
   })
 
-  it('does not commit stale machine results', async () => {
+  it('does not commit stale member results', async () => {
     const { load, state } = serverHarness(false)
     await load({ range: { start: 'start', end: 'end' }, agent: '' }, 1)
-    expect(state.byMachine!.value).toBeNull()
+    expect(state.memberRanking!.value).toBeNull()
     expect(state.exportSnapshot!.value).toBeNull()
   })
 
@@ -151,16 +261,13 @@ describe('compact dashboard summaries', () => {
     expect(page).not.toContain('byClient.value = byClient.value.slice')
   })
 
-  it('requests scoped top-five full machine aggregates, keeps exports and isolates unsupported grouping', () => {
-    expect(page).toContain("groupBy: 'machine', sort: '-cost', filters, page: 1, perPage: 5")
-    expect(page).toContain('machineResp')
-    expect(page).toContain('machineUnavailable')
-    expect(page).toContain('current.truncated')
-    expect(page).toContain('groupsToGroupTotals(machineResp.groups, currentResp.total)')
+  it('owner-gates the complete member panel and does not request machine grouping', () => {
+    expect(page).toContain('<Card v-if="isOwner" data-testid="breakdown-by-member"')
+    expect(page).toContain("groupBy: 'member', sort: '-cost', filters, page, perPage: pageSize")
+    expect(page).toContain("collection('team_members').getList")
+    expect(page).not.toContain("groupBy: 'machine'")
     expect(page).toContain('topExpensive: topExpensive.value')
     expect(page).toContain('fetchTopExpensive(snapshot)')
     expect(page).not.toContain('v-for="e in topExpensive"')
-    expect(page).toContain("t('dashboard.unknownMachine')")
-    expect(page).toContain("t('dashboard.machineUnavailable')")
   })
 })

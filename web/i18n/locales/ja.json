@@ -282,6 +282,19 @@
     "machine": "マシン",
     "unknownMachine": "不明なマシン",
     "machineUnavailable": "マシンのランキングは利用できません。サーバーからマシン別の完全な集計を取得できませんでした。",
+    "memberRanking": {
+      "title": "メンバー別コスト",
+      "member": "チームメンバー",
+      "loading": "メンバーランキングを読み込み中…",
+      "error": "メンバーランキングを完全に読み込めませんでした。",
+      "unavailable": "このサーバーではメンバーランキングを利用できません。",
+      "empty": "この期間にメンバーへ帰属する作業はありません。",
+      "unattributed": "帰属先不明の作業",
+      "unresolved": "IDを解決できません ({id})",
+      "estimated": "推定コスト",
+      "incomplete": "既知の小計。一部のコストは不明です",
+      "unknown": "コスト不明"
+    },
     "share": "割合",
     "noData": "この期間のデータはありません",
     "liveUpdate": "リアルタイム更新"

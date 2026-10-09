@@ -282,6 +282,19 @@
     "machine": "Máquina",
     "unknownMachine": "Sin máquina",
     "machineUnavailable": "La clasificación de máquinas no está disponible: el servidor no pudo proporcionar totales completos por máquina.",
+    "memberRanking": {
+      "title": "Miembros del equipo por coste",
+      "member": "Miembro del equipo",
+      "loading": "Cargando clasificación de miembros…",
+      "error": "No se pudo cargar por completo la clasificación de miembros.",
+      "unavailable": "La clasificación de miembros no está disponible en este servidor.",
+      "empty": "No hay trabajo atribuido a miembros en este periodo.",
+      "unattributed": "Trabajo sin atribuir",
+      "unresolved": "Identidad no disponible ({id})",
+      "estimated": "Coste estimado",
+      "incomplete": "Subtotal conocido; hay costes desconocidos",
+      "unknown": "Coste desconocido"
+    },
     "share": "Cuota",
     "noData": "No hay datos en este periodo",
     "liveUpdate": "Actualizado en vivo"
