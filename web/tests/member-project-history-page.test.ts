@@ -8,6 +8,18 @@ it('replaces the project placeholder with the historical project page and preser
   expect(page).not.toContain('MemberWorkDetailShell')
 })
 
+it('prefers a usable browser history entry and falls back to the date-aware member destination', () => {
+  const component = readFileSync('app/components/team/MemberProjectHistory.vue', 'utf8')
+  expect(component).toContain('function goBack()')
+  expect(component).toMatch(/window\.history\.state/)
+  expect(component).toMatch(/state\?\.back/)
+  expect(component).toMatch(/state\.position/)
+  expect(component).toContain('router.back()')
+  expect(component).toContain('navigateTo(props.backTo)')
+  expect(component).toContain('@click="goBack"')
+  expect(component).not.toContain('<NuxtLink :to="backTo"')
+})
+
 it('keeps history requests all-time and scoped, and renders cost quality and incomplete states', () => {
   const component = readFileSync('app/components/team/MemberProjectHistory.vue', 'utf8')
   expect(component).toContain('loadMemberProjectHistory(fetchTotals, memberId, projectId')

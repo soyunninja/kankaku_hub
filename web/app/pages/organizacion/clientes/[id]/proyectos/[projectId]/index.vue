@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight } from '@lucide/vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
+import ProjectMembers from '@/components/projects/ProjectMembers.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -335,10 +336,10 @@ watch(() => [route.params.id, route.params.projectId], load, { flush: 'sync' })
             <div class="min-w-0 space-y-2">
               <h3 class="text-sm font-semibold [overflow-wrap:anywhere] sm:text-base">{{ taskName(task.id) }}</h3>
             </div>
-            <dl class="grid min-w-0 grid-cols-1 gap-3 text-sm [overflow-wrap:anywhere] sm:grid-cols-2">
+            <dl class="grid min-w-0 grid-cols-1 gap-3 text-sm [overflow-wrap:anywhere] sm:grid-cols-2 lg:grid-cols-3">
               <div><dt class="text-xs text-muted-foreground">{{ t('common.time') }}</dt><dd class="mt-1 font-medium tabular-nums">{{ cardsReady ? formatDuration(taskTotals[task.id]?.workMs ?? 0) : t('projects.detail.metricsUnavailable') }}</dd></div>
               <div><dt class="text-xs text-muted-foreground">{{ t('common.cost') }}</dt><dd class="mt-1 font-medium tabular-nums">{{ taskCost(task.id) }}</dd></div>
-              <div class="sm:col-span-2">
+              <div class="sm:col-span-2 lg:col-span-1">
                 <dt class="text-xs text-muted-foreground">{{ t('projects.detail.totalSessions') }}</dt>
                 <dd data-testid="task-total-sessions" class="mt-1 font-medium tabular-nums">{{ taskSessions(task.id) }}</dd>
               </div>
@@ -354,6 +355,7 @@ watch(() => [route.params.id, route.params.projectId], load, { flush: 'sync' })
         </div>
         <p v-else class="text-sm text-muted-foreground">{{ t('tasks.empty') }}</p>
       </section>
+      <ProjectMembers :client-id="clientId" :project-id="projectId" />
     </template>
   </div>
 </template>

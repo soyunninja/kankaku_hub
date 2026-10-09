@@ -352,7 +352,7 @@ async function onRefreshFavicon() {
         <div data-testid="client-kpis" class="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
           <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" />
           <KpiCard :title="t('dashboard.kpi.cost')" :value="formatCost(totals.cost)" />
-          <KpiCard :title="t('dashboard.kpi.tasks')" :value="String(totals.count)" />
+          <KpiCard :title="t('clients.detail.projectsTitle')" :value="String(detailProjects.length)" />
           <KpiCard :title="t('dashboard.kpi.avgCostPerTask')" :value="formatCost(averageCost.average ?? 0)">
             <p v-if="averageCost.excludedCount > 0" class="mt-1 text-xs text-muted-foreground">
               {{ t('dashboard.kpi.avgCostExcludedNotice', { count: averageCost.excludedCount }) }}

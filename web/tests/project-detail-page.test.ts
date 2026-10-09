@@ -116,6 +116,13 @@ describe('project task analytics and read-only cards', () => {
     await Promise.resolve()
     expect(h.page.sessions?.value?.t1).not.toBe(99)
   })
+  it('places all-time member cards after Tasks without changing the 30-day task metrics', () => {
+    expect(source.indexOf('</section>\n      <ProjectMembers')).toBeGreaterThan(source.indexOf("t('projects.detail.tasksTitle')"))
+    expect(source).toContain('<ProjectMembers :client-id="clientId" :project-id="projectId" />')
+    expect(source).toContain('lg:grid-cols-3')
+    expect(source).toContain("t('projects.detail.totalSessions')")
+    expect(source).toContain("import ProjectMembers from '@/components/projects/ProjectMembers.vue'")
+  })
   it('removes obsolete panels and reads, replacing the table with cards and a metric control', () => {
     for (const old of ['topPrompts', 'byModel', "groupBy: 'model'", '<Table', "t('projects.detail.trend')"]) expect(source).not.toContain(old)
     expect(source).toContain('data-testid="task-card"')

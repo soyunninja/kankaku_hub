@@ -135,7 +135,8 @@ test('member project history is full-range, scoped, expandable and responsive', 
       return route.fulfill({ status: 400, json: { message: 'include_ignored_sessions is unsupported' } })
     }
     let groups: Record<string, unknown>[] = []
-    if (body.group_by === 'task') {
+    if (body.group_by === 'member') groups = [rawGroup('memberhist001')]
+    else if (body.group_by === 'task') {
       if (filters?.session_id === 'session-old') groups = [rawGroup('taskhist001', oldMetrics)]
       else if (!filters?.session_id) groups = [rawGroup('taskhist001', oldMetrics), rawGroup('taskhist002', latestMetrics)]
     }
@@ -165,15 +166,23 @@ test('member project history is full-range, scoped, expandable and responsive', 
     } })
   })
 
-  await page.goto('/team/member-projects/memberhist001/projecthist001?dateStart=2024-02-01&dateEnd=2024-02-29')
+  await page.goto('/organizacion/clientes/clienthist001/proyectos/projecthist001')
+  await expect(page.getByRole('link', { name: "Open History member's project work history" })).toBeVisible()
+  await page.getByRole('link', { name: "Open History member's project work history" }).click()
   await expect(page.getByRole('heading', { name: 'Full-history project' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/team/memberhist001?dateStart=2024-02-01&dateEnd=2024-02-29')
+  const backButton = page.getByRole('button', { name: 'Back' })
+  await expect(backButton).toBeVisible()
   await expect(page.getByText('History client · History member')).toBeVisible()
   await expect(page.getByText('First recorded')).toBeVisible()
   await expect(page.getByText(/Jan 2, 2019/).first()).toBeVisible()
   await expect(page.getByText(/Mar 5, 2024/).first()).toBeVisible()
   await expect(page.getByText('Known / estimated subtotal').first()).toBeVisible()
   await expect(page.getByText('1 unknown').first()).toBeVisible()
+  await backButton.click()
+  await expect(page).toHaveURL('/organizacion/clientes/clienthist001/proyectos/projecthist001')
+  await page.goto('/team/member-projects/memberhist001/projecthist001?dateStart=2024-02-01&dateEnd=2024-02-29')
+  await expect(page.getByRole('heading', { name: 'Full-history project' })).toBeVisible()
+  const fallbackBackButton = page.getByRole('button', { name: 'Back' })
   await expect(page.getByText('Ignored session', { exact: true })).toHaveCount(2)
   const historyKpis = page.getByRole('region', { name: 'Member work' })
   await expect(historyKpis.getByRole('heading', { name: 'Tokens', exact: true })).toHaveCount(0)
@@ -182,10 +191,15 @@ test('member project history is full-range, scoped, expandable and responsive', 
   await expect(page.getByTestId('member-project-history-chart')).toBeVisible()
   await page.getByRole('button', { name: 'Token cost', exact: true }).click()
   await expect(page.getByText(/unknown cost and are excluded from the chart/)).toBeVisible()
+  await fallbackBackButton.click()
+  await expect(page).toHaveURL('/team/memberhist001?dateStart=2024-02-01&dateEnd=2024-02-29')
+  await page.goto('/team/member-projects/memberhist001/projecthist001?dateStart=2024-02-01&dateEnd=2024-02-29')
+  await expect(page.getByRole('heading', { name: 'Full-history project' })).toBeVisible()
 
-  const projectRequests = totalsRequests.filter(({ body }) => {
+  const projectRequests = totalsRequests.filter(({ body, path }) => {
     const filters = body.filters as Record<string, string> | undefined
-    return filters?.member === 'memberhist001' || filters?.project === 'projecthist001'
+    return path.startsWith('/team/member-projects/')
+      && (filters?.member === 'memberhist001' || filters?.project === 'projecthist001')
   })
   expect(projectRequests.length).toBeGreaterThan(0)
   for (const { body } of projectRequests) {

@@ -176,7 +176,7 @@ test.afterEach(async ({ page }) => {
 async function expectClientKpis(page: Page, width: number) {
   const kpis = page.getByTestId('client-kpis')
   await expect(kpis.getByTestId('kpi-value')).toHaveCount(4)
-  for (const title of ['Tiempo de trabajo', 'Coste', 'Tareas', 'Coste medio/tarea']) {
+  for (const title of ['Tiempo de trabajo', 'Coste', 'Proyectos', 'Coste medio/tarea']) {
     await expect(kpis.getByText(title, { exact: true })).toBeVisible()
   }
   const columns = await kpis.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)

@@ -16,6 +16,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const router = useRouter()
 const { isOwner } = useAuth()
 const { fetchTotals } = useTotals()
 const { $pb } = useNuxtApp()
@@ -46,6 +47,15 @@ const chartPoints = computed(() => (chart.value?.points ?? []).map((point) => ({
   values: { history: chartMetric.value === 'time' ? point.workMs : point.costKnownSum },
 })))
 const chartLabel = computed(() => t(chartMetric.value === 'time' ? 'team.historyChartTime' : 'team.historyChartCost'))
+
+function goBack() {
+  const state = window.history.state as { back?: unknown, position?: unknown } | null
+  if (typeof state?.back === 'string' && typeof state.position === 'number' && state.position > 0) {
+    router.back()
+    return
+  }
+  void navigateTo(props.backTo)
+}
 
 function isCurrent(request: number, memberId: string, projectId: string) {
   return request === generation && props.memberId === memberId && props.projectId === projectId && isOwner.value
@@ -201,8 +211,8 @@ onBeforeUnmount(() => { generation++ })
     </div>
     <template v-else-if="history && member && project && client">
       <header class="flex min-w-0 flex-wrap items-center gap-3">
-        <Button as-child variant="ghost" size="icon" class="shrink-0">
-          <NuxtLink :to="backTo" :aria-label="t('common.back')" :title="t('common.back')"><ArrowLeft aria-hidden="true" class="size-4" /></NuxtLink>
+        <Button type="button" variant="ghost" size="icon" class="shrink-0" :aria-label="t('common.back')" :title="t('common.back')" @click="goBack">
+          <ArrowLeft aria-hidden="true" class="size-4" />
         </Button>
         <div class="min-w-0 flex-1">
           <h1 class="break-words text-xl font-semibold tracking-tight sm:text-2xl">{{ project.name }}</h1>
@@ -223,10 +233,10 @@ onBeforeUnmount(() => { generation++ })
         </Card>
         <p class="-mt-3 text-xs text-muted-foreground">{{ t('team.historyAttributionNote') }}</p>
 
-        <section class="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" :aria-label="t('team.memberWork')">
+        <section class="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4" :aria-label="t('team.memberWork')">
           <KpiCard :title="t('team.memberTotalMinutes')" :value="formatDuration(history.total.workMs)" />
-          <KpiCard :title="t('team.workSessions')" :value="String(history.total.distinctSessions)" />
           <KpiCard :title="t('team.historyDistinctTasks')" :value="history.distinctTasks === null ? '—' : String(history.distinctTasks)" />
+          <KpiCard :title="t('team.workSessions')" :value="String(history.total.distinctSessions)" />
           <KpiCard :title="t('team.memberTotalCost')" :value="costValue(history.total)">
             <span class="text-muted-foreground">{{ costQuality(history.total) }}</span>
           </KpiCard>

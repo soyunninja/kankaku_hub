@@ -196,6 +196,11 @@ describe('client analytics', () => {
     expect(h.page.loading.value).toBe(false)
   })
 
+  it('binds the client catalog project count to the Projects KPI', () => {
+    const page = read('app/pages/organizacion/clientes/[id]/index.vue')
+    expect(page).toMatch(/<KpiCard\s+:title="t\('clients\.detail\.projectsTitle'\)"\s+:value="String\(detailProjects\.length\)"\s*\/>/)
+  })
+
   it('uses four KPIs and the local work/project panel without a Trend heading', () => {
     const page = read('app/pages/organizacion/clientes/[id]/index.vue')
     expect(page.match(/<KpiCard\b/g)).toHaveLength(4)
