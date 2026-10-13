@@ -182,8 +182,66 @@ Error responses for the route itself (not a fetch failure):
 | `code` | text |
 | `repo_paths` | json array of strings |
 | `active` | bool |
+| `notes` | text, optional, max 5000, multi-line |
 
 Write access: owner only. The sync client only *reads* this collection.
+`notes` is owner-facing display metadata; records created before migration
+`1790183807_projects_notes.js` may omit it, so clients must treat it as
+optional. This field does not alter project lifecycle or measurement history.
+
+#### Client deactivation lifecycle
+
+Every `clients` model update that changes `active` from `true` to `false`
+transactionally sets `active: false` on all currently active `projects` whose
+`client` relation is that client. This is enforced by the PocketBase model
+hook for direct collection API writes and privileged model saves, not only by
+a web route. Already-inactive projects and unrelated clients are untouched;
+repeating deactivation is idempotent. Reactivating a client does not restore
+its projects. Archiving a project on an active-to-inactive transition
+transactionally changes every descendant task not already `closed` to
+`closed`, including `done` tasks. Archiving a client does the same for every
+task under all its projects, including projects already inactive. `closed` is
+a distinct workflow status (`open`, `doing`, `done`, `closed`); reopening is
+manual, and parent reactivation never restores task statuses. Tasks have no
+`active` field. `task_entries` and `work_records` remain byte-for-byte
+unchanged as historical measurement. Migration
+`1790183808_tasks_closed_status.js` only expands the existing status select;
+it does not rewrite existing tasks. Project model create/update hooks reject
+an active project whenever its referenced client is inactive, including API
+writes, privileged model saves, reactivation, and parent moves. Inactive projects remain saveable, and active
+projects remain saveable under active clients. Missing parent lookups fail
+closed. Client reactivation still does not restore projects; an owner must
+reactivate each project after the client is active.
+
+The focused isolated PocketBase 0.40.4 integration fixtures verify an
+active-to-inactive client update with 41 active related projects (including
+more than one default 30-row page), tasks under active and already-inactive
+projects, mixed task statuses, a complete unchanged already-inactive project
+record, an unrelated active project, and unchanged full `task_entries` and
+`work_records` records. They also verify direct project archival, manual-only reopening, linked work
+leaving `closed` tasks closed, repeated deactivation, reactivation without
+project or task restoration, owner and superuser writes, and a viewer denial. For rollback, a handler-local dependency tracks
+project-update callbacks: the first project `e.next()` completes before the
+second callback throws the uniquely named
+`CC1_INJECTED_SECOND_PROJECT_SAVE_FAILURE` error. The API returns that exact
+error identity and subsequent reads show the client and both projects
+unchanged. The fixture captures PocketBase stdout/stderr for failure
+diagnostics and uses handler-local dependency state rather than top-level
+callback state or a generic status-only assertion. The injected failure
+occurs before the client continuation: it proves rollback of an executed
+project save and prevention of the client write, not rollback of an already
+executed client write. The client continuation is structurally inside the
+transaction, but client-final-save failure rollback is not covered by this
+fixture. A second injected failure completes the first task save, then throws
+`TC1_INJECTED_SECOND_TASK_SAVE_FAILURE` on the next task. Reads verify rollback
+of the first task write and preceding project write, no client update, and no
+change to the failing task.
+
+The isolated PocketBase 0.40.4 lifecycle fixture verifies rejected active
+creation, reactivation and parent moves under inactive clients, unchanged
+records after rejected writes, allowed inactive saves, and manual project
+reactivation after the parent is active. It runs alongside the existing client
+cascade hook in a disposable database.
 
 ### `tasks`
 
@@ -191,7 +249,7 @@ Write access: owner only. The sync client only *reads* this collection.
 |---|---|
 | `title` | text, required |
 | `project` | relation → projects, required |
-| `status` | select: `open` \| `doing` \| `done` |
+| `status` | select: `open` \| `doing` \| `done` \| `closed` |
 | `external_ref` | text |
 | `description` | text |
 
@@ -426,9 +484,9 @@ linked task's `status` from `open` to `doing`. This is not a new field, not
 a new endpoint, and not a change to the request/response shapes documented
 above — it happens server-side, with app privileges, in a PocketBase hook
 (`pocketbase/pb_hooks/task-auto-doing.pb.js`) that runs after the
-`task_entries` write has already succeeded. A `doing` task is left alone,
-and a `done` task is never reopened; `done` is never set automatically —
-closing a task stays the owner's call. A client `PATCH`ing
+`task_entries` write has already succeeded. A `doing`, `done`, or `closed`
+task is left alone; linked work never sets `done` or `closed`. Parent archival
+may set `closed` transactionally, and reopening is manual. A client `PATCH`ing
 `task_entries.task` (or creating a row with it set) should not assume the
 task's previously-known status still holds: refetch/resync `tasks` if the
 UI displays task status, rather than trusting a locally cached value. See
