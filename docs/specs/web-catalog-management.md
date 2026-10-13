@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0001](../adr/0001-identity-is-an-id-not-a-name.md), [0008](../adr/0008-no-money-in-the-database.md), [0012](../adr/0012-historical-records-to-sin-determinar.md), [0018](../adr/0018-billing-boundary-enforced-in-schema.md) |
-| Code | `web/app/pages/clients/index.vue`, `web/app/pages/projects/index.vue`, `web/app/pages/projects/[id].vue`, `web/app/composables/useClients.ts`, `web/app/composables/useProjects.ts`, `web/app/lib/client-contact.ts`, `web/app/components/clients/ClientAvatar.vue`, `web/app/components/clients/ClientName.vue`, `pocketbase/pb_migrations/1758300011_clients_contact_fields.js` |
-| Tests | `web/e2e/smoke.spec.ts`, `web/e2e/client-contact.spec.ts`, `web/e2e/client-avatars.spec.ts`, `web/tests/client-contact.test.ts` |
+| Code | `web/app/pages/clients/index.vue`, `web/app/pages/projects/index.vue`, `web/app/pages/projects/[id].vue`, `web/app/pages/organizacion/clientes/[id]/index.vue`, `web/app/components/projects/ProjectMembers.vue`, `web/app/components/clients/ClientWorkAttributionDialog.vue`, `web/app/composables/useClientWorkAttribution.ts`, `web/app/composables/useClients.ts`, `web/app/composables/useProjects.ts`, `web/app/lib/client-contact.ts`, `web/app/components/clients/ClientAvatar.vue`, `web/app/components/clients/ClientName.vue`, `pocketbase/pb_migrations/1758300011_clients_contact_fields.js` |
+| Tests | `web/e2e/smoke.spec.ts`, `web/e2e/client-contact.spec.ts`, `web/e2e/client-avatars.spec.ts`, `web/tests/client-contact.test.ts`, `web/tests/client-work-attribution.test.ts`, `web/tests/client-work-attribution-dialog.test.ts`, `web/tests/project-members.test.ts`, `web/tests/project-detail-page.test.ts`, `web/tests/client-detail-page.test.ts` |
 
 ## Purpose
 
@@ -250,6 +250,35 @@ None beyond the shared PocketBase connection.
   contact-fields migration: `website`/`contact_email`/`contact_phone`/
   `notes` come back as `undefined`, not `''` — every read site falls back
   to `?? ''` rather than crashing.
+
+## Amendment (client-scoped historical attribution)
+
+The owner-only client or project detail member summary exposes an assignment
+action for its scoped unattributed totals. The same dialog is used in both
+views; a project detail action is restricted to that exact client's exact
+project, never inferred from a task detail route. It pages `task_entries`
+filtered by the exact client relation, optional exact project relation, and
+empty member, with deterministic newest-first ordering. Selection is explicit across pages,
+limited to 200 checked entry IDs, and never implies selecting hidden pages.
+Rows identify the task/session, date, project, consolidated `work_ms`, machine
+(or an unknown-machine label), and entry ID. Historical/inactive members remain
+available, while unknown machines do not block eligible entries.
+
+Preview and confirmation use the existing `/api/kankaku/client-attribution`
+preview/apply routes with the same client, optional project, member, and
+selected IDs; the client-only route shape omits `project_id`. The UI
+must clear preview on selection/member changes; stale or invalid server
+responses require reselection and a fresh preview. Route/client/project,
+owner/user, token, dialog, and request generations fence async results. While
+list, preview, or apply is busy, user-initiated dialog close requests are rejected
+before the open model changes and the built-in close button is hidden; a real
+owner/session/client/route invalidation still closes and discards the dialog.
+On successful apply it closes and consumes the selection before the optional
+scoped totals refresh, so a refresh failure cannot make the committed
+operation retryable.
+An uncertain apply response is never replayed automatically. This changes only
+`task_entries` attribution through the server API; it does not write
+`work_records`, backfill machines, or recompute totals from raw records.
 
 ## Out of scope
 

@@ -196,9 +196,20 @@ describe('project task analytics and read-only cards', () => {
     expect(source).toContain("t('projects.inactiveParentNotice')")
     expect(source).toContain('(!project.active && client.active !== true)')
   })
-  it('places all-time member cards after Tasks without changing the 30-day task metrics', () => {
+  it('places all-time member cards after Tasks without changing the 30-day task metrics', async () => {
     expect(source.indexOf('</section>\n      <ProjectMembers')).toBeGreaterThan(source.indexOf("t('projects.detail.tasksTitle')"))
-    expect(source).toContain('<ProjectMembers :client-id="clientId" :project-id="projectId" />')
+    const binding = '<ProjectMembers :client-id="clientId" :project-id="projectId" />'
+    expect(source).toContain(binding)
+    const compiled = compileTemplate({ source: binding, filename: 'project-detail-member-binding', id: 'project-members-binding' })
+    expect(compiled.errors).toEqual([])
+    const exports: any = {}
+    new Function('require', 'exports', ts.transpile(compiled.code, { module: ts.ModuleKind.CommonJS }))(() => Vue, exports)
+    const h = setupPage()
+    const forwarded = vi.fn()
+    const ProjectMembersStub = defineComponent({ props: ['clientId', 'projectId'], setup(props) { forwarded(props); return () => Vue.h('div') } })
+    const wrapper = mount(defineComponent({ render: exports.render, setup: () => ({ clientId: computed(() => h.route.params.id), projectId: computed(() => h.route.params.projectId) }) }), { global: { components: { ProjectMembers: ProjectMembersStub } } })
+    expect(forwarded).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'c1', projectId: 'p1' }))
+    wrapper.unmount()
     expect(source).toContain('lg:grid-cols-3')
     expect(source).toContain("t('projects.detail.totalSessions')")
     expect(source).toContain("import ProjectMembers from '@/components/projects/ProjectMembers.vue'")

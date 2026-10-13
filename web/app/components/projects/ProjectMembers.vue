@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import ClientWorkAttributionDialog from '@/components/clients/ClientWorkAttributionDialog.vue'
 import { formatCost, formatDuration } from '@/lib/format'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { loadProjectMemberTotals, type ProjectMemberTotal } from '@/lib/project-member-totals'
@@ -7,7 +9,9 @@ import type { TeamMemberRecord } from '@/lib/pocketbase-types'
 
 const props = defineProps<{ clientId: string, projectId?: string }>()
 const { t, locale } = useI18n()
-const { isOwner } = useAuth()
+const { isOwner, user } = useAuth()
+const { $pb } = useNuxtApp()
+const attributionOpen = ref(false)
 const { departments, members, refresh } = useTeamCatalog()
 const { fetchTotals } = useTotals()
 const totals = ref<{ members: Record<string, ProjectMemberTotal>, unattributed: ProjectMemberTotal | null }>({ members: Object.create(null), unattributed: null })
@@ -46,6 +50,20 @@ onBeforeUnmount(() => { requestVersion++ })
 function duration(total: ProjectMemberTotal) { return formatDuration(total.workMs, locale.value) }
 function cost(total: ProjectMemberTotal) { return total.costUnknownEntries > 0 && total.costUnknownEntries === total.entries ? '—' : formatCost(total.cost) }
 function historyPath(id: string) { return props.projectId ? `/team/member-projects/${encodeURIComponent(id)}/${encodeURIComponent(props.projectId)}` : `/team/${encodeURIComponent(id)}` }
+async function refreshAfterAttribution() {
+  const version = requestVersion
+  const client = props.clientId
+  const project = props.projectId
+  const ownerId = user.value?.id
+  const token = $pb.authStore.token
+  const current = () => version === requestVersion && client === props.clientId && project === props.projectId && isOwner.value && ownerId === user.value?.id && token === $pb.authStore.token
+  try {
+    const filters = project === undefined ? { client } : { client, project }
+    const result = await loadProjectMemberTotals(fetchTotals, filters)
+    if (current()) totals.value = result
+  }
+  catch { /* A post-commit refresh failure must not make the write retryable. */ }
+}
 </script>
 
 <template>
@@ -82,9 +100,11 @@ function historyPath(id: string) { return props.projectId ? `/team/member-projec
             <div><dt class="text-xs text-muted-foreground">{{ t('common.time') }}</dt><dd class="mt-1 font-medium tabular-nums">{{ duration(totals.unattributed) }}</dd></div>
             <div><dt class="text-xs text-muted-foreground">{{ t('common.cost') }}</dt><dd class="mt-1 font-medium tabular-nums">{{ cost(totals.unattributed) }}</dd></div>
           </dl>
+          <Button v-if="totals.unattributed" data-testid="attribute-client-work" class="mt-auto" variant="outline" @click="attributionOpen = true">{{ t('clients.detail.attributionAction') }}</Button>
         </article>
       </div>
       <p v-else class="text-sm text-muted-foreground">{{ t('projects.detail.membersEmpty') }}</p>
     </template>
+    <ClientWorkAttributionDialog v-model:open="attributionOpen" :client-id="props.clientId" :project-id="props.projectId" @attributed="refreshAfterAttribution" />
   </section>
 </template>
