@@ -914,3 +914,67 @@ shown to the owner (`web/app/composables/useTotals.ts`'s
   the same 400/403 shape as an unauthenticated request. The sync client
   never authenticates as `viewer`; this only matters for a hub demo
   instance.
+
+## Owner-only client/project work attribution (CA-1/CA-3)
+
+`POST /api/kankaku/client-attribution/preview` and
+`POST /api/kankaku/client-attribution/apply` provide explicit attribution from
+client or selected-project detail (not task detail). Both require an
+authenticated `users` record with `role: owner`;
+service, viewer, unauthenticated and other-auth-collection callers cannot use
+the route. No migration or schema field is added.
+
+Both requests carry the exact selected scope (unknown keys are rejected).
+Client detail retains its original shape; project detail adds only the optional
+`project_id` string, which must be a valid existing project belonging to
+`client_id`:
+
+```json
+{"client_id":"<client id>","member":"<team member id>","entry_ids":["<task_entry id>"]}
+{"client_id":"<client id>","project_id":"<project id>","member":"<team member id>","entry_ids":["<task_entry id>"]}
+```
+
+When present, blank, null, malformed, unknown, or other-client `project_id`
+values are rejected; they never fall back to client-wide selection. Project
+scope checks the direct `task_entries.project` and `task_entries.client`
+relations, not a task's parent. Preview/apply both enforce this scope in their
+transaction. Inactive projects remain eligible for historical correction.
+
+`entry_ids` must contain 1–200 unique PocketBase IDs. Preview returns
+`{"client_id":"...","member":"...","count":1,"snapshot":"<opaque SHA256>"}`.
+The snapshot hashes the client `{id, active, updated}`, member
+`{id, active, department, updated, department_history}`, and each selected
+entry's `{id, client, project, member, department, attributed_machine,
+started_at, ended_at, updated}` plus the department resolved from dated
+history. Project-scoped snapshots additionally include project
+`{id, client, updated}`. Changes to these fields invalidate the preview;
+measurement fields are not included in the hash. An ordinary entry write
+invalidates the preview if it changes a hashed field, including `updated`.
+That timestamp has millisecond precision,
+not revision-counter semantics: a measurement-only write retaining the same
+timestamp does not invalidate the preview. Attribution never overwrites
+measurement fields. Apply sends the same exact selection plus `snapshot`;
+unknown, missing, duplicate, malformed, oversized, cross-client, or
+already-member-attributed entries reject the entire request (the latter may
+return 400 as an invalid selection).
+
+Apply re-reads the snapshot within one transaction. A changed snapshot returns
+409. Every history item must be an object with a valid PocketBase UTC instant
+(`YYYY-MM-DD HH:MM:SS.mmmZ` or `T` separator) and a blank or valid department
+ID; malformed JSON, non-arrays, invalid values/dates, conflicting values at
+one instant, and unknown department references fail closed. History ordering
+is irrelevant: the latest event at or before `started_at` is used. No current
+department fallback is applied. The server changes only `task_entries.member`,
+an empty `task_entries.department` (filled from the resolved historical
+relation, or left empty when history has no value), and PocketBase's `updated`
+timestamp. The resolved department must still exist; a non-empty entry
+department is preserved. Inactive clients
+and members remain valid for historical corrections. Unknown machines do not
+block attribution; machine identity, `attributed_machine`, assignment history,
+measurement fields and `work_records` are never changed. Success is returned
+after commit as `{"client_id":"...","member":"...","updated_count":1}`;
+project-scoped requests add `"project_id":"..."` to both preview and success
+responses. Client-only response shapes remain unchanged.
+Ordinary task-entry update immutability remains unchanged. The route uses
+transactional bound SQL to perform the explicitly authorized write; direct SQL
+does not emit per-record model hooks/realtime events, so clients should refetch.
