@@ -6,6 +6,44 @@ const card = readFileSync('app/components/team/TeamMemberCard.vue', 'utf8')
 const detail = readFileSync('app/pages/team/[id].vue', 'utf8')
 
 describe('cohesive team workspace', () => {
+  it('submits exact member and machine payloads without leaking the draft id', async () => {
+    const submitSource = page.match(/async function submit\(\) \{[\s\S]*?\n\}/)?.[0]
+    expect(submitSource, 'submit handler must be present').toBeTruthy()
+    const submissions: unknown[][] = []
+    const makeSubmit = new Function(
+      'editing', 'draft', 'perform', 'save', 'saveMachine', 'machineSavedRefreshFailed',
+      `return (${submitSource!.replace('action: () => Promise<unknown>', 'action')})`,
+    ) as (...args: unknown[]) => () => Promise<void>
+    const run = async (collection: string, draft: Record<string, unknown>) => {
+      const editing = { value: collection }
+      const machineSavedRefreshFailed = { value: false }
+      const submit = makeSubmit(
+        editing,
+        draft,
+        (action: () => Promise<unknown>) => action(),
+        async (...args: unknown[]) => { submissions.push(args) },
+        async (...args: unknown[]) => { submissions.push(args); return true },
+        machineSavedRefreshFailed,
+      )
+      await submit()
+      expect(editing.value).toBeNull()
+    }
+
+    await run('team_members', { id: 'member-id', name: '  Ada  ', department: 'dept-id', member: '', key: '', active: true })
+    await run('machines', { id: 'machine-id', name: '  Laptop  ', key: 'host-key', member: 'member-id', department: '', active: false })
+
+    expect(submissions).toEqual([
+      ['team_members', 'member-id', { name: 'Ada', department: 'dept-id', active: true }],
+      ['machine-id', { name: 'Laptop', key: 'host-key', member: 'member-id', active: false }],
+    ])
+    for (const [, payload] of submissions) {
+      expect(payload).not.toHaveProperty('id')
+      expect(payload).not.toHaveProperty('project')
+      expect(payload).not.toHaveProperty('project_id')
+    }
+    expect(submitSource).not.toMatch(/attribution|project_id|project\b/)
+  })
+
   it('provides tooltip context to shared member actions in both presentations', () => {
     expect(page).toContain("import { TooltipProvider } from '@/components/ui/tooltip'")
     const providerStart = page.indexOf('<TooltipProvider>')

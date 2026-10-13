@@ -228,15 +228,16 @@ async function submit() {
   if (!collection || !draft.name.trim() && collection !== 'machines') return
   if (collection === 'machines' && !draft.key) return
   await perform(async () => {
-    const fields = collection === 'team_members'
-      ? { name: draft.name.trim(), department: draft.department, active: draft.active }
-      // Keep the key verbatim: it must match task_entries.machine exactly.
-      : { name: draft.name.trim(), key: draft.key, member: draft.member, active: draft.active }
     if (collection === 'machines') {
-      const refreshed = await saveMachine(draft.id, fields as typeof draft)
+      // Keep the key verbatim: it must match task_entries.machine exactly.
+      const fields = { name: draft.name.trim(), key: draft.key, member: draft.member, active: draft.active }
+      const refreshed = await saveMachine(draft.id, fields)
       machineSavedRefreshFailed.value = !refreshed
     }
-    else await save(collection, draft.id, fields)
+    else {
+      const fields = { name: draft.name.trim(), department: draft.department, active: draft.active }
+      await save(collection, draft.id, fields)
+    }
     editing.value = null
   })
 }
