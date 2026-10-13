@@ -5,6 +5,7 @@ import { compileTemplate, parse } from 'vue/compiler-sfc'
 import { mount } from '@vue/test-utils'
 import ts from 'typescript'
 import { isOperationalProject } from '../app/lib/catalog-lifecycle'
+import { useTaskEditor } from '../app/composables/useTaskEditor'
 import { describe, expect, it, vi } from 'vitest'
 
 const read = (path: string) => existsSync(path) ? readFileSync(path, 'utf8') : ''
@@ -62,6 +63,11 @@ function mountPage(h: ReturnType<typeof setupPage>) {
   const exports: any = {}
   new Function('require', 'exports', ts.transpile(compiled.code, { module: ts.ModuleKind.CommonJS }))(() => Vue, exports)
   const plain = Vue.defineComponent({ template: '<div><slot /></div>' })
+  let taskEditDialogProps: Record<string, any> | undefined
+  const taskEditDialog = Vue.defineComponent({
+    props: ['open', 'task', 'canWrite', 'isAuthorized'],
+    setup(props) { taskEditDialogProps = props; return () => null },
+  })
   const sheet = Vue.defineComponent({
     props: ['open'], emits: ['update:open'],
     setup(props, { emit, slots }) {
@@ -81,17 +87,18 @@ function mountPage(h: ReturnType<typeof setupPage>) {
   })
   const taskBody = Vue.defineComponent({ template: '<h1 tabindex="-1">Task heading</h1>' })
   const entryBody = Vue.defineComponent({ props: ['entry', 'workRecords', 'canWrite'], template: '<section data-testid="shared-entry-body">{{ entry.prompt }}<span>{{ workRecords.length }}</span></section>' })
-  return mount(Vue.defineComponent({ render: exports.render, setup: () => h.page.view }), {
+  const wrapper = mount(Vue.defineComponent({ render: exports.render, setup: () => h.page.view }), {
     attachTo: document.body,
-    global: { components: { Button: Vue.defineComponent({ template: '<button><slot /></button>' }), ArrowLeft: plain, TaskDetailSheet: taskBody, TaskEditDialog: plain, Sheet: sheet, SheetContent: content, SheetTitle: plain, SheetDescription: plain, EntryDetailSheet: entryBody } },
+    global: { components: { Button: Vue.defineComponent({ template: '<button><slot /></button>' }), ArrowLeft: plain, TaskDetailSheet: taskBody, TaskEditDialog: taskEditDialog, Sheet: sheet, SheetContent: content, SheetTitle: plain, SheetDescription: plain, EntryDetailSheet: entryBody } },
   })
+  return { wrapper, taskEditAuthorization: () => taskEditDialogProps?.isAuthorized }
 }
 
 describe('task record drawer lifecycle', () => {
   it.each(['Escape', 'click'])('focuses the drawer title and restores the trigger after %s closing', async action => {
     const h = setupPage()
     await h.page.load()
-    const wrapper = mountPage(h)
+    const { wrapper } = mountPage(h)
     const origin = document.createElement('button')
     document.body.append(origin)
     vi.spyOn(origin, 'getClientRects').mockReturnValue([{}] as any)
@@ -257,6 +264,45 @@ describe('nested task route setup', () => {
     expect(h.page.detailContext?.value).toEqual({ client: { name: 'Client', to: '/organizacion/clientes/c1' }, project: { name: 'Project', to: '/organizacion/clientes/c1/proyectos/p1' } })
     h.projects.p1.client = 'other'
     expect(h.page.detailContext?.value).toBeUndefined()
+  })
+  it('passes a live authorization callback through the mounted page binding to task editor saves and deletes', async () => {
+    const h = setupPage()
+    await h.page.load()
+    h.task.value.status = 'done'
+    const { wrapper, taskEditAuthorization } = mountPage(h)
+    const authorize = taskEditAuthorization()
+    expect(authorize).toBeTypeOf('function')
+    expect(authorize()).toBe(true)
+
+    const update = vi.fn().mockResolvedValue(undefined)
+    const remove = vi.fn().mockResolvedValue(undefined)
+    const success = vi.fn()
+    vi.stubGlobal('ref', ref)
+    vi.stubGlobal('reactive', reactive)
+    vi.stubGlobal('useTasks', () => ({ update, remove }))
+    vi.stubGlobal('useI18n', () => ({ t: (key: string) => key }))
+    vi.stubGlobal('useToast', () => ({ success, error: vi.fn() }))
+    try {
+      const editor = useTaskEditor(() => h.task.value, () => h.canWrite.value && authorize())
+      editor.open.value = true
+      editor.reset()
+      await editor.submit()
+      expect(update).toHaveBeenCalledWith('t1', expect.objectContaining({ status: 'done' }))
+      expect(editor.open.value).toBe(false)
+      expect(success).toHaveBeenCalledWith('common.saved')
+
+      editor.open.value = true
+      h.projects.p1.active = false
+      expect(authorize()).toBe(false)
+      await editor.submit()
+      await editor.deleteTask()
+      expect(update).toHaveBeenCalledTimes(1)
+      expect(remove).not.toHaveBeenCalled()
+    }
+    finally {
+      vi.unstubAllGlobals()
+      wrapper.unmount()
+    }
   })
   it('uses distinct task parameters and returns to its project', async () => {
     const h = setupPage()

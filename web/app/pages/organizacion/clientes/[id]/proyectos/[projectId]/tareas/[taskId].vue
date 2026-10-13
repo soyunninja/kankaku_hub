@@ -238,7 +238,7 @@ function onDetailCloseAutoFocus(event: Event) {
           </Button>
         </template>
       </TaskDetailSheet>
-      <TaskEditDialog v-model:open="editOpen" :task="task" :can-write="canManageTask" :is-authorized="canManageTask" @deleted="backToProject" />
+      <TaskEditDialog v-model:open="editOpen" :task="task" :can-write="canManageTask" :is-authorized="() => canManageTask" @deleted="backToProject" />
     </template>
     <Sheet v-model:open="detailOpen">
       <SheetContent side="right" data-testid="task-detail-entry-drawer" class="flex w-full flex-col sm:w-[36rem] sm:max-w-xl" @open-auto-focus="onDetailOpenAutoFocus" @close-auto-focus="onDetailCloseAutoFocus">
