@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import EntryDetailSheet from '@/components/entries/EntryDetailSheet.vue'
 import { deriveEntryTitle } from '@/lib/entry-detail'
+import { isOperationalProject } from '@/lib/catalog-lifecycle'
 import type { ClientRecord, ProjectRecord, TaskEntryRecord, TaskRecord, TaskStatus, WorkRecordRecord } from '@/lib/pocketbase-types'
 
 const { t } = useI18n()
@@ -69,11 +70,19 @@ function backToProject() {
   return navigateTo(`/organizacion/clientes/${String(route.params.id)}/proyectos/${String(route.params.projectId)}`)
 }
 function taskAuthorized() { return !!task.value && ownerCurrent() }
+function taskOperational() {
+  if (!taskAuthorized()) return false
+  const project = projectById(task.value!.project)
+  const client = project && clientById(project.client)
+  return !!client && isOperationalProject(project, [client])
+}
+const canManageTask = computed(() => canWrite.value && taskAuthorized() && taskOperational())
+watch(canManageTask, allowed => { if (!allowed) editOpen.value = false }, { flush: 'sync' })
 function openEdit() {
-  if (canWrite.value && taskAuthorized() && !detailOpen.value) editOpen.value = true
+  if (canManageTask.value && !detailOpen.value) editOpen.value = true
 }
 async function changeStatus(status: TaskStatus) {
-  if (!canWrite.value || !taskAuthorized()) return
+  if (!canManageTask.value) return
   try { await updateStatus(status) }
   catch { toast.error(t('common.error')) }
 }
@@ -217,7 +226,7 @@ function onDetailCloseAutoFocus(event: Event) {
         :sessions="sessions"
         :sessions-loading="sessionsLoading"
         :session-entries="sessionEntries"
-        :can-write="canWrite"
+        :can-write="canManageTask"
         @edit="openEdit"
         @status-change="changeStatus"
         @expand-session="expandSession"
@@ -229,7 +238,7 @@ function onDetailCloseAutoFocus(event: Event) {
           </Button>
         </template>
       </TaskDetailSheet>
-      <TaskEditDialog v-model:open="editOpen" :task="task" :can-write="canWrite" :is-authorized="taskAuthorized" @deleted="backToProject" />
+      <TaskEditDialog v-model:open="editOpen" :task="task" :can-write="canManageTask" :is-authorized="canManageTask" @deleted="backToProject" />
     </template>
     <Sheet v-model:open="detailOpen">
       <SheetContent side="right" data-testid="task-detail-entry-drawer" class="flex w-full flex-col sm:w-[36rem] sm:max-w-xl" @open-auto-focus="onDetailOpenAutoFocus" @close-auto-focus="onDetailCloseAutoFocus">

@@ -15,7 +15,7 @@ describe('completed task history', () => {
     expect([page, size]).toEqual([2, HISTORY_PAGE_SIZE])
     expect(options.sort).toBe('-updated')
     expect(options.requestKey).toBeNull()
-    expect(options.filter).toContain('status = "done"')
+    expect(options.filter).toContain('(status = "done" || status = "closed")')
     expect(options.filter).toContain('title ~ "foo\\" || status = \\"open"')
     expect(options.filter).toContain('project = "project\\" || status = \\"doing"')
     expect(options.filter).toContain('project.client = "client\\" || status = \\"open"')
@@ -26,7 +26,7 @@ describe('completed task history', () => {
     const pb = new PocketBase('http://127.0.0.1:8090')
     vi.spyOn(pb, 'collection').mockReturnValue({ getList } as ReturnType<typeof pb.collection>)
     await listCompletedTasks(pb, 1, '  ', '', '')
-    expect(getList.mock.calls[0]![2].filter).toBe('status = "done"')
+    expect(getList.mock.calls[0]![2].filter).toBe('(status = "done" || status = "closed")')
   })
 
   it('filters by client relation without a selected project', async () => {
@@ -34,6 +34,6 @@ describe('completed task history', () => {
     const pb = new PocketBase('http://127.0.0.1:8090')
     vi.spyOn(pb, 'collection').mockReturnValue({ getList } as ReturnType<typeof pb.collection>)
     await listCompletedTasks(pb, 1, '', '', 'owner-id')
-    expect(getList.mock.calls[0]![2].filter).toBe('status = "done" && project.client = "owner-id"')
+    expect(getList.mock.calls[0]![2].filter).toBe('(status = "done" || status = "closed") && project.client = "owner-id"')
   })
 })

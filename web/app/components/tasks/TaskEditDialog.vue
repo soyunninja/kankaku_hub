@@ -14,7 +14,7 @@ const emit = defineEmits<{ deleted: [] }>()
 const { t } = useI18n()
 const { projects, ensureLoaded } = useProjects()
 const toast = useToast()
-const statuses: TaskStatus[] = ['open', 'doing', 'done']
+const statuses: TaskStatus[] = ['open', 'doing', 'done', 'closed']
 const editor = useTaskEditor(() => props.task, () => props.canWrite && (props.isAuthorized?.() ?? true), () => emit('deleted'))
 const { form, reset, submit: onSubmit, deleteTask: onDelete } = editor
 watch(open, async (value) => {

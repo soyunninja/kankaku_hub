@@ -3,7 +3,7 @@
  * Shared task detail presentation, retained under its original component
  * name. The canonical task page uses explicit `pageMode`; optional sheet
  * callers retain the compact heading, padding and focus exposure. Header (title, project, a Tabs-based
- * status control for open/doing/done — the touch/keyboard-accessible
+ * status control for open/doing/done/closed — the touch/keyboard-accessible
  * replacement for the board's old "Mover a" buttons, TASKS-REQ-011 — and
  * an "Edit" action back to the existing edit dialog) and a "Sessions"
  * section listing every kankaku session that touched this task, sourced
@@ -82,7 +82,7 @@ const emit = defineEmits<{ edit: []; statusChange: [status: TaskStatus]; expandS
 // primitive as the board/list toggle on the page above, and drives the
 // page's own `moveStatus()` (optimistic + rollback) via `statusChange` —
 // this component never talks to PocketBase directly, same as `edit`.
-const STATUSES: TaskStatus[] = ['open', 'doing', 'done']
+const STATUSES: TaskStatus[] = ['open', 'doing', 'done', 'closed']
 function onStatusTabChange(value: string | number) {
   if (!props.canWrite || !STATUSES.includes(value as TaskStatus)) return
   emit('statusChange', value as TaskStatus)

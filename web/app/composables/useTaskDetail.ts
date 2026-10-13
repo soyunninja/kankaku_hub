@@ -295,7 +295,7 @@ export function useTaskDetail() {
   }
 
   async function changeStatus(status: TaskStatus) {
-    if (!canWrite.value || !task.value || !['open', 'doing', 'done'].includes(status)) return
+    if (!canWrite.value || !task.value || !['open', 'doing', 'done', 'closed'].includes(status)) return
     await moveStatus(task.value.id, status)
   }
 

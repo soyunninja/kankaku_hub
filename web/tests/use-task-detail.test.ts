@@ -302,6 +302,8 @@ describe('task detail controller', () => {
     expect(moveStatus).not.toHaveBeenCalled()
     await detail.changeStatus('doing')
     expect(moveStatus).toHaveBeenCalledWith('task-a', 'doing')
+    await detail.changeStatus('closed')
+    expect(moveStatus).toHaveBeenCalledWith('task-a', 'closed')
     moveStatus.mockRejectedValueOnce(new Error('denied'))
     await expect(detail.changeStatus('done')).rejects.toThrow('denied')
   })

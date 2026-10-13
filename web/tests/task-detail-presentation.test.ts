@@ -287,6 +287,14 @@ describe('actual task detail presentation templates', () => {
     expect(wrapper.find('[data-testid="task-detail-reference"]').exists()).toBe(false)
     wrapper.unmount()
   })
+  it('renders closed as a distinct selected status and allows manual reopening', async () => {
+    const wrapper = detail(true, { task: { id: 't', title: 'Closed task', status: 'closed' } })
+    expect(wrapper.text()).toContain('tasks.status.closed')
+    expect((wrapper.vm as any).STATUSES).toEqual(['open', 'doing', 'done', 'closed'])
+    ;(wrapper.vm as any).onStatusTabChange('open')
+    expect(wrapper.events).toHaveBeenCalledWith('statusChange', 'open')
+    wrapper.unmount()
+  })
   it('keeps status/edit and lazy disclosure event guards', async () => {
     const wrapper = detail(true)
     // Invoke the actual script handler; keyboard navigation belongs to Tabs.

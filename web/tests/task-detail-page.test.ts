@@ -4,14 +4,15 @@ import * as Vue from 'vue'
 import { compileTemplate, parse } from 'vue/compiler-sfc'
 import { mount } from '@vue/test-utils'
 import ts from 'typescript'
+import { isOperationalProject } from '../app/lib/catalog-lifecycle'
 import { describe, expect, it, vi } from 'vitest'
 
 const read = (path: string) => existsSync(path) ? readFileSync(path, 'utf8') : ''
 const nested = 'app/pages/organizacion/clientes/[id]/proyectos/[projectId]/tareas/[taskId].vue'
 function setupPage(legacy = false) {
   const route = reactive({ params: { id: legacy ? 't1' : 'c1', projectId: 'p1', taskId: 't1' }, query: { q: ['one', 'two'] }, hash: '#context' })
-  const projects = reactive<Record<string, any>>({ p1: { id: 'p1', client: 'c1', name: 'Project' } })
-  const clients = reactive<Record<string, any>>({ c1: { id: 'c1', name: 'Client' } })
+  const projects = reactive<Record<string, any>>({ p1: { id: 'p1', client: 'c1', name: 'Project', active: true } })
+  const clients = reactive<Record<string, any>>({ c1: { id: 'c1', name: 'Client', active: true } })
   const tasks = ref<any[]>([{ id: 't1', project: 'p1', title: 'Task' }])
   const ensureProjects = vi.fn().mockResolvedValue(undefined)
   const ensureClients = vi.fn().mockResolvedValue(undefined)
@@ -23,6 +24,7 @@ function setupPage(legacy = false) {
   const entryGetOne = vi.fn().mockResolvedValue({ id: 'e1', client: 'c1', project: 'p1', task: 't1', session_id: 's1', prompt: 'Full stored prompt' })
   const listWorkRecords = vi.fn().mockResolvedValue([{ id: 'raw', work_ms: 999 }])
   const updateAssignment = vi.fn().mockResolvedValue(undefined)
+  const updateTaskStatus = vi.fn()
   const refreshAfterAssignment = vi.fn().mockResolvedValue(undefined)
   const ensureTasks = vi.fn().mockResolvedValue(undefined)
   const toast = { error: vi.fn(), success: vi.fn() }
@@ -36,7 +38,7 @@ function setupPage(legacy = false) {
   })
   const dispose = vi.fn(() => { task.value = null })
   const bindings = {
-    ref, computed, reactive, watch, nextTick, onMounted: () => {}, onBeforeUnmount: (fn: () => void) => { unmount = fn },
+    ref, computed, reactive, watch, nextTick, isOperationalProject, onMounted: () => {}, onBeforeUnmount: (fn: () => void) => { unmount = fn },
     useRoute: () => route, useI18n: () => ({ t: (key: string) => key }), useAuth: () => ({ canWrite }),
     useProjects: () => ({ projects: computed(() => Object.values(projects)), byId: (id: string) => projects[id], ensureLoaded: ensureProjects }),
     useClients: () => ({ clients: computed(() => Object.values(clients)), byId: (id: string) => clients[id], ensureLoaded: ensureClients }),
@@ -44,13 +46,13 @@ function setupPage(legacy = false) {
     useEntriesExplorer: () => ({ getOne: entryGetOne, listWorkRecords, updateAssignment }),
     deriveEntryTitle: () => ({ kind: 'prompt', text: 'Full stored prompt' }), useHead: () => {}, definePageMeta: () => {}, navigateTo,
     useNuxtApp: () => ({ $pb: { collection: () => ({ getOne }) } }),
-    useTaskDetail: () => ({ summary, summaryLoading: ref(false), summaryUnavailable: ref(false), summaryError: ref(false), sessionCountUnavailable: ref(false), task, loading: ref(false), error: ref(false), sessions: ref([]), sessionsLoading: ref(false), sessionsError: ref(false), sessionEntries: ref({}), load, refreshAfterAssignment, expandSession: vi.fn(), changeStatus: vi.fn(), dispose }),
+    useTaskDetail: () => ({ summary, summaryLoading: ref(false), summaryUnavailable: ref(false), summaryError: ref(false), sessionCountUnavailable: ref(false), task, loading: ref(false), error: ref(false), sessions: ref([]), sessionsLoading: ref(false), sessionsError: ref(false), sessionEntries: ref({}), load, refreshAfterAssignment, expandSession: vi.fn(), changeStatus: updateTaskStatus, dispose }),
   }
   const source = read(legacy ? 'app/pages/organizacion/tareas/[id].vue' : nested)
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)?.[1] ?? ''
   const code = ts.transpile(script.replace(/^import .*$/gm, ''), { target: ts.ScriptTarget.ES2022 })
-  const page = new Function(...Object.keys(bindings), `${code}; return ${legacy ? '{ load: resolveTask, loading, error }' : '{ load: loadPage, openEdit, editOpen, backToProject, detailContext: typeof detailContext === "undefined" ? undefined : detailContext, summary: typeof summary === "undefined" ? undefined : summary, drawer: typeof openDetail === "undefined" ? undefined : { openDetail, saveAssignment, detailOpen, detail, detailWorkRecords, detailLoading, detailError, detailClient, detailProject, detailTask, onDetailOpenAutoFocus, onDetailCloseAutoFocus, detailTitle, pageRoot }, view: typeof detailOpen === "undefined" ? undefined : { t, pageRoot, loading, error, task, sessionsError, summary, summaryLoading, summaryUnavailable, summaryError, sessionCountUnavailable, detailContext, projectName, sessions, sessionsLoading, sessionEntries, canWrite, openEdit, changeStatus, expandSession, openDetail, backToProject, editOpen, taskAuthorized, detailOpen, detailHeading, detailLoading, detailError, detailTarget, detailTitle, detail, detailWorkRecords, detailClient, detailProject, detailTask, entryClients, entryProjects, entryTasks, saveAssignment, onDetailOpenAutoFocus, onDetailCloseAutoFocus } }'}`)(...Object.values(bindings))
-  return { page, route, projects, clients, tasks, task, load, getOne, ensureProjects, ensureClients, navigateTo, dispose, canWrite, entryGetOne, listWorkRecords, updateAssignment, refreshAfterAssignment, ensureTasks, toast, unmount: () => unmount(), current: () => context.isCurrent() }
+  const page = new Function(...Object.keys(bindings), `${code}; return ${legacy ? '{ load: resolveTask, loading, error }' : '{ load: loadPage, openEdit, editOpen, backToProject, detailContext: typeof detailContext === "undefined" ? undefined : detailContext, summary: typeof summary === "undefined" ? undefined : summary, drawer: typeof openDetail === "undefined" ? undefined : { openDetail, saveAssignment, detailOpen, detail, detailWorkRecords, detailLoading, detailError, detailClient, detailProject, detailTask, onDetailOpenAutoFocus, onDetailCloseAutoFocus, detailTitle, pageRoot }, view: typeof detailOpen === "undefined" ? undefined : { t, pageRoot, loading, error, task, sessionsError, summary, summaryLoading, summaryUnavailable, summaryError, sessionCountUnavailable, detailContext, projectName, sessions, sessionsLoading, sessionEntries, canWrite, canManageTask: typeof canManageTask === "undefined" ? undefined : canManageTask, openEdit, changeStatus, expandSession, openDetail, backToProject, editOpen, taskAuthorized, taskOperational: typeof taskOperational === "undefined" ? undefined : taskOperational, detailOpen, detailHeading, detailLoading, detailError, detailTarget, detailTitle, detail, detailWorkRecords, detailClient, detailProject, detailTask, entryClients, entryProjects, entryTasks, saveAssignment, onDetailOpenAutoFocus, onDetailCloseAutoFocus } }'}`)(...Object.values(bindings))
+  return { page, route, projects, clients, tasks, task, load, getOne, ensureProjects, ensureClients, navigateTo, dispose, canWrite, entryGetOne, listWorkRecords, updateAssignment, updateTaskStatus, refreshAfterAssignment, ensureTasks, toast, unmount: () => unmount(), current: () => context.isCurrent() }
 }
 
 function mountPage(h: ReturnType<typeof setupPage>) {
@@ -273,6 +275,24 @@ describe('nested task route setup', () => {
     await h.page.load()
     expect(h.task.value).toBeNull()
     expect(h.page.detailContext.value).toBeUndefined()
+  })
+  it.each(['inactive project', 'inactive client'])('keeps inactive task history readable but blocks work controls and handlers for %s', async state => {
+    const h = setupPage()
+    if (state === 'inactive project') h.projects.p1.active = false
+    else h.clients.c1.active = false
+    await h.page.load()
+    expect(h.task.value?.id).toBe('t1')
+    expect(h.page.view.taskOperational()).toBe(false)
+    expect(h.page.view.canManageTask.value).toBe(false)
+    h.page.openEdit()
+    await h.page.view.changeStatus('done')
+    expect(h.page.editOpen.value).toBe(false)
+    expect(h.page.view.canWrite.value).toBe(true)
+    expect(h.page.view.taskAuthorized()).toBe(true)
+    expect(h.updateTaskStatus).not.toHaveBeenCalled()
+    expect(read(nested)).toContain(':can-write="canManageTask"')
+    expect(read(nested)).toContain(':can-write="canWrite"')
+    expect(read(nested)).toContain('if (!canWrite.value || !taskAuthorized() || !detailOpen.value')
   })
   it('does not swallow denied parent reads', async () => {
     const h = setupPage()

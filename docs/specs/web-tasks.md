@@ -21,7 +21,7 @@ the future.
 ## Requirements
 
 1. `TASKS-REQ-001` — Tasks SHALL support create, edit, and delete, with
-   `status` constrained to `open`/`doing`/`done`.
+   `status` constrained to `open`/`doing`/`done`/`closed`.
 2. `TASKS-REQ-002` — The board view SHALL group tasks by status into three
    columns and support moving a task between them.
 3. `TASKS-REQ-003` — A status change via drag-and-drop SHALL update the
@@ -81,8 +81,11 @@ the future.
     automatically by this mechanism and a `done` task SHALL never be
     reopened by it.
 11. `TASKS-REQ-011` — The task detail page SHALL offer a status control
-    (open/doing/done) that calls the same `useTasks().moveStatus()` the
+    (open/doing/done/closed) that calls the same `useTasks().moveStatus()` the
     board's drag-and-drop uses (optimistic update, rollback on failure).
+    `closed` is terminal like `done` for live-board exclusion and appears in
+    historical task results with its actual status label; reopening requires
+    an explicit owner status change while both parents are active.
     The selected status SHALL update locally and remain reflected on SPA
     return to the board without a reload. Detail and board use the same
     reactive task list. Viewers SHALL have no status/edit controls and
@@ -95,6 +98,21 @@ the future.
     the `open`/`done` ends (no-op, never wrapping). Focus SHALL remain on
     the moved card's element in its new column after the move, and the
     change SHALL be announced through an `aria-live="polite"` region.
+13. `TASKS-REQ-013` — Operational board/list tasks and the new-task
+    project picker SHALL include only projects whose own `active` value
+    and known parent client's `active` value are both explicitly `true`.
+    Missing parent/state is ineligible until loaded. A stale/ineligible
+    project selection SHALL NOT create a task or change status. This
+    eligibility SHALL NOT filter task catalogs, completed-task history,
+    task entries, or historical totals; task status values are
+    `open`/`doing`/`done`/`closed`. Both terminal statuses remain in history;
+    closed tasks are excluded from the live board. Existing task edit/status writes SHALL also
+    require current task-to-project ownership and explicitly active project
+    and parent client. Inactive project detail SHALL retain navigable task
+    history and show its inactive state; the nested task route remains
+    readable, while task edit/status controls and handlers are unavailable.
+    Historical task-entry reassignment SHALL retain its existing write
+    permission behavior.
 
 ## Scenarios
 
@@ -150,6 +168,21 @@ the future.
 - **Then** the task's `status` becomes `doing` on the server, and the web
   reflects this the next time it reads the task rather than showing a
   stale `open`
+
+### Scenario: inherited catalog inactivity blocks new operational work (`TASKS-REQ-013`)
+
+- **Given** a project or its parent client is inactive, or the parent is not
+  yet known
+- **When** the task board/list and new-task project picker are shown
+- **Then** the project is unavailable for active work and stale creation or
+  status-change attempts do not write; task history, task statuses, linked
+  entries, and historical totals remain unchanged
+- **And** the project detail retains historical task cards and links while
+  showing the inherited inactive state
+- **And** direct task detail routes remain readable, but task edit/status
+  controls and writes are blocked when either parent is inactive
+- **And** historical task-entry reassignment keeps its original permission
+  checks
 
 ### Scenario: opening a task shows its sessions with resume commands (`TASKS-REQ-007`, `TASKS-REQ-008`)
 
@@ -242,3 +275,4 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-010` | `pocketbase/pb_hooks/lib/task-status-rule.test.js` (`npm run hooks:test`), `web/e2e/task-status.spec.ts` (the sessions-without-task queue's attach action reflects the hook on the board via `useTasks().refreshOne`, for an `open` and a `done` target task) | covered |
 | `TASKS-REQ-011` | `web/e2e/task-status.spec.ts` ("the detail page status control moves a card...") | covered |
 | `TASKS-REQ-012` | `web/e2e/task-status.spec.ts` ("ArrowLeft/ArrowRight (and [ / ]) move the focused card...", "Enter/Space on a focused card opens...") | covered |
+| `TASKS-REQ-013` | `web/tests/catalog-lifecycle.test.ts`, `web/tests/tasks-page.test.ts`, `web/tests/project-detail-page.test.ts`, `web/tests/task-detail-page.test.ts` | covered |

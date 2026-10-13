@@ -16,6 +16,7 @@ import { groupByKey } from '@/lib/aggregate'
 import { listCompletedTasks } from '@/lib/task-history'
 import { loadTaskTotalsPages } from '@/lib/task-totals-pages'
 import { taskDetailRoute } from '@/lib/task-detail-route'
+import { isOperationalProject } from '@/lib/catalog-lifecycle'
 import type { ListResult } from 'pocketbase'
 import { resolvePreset } from '@/lib/period'
 import type { TaskRecord, TaskStatus } from '@/lib/pocketbase-types'
@@ -37,9 +38,8 @@ const { $pb } = useNuxtApp()
 
 const filterClient = ref('')
 const filterProject = ref('')
-const availableProjects = computed(() => filterClient.value
-  ? projects.value.filter(p => p.client === filterClient.value)
-  : projects.value)
+const availableProjects = computed(() => projects.value.filter(p => isOperationalProject(p, clients.value)
+  && (!filterClient.value || p.client === filterClient.value)))
 
 function clientById(id: string) {
   return clients.value.find(c => c.id === id)
@@ -91,6 +91,8 @@ async function refreshHistory() {
 }
 
 async function changeStatus(id: string, status: TaskStatus) {
+  const task = tasks.value.find(t2 => t2.id === id)
+  if (!task || !taskIsOperational(task)) return
   await moveStatus(id, status)
   await refreshHistory()
 }
@@ -169,12 +171,19 @@ function projectName(id: string) {
   return projects.value.find(p => p.id === id)?.name ?? id
 }
 
-const filtered = computed(() => tasks.value.filter(t2 => t2.status !== 'done'
+const operationalProjects = computed(() => projects.value.filter(p => isOperationalProject(p, clients.value)))
+function taskIsOperational(task: TaskRecord) {
+  return operationalProjects.value.some(p => p.id === task.project)
+}
+const filtered = computed(() => tasks.value.filter(t2 => t2.status !== 'done' && t2.status !== 'closed'
+  && operationalProjects.value.some(p => p.id === t2.project)
   && (!filterProject.value || t2.project === filterProject.value)
   && (!filterClient.value || projects.value.some(p => p.id === t2.project && p.client === filterClient.value))))
 const displayedTasks = computed(() => view.value === 'history' ? (historyResult.value?.items ?? []) : filtered.value)
 
+// Keyboard movement spans live workflow columns only; closed tasks stay in history.
 const statuses: TaskStatus[] = ['open', 'doing', 'done']
+const editableStatuses: TaskStatus[] = ['open', 'doing', 'done', 'closed']
 const activeStatuses: TaskStatus[] = ['open', 'doing']
 function byStatus(status: TaskStatus) {
   return filtered.value.filter(t2 => t2.status === status)
@@ -190,6 +199,7 @@ const draggingTaskId = ref<string | null>(null)
 const dragOverStatus = ref<TaskStatus | null>(null)
 
 function onDragStart(task: TaskRecord, event: DragEvent) {
+  if (!taskIsOperational(task)) return
   draggingTaskId.value = task.id
   event.dataTransfer?.setData('text/plain', task.id)
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
@@ -252,6 +262,7 @@ function setCardEl(taskId: string, el: unknown) {
 const liveMessage = ref('')
 
 async function moveFocusedTask(task: TaskRecord, status: TaskStatus) {
+  if (!taskIsOperational(task)) return
   try {
     await changeStatus(task.id, status)
     liveMessage.value = t('tasks.statusMovedAnnouncement', { title: task.title, status: t(`tasks.status.${status}`) })
@@ -266,6 +277,7 @@ async function moveFocusedTask(task: TaskRecord, status: TaskStatus) {
 }
 
 function onCardKeydown(task: TaskRecord, status: TaskStatus, event: KeyboardEvent) {
+  if (!taskIsOperational(task)) return
   if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
     event.preventDefault()
     openDetail(task)
@@ -290,14 +302,16 @@ const form = reactive({ title: '', project: '', status: 'open' as TaskStatus, ex
 
 function openCreate() {
   editing.value = null
+  if (!availableProjects.value.length) return
   form.title = ''
-  form.project = filterProject.value || availableProjects.value[0]?.id || ''
+  form.project = availableProjects.value.some(p => p.id === filterProject.value) ? filterProject.value : availableProjects.value[0]!.id
   form.status = 'open'
   form.external_ref = ''
   form.description = ''
   dialogOpen.value = true
 }
 function openEdit(task: TaskRecord) {
+  if (!taskIsOperational(task)) return
   editing.value = task
   form.title = task.title
   form.project = task.project
@@ -309,6 +323,14 @@ function openEdit(task: TaskRecord) {
 
 async function onSubmit() {
   try {
+    if (editing.value && !taskIsOperational(editing.value)) {
+      toast.error(t('common.inactive'))
+      return
+    }
+    if (!editing.value && !availableProjects.value.some(p => p.id === form.project)) {
+      toast.error(t('common.inactive'))
+      return
+    }
     if (editing.value) {
       await update(editing.value.id, { ...form })
       await refreshHistory()
@@ -326,6 +348,7 @@ async function onSubmit() {
 }
 
 async function onDelete(task: TaskRecord) {
+  if (!taskIsOperational(task)) return
   try {
     await remove(task.id)
     await refreshHistory()
@@ -384,7 +407,7 @@ async function onDelete(task: TaskRecord) {
           <Button ref="historyControl" variant="toolbar" :aria-pressed="view === 'history'" @click="view = view === 'history' ? 'board' : 'history'">
             {{ t('tasks.history.title') }}
           </Button>
-          <Button v-if="canWrite" data-testid="write-action" size="sm" @click="openCreate">
+          <Button v-if="canWrite" data-testid="write-action" size="sm" :disabled="availableProjects.length === 0" @click="openCreate">
             <Plus class="size-4" />
             {{ t('tasks.new') }}
           </Button>
@@ -522,7 +545,7 @@ async function onDelete(task: TaskRecord) {
                 </td>
                 <td class="p-3 text-right">
                   <RowActions
-                    v-if="canWrite"
+                    v-if="canWrite && taskIsOperational(task)"
                     no-hover
                     data-testid="write-action"
                     :actions="[
@@ -556,11 +579,11 @@ async function onDelete(task: TaskRecord) {
             </div>
             <div class="flex flex-col gap-1.5">
               <Label>{{ t('common.project') }}</Label>
-              <Select v-model="form.project" :aria-label="t('common.project')" :options="projects.map(p => ({ value: p.id, label: p.name }))" />
+              <Select v-model="form.project" :aria-label="t('common.project')" :options="(editing ? projects : availableProjects).map(p => ({ value: p.id, label: p.name }))" />
             </div>
             <div class="flex flex-col gap-1.5">
               <Label>{{ t('common.status') }}</Label>
-              <Select v-model="form.status" :aria-label="t('common.status')" :options="statuses.map(s => ({ value: s, label: t(`tasks.status.${s}`) }))" />
+              <Select v-model="form.status" :aria-label="t('common.status')" :options="editableStatuses.map(s => ({ value: s, label: t(`tasks.status.${s}`) }))" />
             </div>
             <div class="flex flex-col gap-1.5">
               <Label for="t-ref">{{ t('common.externalRef') }}</Label>
@@ -570,7 +593,7 @@ async function onDelete(task: TaskRecord) {
               <Label for="t-desc">{{ t('common.description') }}</Label>
               <Textarea id="t-desc" v-model="form.description" />
             </div>
-            <DialogFooter v-if="canWrite" class="justify-between sm:justify-between">
+            <DialogFooter v-if="canWrite && (!editing || taskIsOperational(editing))" class="justify-between sm:justify-between">
               <Button v-if="editing" data-testid="write-action" type="button" variant="ghost" class="text-destructive" @click="onDelete(editing); dialogOpen = false">
                 <Trash2 class="size-4" />
                 {{ t('common.delete') }}

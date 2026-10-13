@@ -4,8 +4,8 @@ import type { TaskRecord } from './pocketbase-types'
 export const HISTORY_PAGE_SIZE = 25
 
 export function listCompletedTasks(pb: PocketBase, page: number, search: string, project: string, client: string) {
-  const clauses = ['status = {:status}']
-  const params: Record<string, string> = { status: 'done' }
+  const clauses = ['(status = {:done} || status = {:closed})']
+  const params: Record<string, string> = { done: 'done', closed: 'closed' }
   if (search.trim()) {
     clauses.push('title ~ {:search}')
     params.search = search.trim()
