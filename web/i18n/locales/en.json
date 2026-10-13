@@ -81,6 +81,15 @@
     "memberTotalsUnavailable": "Member totals are unavailable on this PocketBase instance.",
     "currentDepartment": "Current department",
     "currentMachines": "Current machines",
+    "machines": "Machines",
+    "addMachine": "Add machine",
+    "assignMachine": "Assign",
+    "selectFreeMachine": "Select an active free machine",
+    "machineName": "Machine name",
+    "unlinkMachine": "Unlink",
+    "unlinkMachineConfirm": "Unlink {machine} from {member}? Historical entries will remain unchanged.",
+    "machineRequestFailed": "Could not update this machine assignment. Try again.",
+    "machineSavedRefreshFailed": "Machine saved, but the catalog could not refresh. Reload before making another change.",
     "noMachines": "No machines currently assigned.",
     "openDetail": "Open details for {name}",
     "memberNotFound": "Team member not found.",
@@ -329,6 +338,14 @@
     "invalidEmail": "Enter a valid email.",
     "migrationPending": "Contact fields were not saved: the database migration hasn't been applied yet (restart the server).",
     "viewDetail": "View detail",
+    "archive": {
+      "confirmTitle": "Archive {name}?",
+      "confirmProjects": "All projects belonging to this client will become inactive.",
+      "confirmTasks": "All tasks in those projects will be closed. Their history, time, token records and notes will be retained.",
+      "confirmReactivate": "Reactivating the client will not reopen tasks. Reopen them manually after their project and client are active.",
+      "writeFailed": "Could not archive this client. Try again.",
+      "refreshWarning": "The client was archived, but project lists could not be refreshed. Reload to see the latest catalog."
+    },
     "favicon": {
       "refresh": "Refresh icon",
       "toast": {
@@ -368,17 +385,30 @@
     "viewLabel": "Project view",
     "listView": "List",
     "gridView": "Grid",
+    "activeClientProjects": "Projects of active clients",
+    "inactiveClientProjects": "Inactive",
+    "inactiveParentNotice": "Reactivate client first; then reactivate this project manually.",
     "openDetail": "Open {name} details",
     "noResults": "No projects match your filters.",
     "sortAscending": "Sort {column} ascending",
     "sortDescending": "Sort {column} descending",
+    "notes": "Notes",
+    "notesHint": "Optional notes about this project, up to 5000 characters.",
     "repoPaths": "Repository paths",
     "repoPathsHint": "Absolute repo paths on your machines. kankaku uses these to auto-select the project when you start a session in that directory.",
     "addPath": "Add path",
     "removePath": "Remove path",
+    "archive": {
+      "confirmTitle": "Archive {name}?",
+      "confirmProject": "Only this project will become inactive. Its parent client and other projects will not change.",
+      "confirmTasks": "All tasks in this project will be closed. Their history, time, token records and notes will be retained; reactivating the project will not reopen them. Reopen tasks manually once the project and client are active.",
+      "writeFailed": "Could not update this project. Try again.",
+      "refreshWarning": "The project was saved, but the catalog could not refresh. Reload to see the latest details."
+    },
     "empty": "No projects yet.",
     "detail": {
       "notFound": "Project not found or unavailable",
+      "noNotes": "No notes",
         "trend": "Trend",
       "tasksTitle": "Tasks",
        "period": "Last 30 days: {start} – {end}",
@@ -423,7 +453,8 @@
     "status": {
       "open": "Open",
       "doing": "Doing",
-      "done": "Done"
+      "done": "Done",
+      "closed": "Closed"
     },
     "empty": "No tasks.",
     "cost": "AI cost",

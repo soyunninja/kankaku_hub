@@ -4,9 +4,11 @@ import StackedBarChart from '@/components/charts/StackedBarChart.vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientEditDialog from '@/components/clients/ClientEditDialog.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
+import ProjectMembers from '@/components/projects/ProjectMembers.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { PROJECT_OTHERS_KEY, projectRemainder, rankProjects } from '@/lib/project-chart'
 import type { TotalsGroup } from '@/lib/totals-map'
@@ -27,7 +29,7 @@ const { fetchRange } = useTaskEntries()
 const { fetchRangeTotals, fetchTotals } = useTotals()
 const { isOwner, canWrite } = useAuth()
 const editor = useClientEditor()
-const { saving, archiving } = editor
+const { saving, archiving, confirmationOpen, archiveTarget } = editor
 watch(() => route.params.id, editor.close, { flush: 'sync' })
 onBeforeUnmount(editor.close)
 const toast = useToast()
@@ -301,6 +303,9 @@ onMounted(load)
 watch(() => route.params.id, load, { flush: 'sync' })
 
 const faviconRefreshing = ref(false)
+function preventArchiveDismiss(event: Event) {
+  if (archiving.value) event.preventDefault()
+}
 async function onRefreshFavicon() {
   if (!detailClient.value || !isOwner.value || detailClient.value.unassigned || faviconRefreshing.value) return
   const id = detailClient.value.id
@@ -338,7 +343,7 @@ async function onRefreshFavicon() {
           <h1 data-testid="detail-client-name" class="text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">{{ detailClient.name }}</h1>
           <p data-testid="detail-client-code" class="text-sm text-muted-foreground">{{ detailClient.code }}</p>
         </div>
-        <Badge data-testid="detail-client-status-badge" :variant="detailClient.active ? 'success' : 'outline'">
+        <Badge data-testid="detail-client-status-badge" :variant="detailClient.active ? 'success' : 'outline'" :class="{ 'border-0 bg-orange-600 text-white': !detailClient.active }">
           {{ detailClient.active ? t('common.active') : t('common.inactive') }}
         </Badge>
         <Lock v-if="detailClient.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
@@ -400,8 +405,8 @@ async function onRefreshFavicon() {
               <h3 class="min-w-0 text-sm font-semibold [overflow-wrap:anywhere] sm:text-base">{{ p.name }}</h3>
               <div class="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                 <ClientAvatar :client="detailClient" size="xs" class="shrink-0" />
-                <p class="min-w-0 truncate" :title="detailClient.name + (p.code ? ` / ${p.code}` : '')">
-                  {{ detailClient.name }}<span v-if="p.code"> / {{ p.code }}</span>
+                <p class="min-w-0 truncate" :title="detailClient.name">
+                  {{ detailClient.name }}
                 </p>
               </div>
             </div>
@@ -429,8 +434,8 @@ async function onRefreshFavicon() {
               <p v-if="projectCostShare(p.id).state === 'unavailable'" class="text-xs text-muted-foreground">{{ costShareLabel(p) }}</p>
             </div>
             <div class="mt-auto flex flex-wrap items-center justify-between gap-1">
-              <Badge :variant="p.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{{ p.active ? t('common.active') : t('common.inactive') }}</Badge>
-              <NuxtLink :to="`/organizacion/clientes/${p.client}/proyectos/${p.id}`" :aria-label="t('projects.openDetail', { name: p.name })" class="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Badge v-if="detailClient.active" :variant="p.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{{ p.active ? t('common.active') : t('common.inactive') }}</Badge>
+              <NuxtLink :to="`/organizacion/clientes/${p.client}/proyectos/${p.id}`" :aria-label="t('projects.openDetail', { name: p.name })" class="ml-auto inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <ArrowRight aria-hidden="true" class="size-5" />
               </NuxtLink>
             </div>
@@ -438,45 +443,75 @@ async function onRefreshFavicon() {
         </div>
         <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noProjects') }}</p>
       </section>
+      <ProjectMembers v-if="detailClient" :client-id="detailClient.id" />
         </div>
         <aside data-testid="client-sidebar" class="min-w-0 space-y-6 [overflow-wrap:anywhere]">
           <div v-if="canWrite" data-testid="client-actions" class="flex flex-wrap justify-end gap-2">
             <Button data-testid="client-edit" :disabled="detailClient.unassigned || saving || archiving" @click="editor.openEdit(detailClient)">
               <Pencil aria-hidden="true" class="size-4" />{{ t('common.edit') }}
             </Button>
-            <Button data-testid="client-archive" variant="outline" :disabled="detailClient.unassigned || saving || archiving" :aria-busy="archiving" @click="editor.toggleArchive(detailClient)">
+            <Button data-testid="client-archive" variant="outline" :disabled="detailClient.unassigned || saving || archiving" :aria-busy="archiving" @click="editor.requestArchive(detailClient)">
               <component :is="detailClient.active ? Archive : ArchiveRestore" aria-hidden="true" class="size-4" />
               {{ detailClient.active ? t('common.archive') : t('common.unarchive') }}
             </Button>
           </div>
-          <section class="space-y-2 border-t border-border pt-4">
-            <div class="flex items-center justify-between gap-2">
-              <h2 class="text-sm font-medium">{{ t('clients.detail.contactTitle') }}</h2>
+          <Card>
+            <CardHeader class="grid-cols-[1fr_auto] grid-rows-[auto] items-center gap-3">
+              <CardTitle class="text-sm">{{ t('clients.detail.contactTitle') }}</CardTitle>
               <Button v-if="isOwner && !detailClient.unassigned" data-testid="favicon-refresh-button write-action" variant="ghost" size="icon" class="size-7" :disabled="faviconRefreshing" :aria-label="t('clients.favicon.refresh')" :title="t('clients.favicon.refresh')" @click="onRefreshFavicon">
                 <RefreshCw data-testid="favicon-refresh-icon" class="size-3.5" :class="faviconRefreshing ? 'animate-spin' : ''" />
               </Button>
-            </div>
-            <a v-if="isSafeLinkUrl(detailClient.website ?? '')" :href="detailClient.website" target="_blank" rel="noopener noreferrer" class="inline-flex max-w-full items-center gap-1.5 text-sm hover:underline">
-              <Globe class="size-3.5 shrink-0" />{{ displayUrlWithoutScheme(detailClient.website ?? '') }}
-            </a>
-            <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noWebsite') }}</p>
-            <a v-if="detailClient.contact_email" :href="`mailto:${detailClient.contact_email}`" class="flex items-center gap-1.5 text-sm hover:underline">
-              <Mail class="size-3.5 shrink-0" />{{ detailClient.contact_email }}
-            </a>
-            <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noContactEmail') }}</p>
-            <a v-if="detailClient.contact_phone" :href="`tel:${detailClient.contact_phone}`" class="flex items-center gap-1.5 text-sm hover:underline">
-              <Phone class="size-3.5 shrink-0" />{{ detailClient.contact_phone }}
-            </a>
-            <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noContactPhone') }}</p>
-          </section>
-          <section class="space-y-2 border-t border-border pt-4">
-            <h2 class="text-sm font-medium">{{ t('clients.notes') }}</h2>
-            <p v-if="detailClient.notes" class="text-sm whitespace-pre-wrap text-muted-foreground">{{ detailClient.notes }}</p>
-            <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noNotes') }}</p>
-          </section>
+            </CardHeader>
+            <CardContent class="space-y-2 pt-0">
+              <a v-if="isSafeLinkUrl(detailClient.website ?? '')" :href="detailClient.website" target="_blank" rel="noopener noreferrer" class="inline-flex max-w-full items-center gap-1.5 text-sm hover:underline">
+                <Globe class="size-3.5 shrink-0" />{{ displayUrlWithoutScheme(detailClient.website ?? '') }}
+              </a>
+              <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noWebsite') }}</p>
+              <a v-if="detailClient.contact_email" :href="`mailto:${detailClient.contact_email}`" class="flex items-center gap-1.5 text-sm hover:underline">
+                <Mail class="size-3.5 shrink-0" />{{ detailClient.contact_email }}
+              </a>
+              <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noContactEmail') }}</p>
+              <a v-if="detailClient.contact_phone" :href="`tel:${detailClient.contact_phone}`" class="flex items-center gap-1.5 text-sm hover:underline">
+                <Phone class="size-3.5 shrink-0" />{{ detailClient.contact_phone }}
+              </a>
+              <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noContactPhone') }}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle class="text-sm">{{ t('clients.notes') }}</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-2 pt-0">
+              <p v-if="detailClient.notes" class="text-sm whitespace-pre-wrap text-muted-foreground">{{ detailClient.notes }}</p>
+              <p v-else class="text-sm text-muted-foreground">{{ t('clients.detail.noNotes') }}</p>
+            </CardContent>
+          </Card>
         </aside>
       </div>
       <ClientEditDialog :editor="editor" />
+      <Dialog :open="confirmationOpen" @update:open="editor.onConfirmationOpenChange">
+        <DialogContent
+          data-testid="client-archive-confirmation"
+          :show-close-button="!archiving"
+          :aria-describedby="undefined"
+          @escape-key-down="preventArchiveDismiss"
+          @pointer-down-outside="preventArchiveDismiss"
+          @interact-outside="preventArchiveDismiss"
+        >
+          <DialogHeader>
+            <DialogTitle>{{ t('clients.archive.confirmTitle', { name: archiveTarget?.name ?? '' }) }}</DialogTitle>
+          </DialogHeader>
+          <div class="space-y-2 text-sm text-muted-foreground">
+            <p>{{ t('clients.archive.confirmProjects') }}</p>
+            <p>{{ t('clients.archive.confirmTasks') }}</p>
+            <p>{{ t('clients.archive.confirmReactivate') }}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" :disabled="archiving" @click="editor.cancelArchive">{{ t('common.cancel') }}</Button>
+            <Button variant="destructive" :disabled="archiving" :aria-busy="archiving" @click="editor.confirmArchive">{{ t('common.archive') }}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </template>
   </div>
 </template>

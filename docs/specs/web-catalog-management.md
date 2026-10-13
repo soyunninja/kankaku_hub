@@ -21,8 +21,12 @@ for silent auto-selection.
    archive (setting `active: false`), never a hard delete from the UI.
 2. `CATMGMT-REQ-002` — The "Sin determinar" client row SHALL be protected
    from edit and delete in the UI.
-3. `CATMGMT-REQ-003` — The projects page SHALL support create, edit,
-   archive, and editing a project's `repo_paths` array.
+3. `CATMGMT-REQ-003` — The projects catalog SHALL support project creation.
+   Project edit, archive, and reactivation SHALL be available from the
+   owner-writable project detail sidebar, including editing `repo_paths`.
+   Project archival closes its tasks while retaining historical records;
+   reactivating the project never restores task statuses. Tasks are manually
+   reopened only after both parents are active.
 4. `CATMGMT-REQ-004` — Every create/update SHALL send `active` explicitly
    (PocketBase has no schema default for bools).
 5. `CATMGMT-REQ-005` — The project detail page SHALL show KPIs, a trend,
@@ -88,6 +92,65 @@ for silent auto-selection.
     viewer's local calendar day (`app/lib/local-day.ts`), same as
     `DASH-REQ-013`, never a raw slice of the stored UTC `started_at`.
     Found by an independent review on 2026-09-21.
+14. `CATMGMT-REQ-014` — Any server-side client update that changes
+    `active: true` to `active: false` SHALL transactionally deactivate all
+    currently active projects related to that client, regardless of whether
+    the write came from the web UI, the collection API, or a privileged model
+    save. Repeating deactivation SHALL be idempotent; reactivating the client
+    SHALL NOT reactivate projects or reopen closed tasks. Client archival
+    closes descendant tasks (including those in already inactive projects),
+    while `task_entries`/`work_records` remain unchanged. Project
+    availability depends on both its own status and its parent client's
+    status. Active project creation, reactivation, and parent moves SHALL be
+    rejected when the destination client is inactive; inactive project saves
+    and active writes under active clients remain allowed.
+
+## Amendment (manual project reactivation UX)
+
+The UI SHALL not reactivate a project until its selected parent client is
+explicitly active. Under an inactive or missing parent, project details show
+“Reactivate client first; then reactivate this project manually.” and disable
+reactivation while preserving archive for an already-active legacy project.
+Editing an active project under an inactive parent normalizes the form to
+inactive so unrelated metadata remains editable; parent status changes never
+auto-enable a project. Creation defaults active only for a known-active
+selected client. UI handlers re-read the latest selected parent before active
+writes; PocketBase remains authoritative for races after that check.
+
+## Amendments (project lifecycle guard)
+
+Project model create/update hooks reject writes that leave an active project
+under an inactive client, including direct API and privileged model saves.
+Client reactivation does not restore projects; after reactivating a client,
+the owner must manually reactivate each desired project.
+
+## Amendments (project detail actions)
+
+Project creation remains in the shared catalog, while edit/archive/reactivate
+controls live in the nested project detail sidebar. The edit form preserves
+name, parent client, code, active state, and `repo_paths`; changing the parent
+client follows the saved project to its new detail route without rewriting
+historical entries. Project archive closes its tasks and retains their history,
+time, token records, and notes; project reactivation never restores task
+statuses. The owner manually reopens tasks after the project and parent client
+are active. Archiving/reactivating a project does not alter the parent client
+or other projects.
+
+## Amendments (client cascade)
+
+`CATMGMT-REQ-014` is enforced by the `clients` update model hook and its
+project writes share the client update transaction. The isolated
+PocketBase 0.40.4 test confirms the first project save completed before a
+handler-safe injected second-project exception (asserting its exact unique
+error identity, not a generic HTTP status), then verifies that the client
+and both projects are unchanged. The fixture covers 41 related projects,
+full unchanged already-inactive/task/history records, and captures
+PocketBase stdout/stderr for diagnostics; it uses dependency state required
+inside each Goja callback rather than top-level callback state. The failure
+occurs before the client continuation, so it proves rollback of the prior
+project save and prevention of the client write. It does not exercise
+rollback of an already executed client write; client-final-save failure
+coverage remains a verification gap.
 
 ## Amendments (client favicons)
 

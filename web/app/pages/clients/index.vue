@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { Archive, ArchiveRestore, ArrowRight, LayoutGrid, List, Lock, Pencil, Plus, Search, StickyNote } from '@lucide/vue'
+import { ArrowRight, LayoutGrid, List, Lock, Plus, Search, StickyNote } from '@lucide/vue'
 import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientEditDialog from '@/components/clients/ClientEditDialog.vue'
-import ClientName from '@/components/clients/ClientName.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import RowActions from '@/components/common/RowActions.vue'
 import SkeletonRows from '@/components/common/SkeletonRows.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { groupByClient } from '@/lib/aggregate'
-import { displayUrlWithoutScheme } from '@/lib/client-contact'
 import { resolvePreset } from '@/lib/period'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 import { totalsByGroupKey } from '@/lib/totals-map'
@@ -36,7 +33,7 @@ const filteredClients = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
   return clients.value.filter(client =>
     [client.name, client.code, client.website ?? ''].some(value => value.toLocaleLowerCase().includes(query)),
-  )
+  ).sort((a, b) => Number(b.active) - Number(a.active))
 })
 
 const totalsByClient = ref<Record<string, { cost: number, workMs: number }>>({})
@@ -67,7 +64,7 @@ onMounted(async () => {
 })
 
 const editor = useClientEditor()
-const { openCreate, openEdit, toggleArchive } = editor
+const { openCreate } = editor
 onBeforeUnmount(editor.close)
 
 function openDetail(client: ClientRecord) {
@@ -125,39 +122,20 @@ function openDetail(client: ClientRecord) {
       </div>
 
       <template v-if="view === 'grid'">
-        <div v-if="loading && clients.length === 0" role="status" :aria-label="t('common.loading')" class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
+        <div v-if="loading && clients.length === 0" role="status" :aria-label="t('common.loading')" class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 lg:gap-6">
           <div v-for="n in 4" :key="n" class="h-48 animate-pulse rounded-3xl bg-muted" />
         </div>
-        <div v-else class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
-          <article v-for="c in filteredClients" :key="c.id" data-testid="client-card" class="flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 transition-colors sm:gap-5 sm:p-5">
+        <div v-else class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 lg:gap-6">
+          <article v-for="c in filteredClients" :key="c.id" data-testid="client-card" class="flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 transition-colors sm:gap-5 sm:p-5" :class="{ 'opacity-75': !c.active }">
             <div class="grid min-w-0 grid-cols-[auto_1fr] items-start gap-2 sm:gap-3">
               <ClientAvatar :client="c" size="md" class="size-7 shrink-0" />
-              <div class="col-span-2 row-start-2 min-w-0">
+              <div class="min-w-0">
                 <h2 class="flex items-start gap-1 text-sm font-semibold sm:text-base">
                   <span class="min-w-0 [overflow-wrap:anywhere]" :title="c.name">{{ c.name }}</span>
                   <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.protected')" />
-                  <Tooltip v-if="c.notes">
-                    <TooltipTrigger as-child>
-                      <button type="button" :aria-label="t('clients.hasNotes')" class="shrink-0 rounded focus-visible:ring-2 focus-visible:ring-focus-indicator">
-                        <StickyNote class="size-3.5 text-muted-foreground" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-xs whitespace-pre-wrap">{{ c.notes }}</TooltipContent>
-                  </Tooltip>
                 </h2>
-                <p class="mt-1 truncate text-sm text-muted-foreground" :title="c.website || c.code">
-                  {{ c.website ? displayUrlWithoutScheme(c.website) : c.code }}
-                </p>
+                <p class="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ c.code }}</p>
               </div>
-              <RowActions
-                v-if="canWrite"
-                data-testid="write-action"
-                class="col-start-2 row-start-1 flex-wrap"
-                :actions="[
-                  { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(c), disabled: c.unassigned },
-                  { icon: c.active ? Archive : ArchiveRestore, label: c.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(c), disabled: c.unassigned },
-                ]"
-              />
             </div>
             <dl class="grid min-w-0 grid-cols-1 gap-3 text-sm [overflow-wrap:anywhere] sm:grid-cols-2">
               <div class="min-w-0">
@@ -170,7 +148,7 @@ function openDetail(client: ClientRecord) {
               </div>
             </dl>
             <div class="mt-auto flex flex-wrap items-center justify-between gap-1">
-              <Badge :variant="c.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
+              <Badge :variant="c.active ? 'success' : 'outline'" class="min-w-0 whitespace-normal [overflow-wrap:anywhere]" :class="{ 'border-0 bg-orange-600 text-white': !c.active }">
                 {{ c.active ? t('common.active') : t('common.inactive') }}
               </Badge>
               <Button variant="ghost" size="icon" class="rounded-full text-muted-foreground" :aria-label="t('clients.openDetail', { name: c.name })" @click="openDetail(c)">
@@ -188,7 +166,6 @@ function openDetail(client: ClientRecord) {
             <TableHeader>
               <TableRow>
                 <TableHead>{{ t('common.name') }}</TableHead>
-                <TableHead>{{ t('common.code') }}</TableHead>
                 <TableHead>{{ t('common.status') }}</TableHead>
                 <TableHead class="text-right">
                   {{ t('clients.totalTime') }}
@@ -196,13 +173,10 @@ function openDetail(client: ClientRecord) {
                 <TableHead class="text-right">
                   {{ t('clients.totalCost') }}
                 </TableHead>
-                <TableHead class="text-right">
-                  {{ canWrite ? t('common.actions') : '' }}
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <SkeletonRows v-if="loading && clients.length === 0" :rows="4" :cols="6" />
+              <SkeletonRows v-if="loading && clients.length === 0" :rows="4" :cols="4" />
               <TableRow
                 v-for="c in filteredClients"
                 :key="c.id"
@@ -210,26 +184,27 @@ function openDetail(client: ClientRecord) {
                 @click="openDetail(c)"
               >
                 <TableCell class="font-medium">
-                  <ClientName :client="c" class="max-w-48">
-                    <span class="flex min-w-0 items-center gap-1.5">
-                      <span class="truncate">{{ c.name }}</span>
-                      <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
-                      <Tooltip v-if="c.notes">
-                        <TooltipTrigger as-child>
-                          <StickyNote class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.hasNotes')" />
-                        </TooltipTrigger>
-                        <TooltipContent class="max-w-xs whitespace-pre-wrap">
-                          {{ c.notes }}
-                        </TooltipContent>
-                      </Tooltip>
+                  <NuxtLink :to="`/organizacion/clientes/${c.id}`" class="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-focus-indicator" @click.stop>
+                    <ClientAvatar :client="c" size="sm" />
+                    <span class="flex min-w-0 flex-col">
+                      <span class="flex min-w-0 items-center gap-1.5">
+                        <span class="[overflow-wrap:anywhere]">{{ c.name }}</span>
+                        <Lock v-if="c.unassigned" class="size-3.5 shrink-0 text-muted-foreground" :title="t('clients.protected')" />
+                        <Tooltip v-if="c.notes">
+                          <TooltipTrigger as-child>
+                            <StickyNote class="size-3.5 shrink-0 text-muted-foreground" :aria-label="t('clients.hasNotes')" />
+                          </TooltipTrigger>
+                          <TooltipContent class="max-w-xs whitespace-pre-wrap">
+                            {{ c.notes }}
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
+                      <span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ c.code }}</span>
                     </span>
-                  </ClientName>
-                </TableCell>
-                <TableCell class="text-muted-foreground">
-                  {{ c.code }}
+                  </NuxtLink>
                 </TableCell>
                 <TableCell>
-                  <Badge :variant="c.active ? 'success' : 'outline'">
+                  <Badge :variant="c.active ? 'success' : 'outline'" :class="{ 'border-0 bg-orange-600 text-white': !c.active }">
                     {{ c.active ? t('common.active') : t('common.inactive') }}
                   </Badge>
                 </TableCell>
@@ -238,17 +213,6 @@ function openDetail(client: ClientRecord) {
                 </TableCell>
                 <TableCell class="text-right tabular-nums">
                   {{ formatCost(totalsByClient[c.id]?.cost ?? 0) }}
-                </TableCell>
-                <TableCell class="text-right" @click.stop>
-                  <RowActions
-                    v-if="canWrite"
-                    no-hover
-                    data-testid="write-action"
-                    :actions="[
-                      { icon: Pencil, label: t('common.edit'), onClick: () => openEdit(c), disabled: c.unassigned },
-                      { icon: c.active ? Archive : ArchiveRestore, label: c.active ? t('common.archive') : t('common.unarchive'), onClick: () => toggleArchive(c), disabled: c.unassigned },
-                    ]"
-                  />
                 </TableCell>
               </TableRow>
             </TableBody>

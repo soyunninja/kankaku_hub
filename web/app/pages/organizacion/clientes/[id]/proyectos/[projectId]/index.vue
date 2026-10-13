@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight } from '@lucide/vue'
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRight, Pencil } from '@lucide/vue'
 import StackedBarChart from '@/components/charts/StackedBarChart.vue'
 import ClientName from '@/components/clients/ClientName.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
 import ProjectMembers from '@/components/projects/ProjectMembers.vue'
+import ProjectEditDialog from '@/components/projects/ProjectEditDialog.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { sumTaskEntries } from '@/lib/aggregate'
 import { buildLocalDayBoundaries, utcInstantToLocalDay } from '@/lib/local-day'
@@ -16,6 +18,7 @@ import { rankProjects as rankTasks, projectRemainder as taskRemainder, PROJECT_O
 import { computeAverageCostFromTotal } from '@/lib/totals-map'
 import type { TotalsGroup } from '@/lib/totals-map'
 import { loadTaskSessionCounts, type SessionCountEntry } from '@/lib/task-session-counts'
+import { isOperationalProject } from '@/lib/catalog-lifecycle'
 import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 
 const { t } = useI18n()
@@ -24,14 +27,20 @@ const route = useRoute()
 const clientId = computed(() => String(route.params.id))
 const projectId = computed(() => String(route.params.projectId))
 const { byId: projectById, ensureLoaded: ensureProjects } = useProjects()
-const { byId: clientById, ensureLoaded: ensureClients } = useClients()
+const { clients, byId: clientById, ensureLoaded: ensureClients } = useClients()
 const { byProject: tasksByProject, ensureLoaded: ensureTasks } = useTasks()
 const { fetchRange } = useTaskEntries()
 const { fetchTotals, fetchRangeTotals } = useTotals()
 const { $pb } = useNuxtApp()
+const { canWrite } = useAuth()
+const editor = useProjectEditor()
+const { saving, archiving, confirmationOpen, archiveTarget } = editor
+watch(() => [route.params.id, route.params.projectId], () => editor.close(true), { flush: 'sync' })
+onBeforeUnmount(() => editor.close(true))
 const project = computed(() => projectById(projectId.value))
 const client = computed(() => clientById(clientId.value))
 const validOwner = computed(() => !!client.value && !!project.value && project.value.client === clientId.value)
+const operational = computed(() => isOperationalProject(project.value, client.value ? [client.value] : []))
 const tasks = computed(() => validOwner.value ? tasksByProject(projectId.value) : [])
 useHead({ title: computed(() => validOwner.value ? project.value?.name : t('projects.title')) })
 
@@ -74,6 +83,9 @@ async function loadSessions(scope: { client: string, project: string }, current:
 }
 const chartName = computed(() => `${t(metric.value === 'work' ? 'dashboard.chart.work' : 'dashboard.chart.cost')} · ${t('projects.detail.tasksTitle')} · ${range.start} – ${range.end}`)
 function taskName(id: string) { return tasks.value.find(task => task.id === id)?.title?.trim() || t('projects.detail.unnamedTask') }
+function preventArchiveDismiss(event: Event) {
+  if (archiving.value) event.preventDefault()
+}
 function validCost(cost: unknown): cost is number {
   return typeof cost === 'number' && Number.isFinite(cost) && cost >= 0
 }
@@ -299,10 +311,12 @@ watch(() => [route.params.id, route.params.projectId], load, { flush: 'sync' })
           <h1 class="text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">{{ project.name }}</h1>
           <ClientName :client="client" size="xs" class="text-sm text-muted-foreground" />
         </div>
-        <Badge class="ml-2" :variant="project.active ? 'success' : 'outline'">{{ project.active ? t('common.active') : t('common.inactive') }}</Badge>
+        <Badge class="ml-2" :variant="operational ? 'success' : 'outline'">{{ operational ? t('common.active') : t('common.inactive') }}</Badge>
       </div>
       <p data-testid="project-period" class="text-sm text-muted-foreground">{{ t('projects.detail.period', { start: range.start, end: range.end }) }}</p>
       <p v-if="truncated" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">{{ t('totals.fallbackTruncated', { count: totals.count }) }}</p>
+      <div class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <main data-testid="project-main" class="min-w-0 space-y-6">
       <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard :title="t('dashboard.kpi.workTime')" :value="formatDuration(totals.workMs)" />
         <KpiCard :title="t('dashboard.kpi.cost')" :value="availableCost(totals.cost)" />
@@ -350,12 +364,59 @@ watch(() => [route.params.id, route.params.projectId], load, { flush: 'sync' })
               <NuxtLink :to="`/organizacion/clientes/${clientId}/proyectos/${projectId}/tareas/${task.id}`" :aria-label="t('projects.detail.openTask', { name: taskName(task.id) })" class="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <ArrowRight aria-hidden="true" class="size-5" />
               </NuxtLink>
+              <Badge v-if="!operational" variant="outline" class="text-xs">{{ t('common.inactive') }}</Badge>
             </div>
           </article>
         </div>
         <p v-else class="text-sm text-muted-foreground">{{ t('tasks.empty') }}</p>
       </section>
       <ProjectMembers :client-id="clientId" :project-id="projectId" />
+        </main>
+        <aside data-testid="project-sidebar" class="min-w-0 space-y-6 [overflow-wrap:anywhere]">
+          <p v-if="client.active !== true" role="status" class="text-sm text-muted-foreground">{{ t('projects.inactiveParentNotice') }}</p>
+          <div v-if="canWrite" data-testid="project-actions" class="flex flex-wrap justify-end gap-2">
+            <Button data-testid="project-edit" :disabled="saving || archiving" @click="editor.openEdit(project)">
+              <Pencil aria-hidden="true" class="size-4" />{{ t('common.edit') }}
+            </Button>
+            <Button data-testid="project-archive" variant="outline" :disabled="saving || archiving || (!project.active && client.active !== true)" :aria-busy="archiving" @click="editor.requestArchive(project)">
+              <component :is="project.active ? Archive : ArchiveRestore" aria-hidden="true" class="size-4" />
+              {{ project.active ? t('common.archive') : t('common.unarchive') }}
+            </Button>
+          </div>
+          <Card data-testid="project-notes">
+            <CardHeader>
+              <CardTitle class="text-sm">{{ t('projects.notes') }}</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-2 pt-0">
+              <p v-if="project.notes" class="break-words whitespace-pre-wrap text-sm text-muted-foreground">{{ project.notes }}</p>
+              <p v-else class="text-sm text-muted-foreground">{{ t('projects.detail.noNotes') }}</p>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+      <ProjectEditDialog :editor="editor" :clients="clients" />
+      <Dialog :open="confirmationOpen" @update:open="editor.onConfirmationOpenChange">
+        <DialogContent
+          data-testid="project-archive-confirmation"
+          :show-close-button="!archiving"
+          :aria-describedby="undefined"
+          @escape-key-down="preventArchiveDismiss"
+          @pointer-down-outside="preventArchiveDismiss"
+          @interact-outside="preventArchiveDismiss"
+        >
+          <DialogHeader>
+            <DialogTitle>{{ t('projects.archive.confirmTitle', { name: archiveTarget?.name ?? '' }) }}</DialogTitle>
+          </DialogHeader>
+          <div class="space-y-2 text-sm text-muted-foreground">
+            <p>{{ t('projects.archive.confirmProject') }}</p>
+            <p>{{ t('projects.archive.confirmTasks') }}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" :disabled="archiving" @click="editor.cancelArchive">{{ t('common.cancel') }}</Button>
+            <Button variant="destructive" :disabled="archiving" :aria-busy="archiving" @click="editor.confirmArchive">{{ t('common.archive') }}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </template>
   </div>
 </template>

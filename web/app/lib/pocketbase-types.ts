@@ -59,11 +59,13 @@ export interface ProjectRecord {
   code: string
   repo_paths: string[]
   active: boolean
+  /** Optional — free-form multi-line text, empty string when unset. */
+  notes?: string
   created: string
   updated: string
 }
 
-export type TaskStatus = 'open' | 'doing' | 'done'
+export type TaskStatus = 'open' | 'doing' | 'done' | 'closed'
 
 export interface TaskRecord {
   id: string

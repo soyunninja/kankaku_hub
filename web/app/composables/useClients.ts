@@ -20,6 +20,7 @@ export type FaviconRefreshResult =
 // browser tab = one JS realm; app/plugins/pocketbase.client.ts is the
 // only place a fresh `$pb` per request would otherwise matter).
 let inFlight: Promise<void> | null = null
+let refreshGeneration = 0
 
 export function useClients() {
   const { $pb } = useNuxtApp()
@@ -27,15 +28,26 @@ export function useClients() {
   const loading = useState<boolean>('clients:loading', () => false)
   const loaded = useState<boolean>('clients:loaded', () => false)
 
+  function authScope() {
+    return { ownerId: $pb.authStore.record?.id ?? null, token: $pb.authStore.token }
+  }
+
+  function isCurrentAuthScope(scope: ReturnType<typeof authScope>) {
+    return $pb.authStore.record?.id === scope.ownerId && $pb.authStore.token === scope.token
+  }
+
   async function refresh() {
+    const scope = authScope()
+    const generation = ++refreshGeneration
     loading.value = true
     try {
       const items = await $pb.collection('clients').getFullList<ClientRecord>({ sort: 'name', perPage: 200 })
+      if (!isCurrentAuthScope(scope)) return
       clients.value = items
       loaded.value = true
     }
     finally {
-      loading.value = false
+      if (generation === refreshGeneration) loading.value = false
     }
   }
 
@@ -80,6 +92,16 @@ export function useClients() {
     return update(id, { active })
   }
 
+  /** Commits only the lifecycle write and patches the shared client cache
+   * from PocketBase's response. Callers can then refresh dependent catalogs
+   * without confusing a failed read with a failed write. */
+  async function setActiveCommitted(id: string, active: boolean) {
+    const scope = authScope()
+    const record = await $pb.collection('clients').update<ClientRecord>(id, { active })
+    if (isCurrentAuthScope(scope)) patch(record)
+    return record
+  }
+
   function byId(id: string) {
     return clients.value.find(c => c.id === id)
   }
@@ -114,5 +136,5 @@ export function useClients() {
     return result
   }
 
-  return { clients, loading, loaded, refresh, ensureLoaded, create, update, setActive, byId, patch, refreshFavicon }
+  return { clients, loading, loaded, refresh, ensureLoaded, create, update, setActive, setActiveCommitted, byId, patch, refreshFavicon }
 }

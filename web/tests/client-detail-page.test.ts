@@ -407,6 +407,13 @@ describe('client available-row cost shares', () => {
     expect(h.page.error.value).toBe(false)
   })
 
+  it('uses the client-list orange status treatment for inactive client details only', () => {
+    const source = read('app/pages/organizacion/clientes/[id]/index.vue')
+    const badge = source.match(/<Badge data-testid="detail-client-status-badge"[\s\S]*?<\/Badge>/)?.[0]
+    expect(badge).toContain(":variant=\"detailClient.active ? 'success' : 'outline'\"")
+    expect(badge).toContain(":class=\"{ 'border-0 bg-orange-600 text-white': !detailClient.active }\"")
+  })
+
   it('places the accessible icon-only back button in the title row', () => {
     const source = read('app/pages/organizacion/clientes/[id]/index.vue')
     expect(source).toContain('data-testid="client-detail-header" class="flex items-center gap-3"')
@@ -536,6 +543,14 @@ describe('client available-row cost shares', () => {
 })
 
 describe('client linked-project cards', () => {
+  it('hides project status badges for inactive clients while keeping active-client project states and arrows aligned', () => {
+    const page = read('app/pages/organizacion/clientes/[id]/index.vue')
+    const section = page.slice(page.indexOf('data-testid="client-projects"'), page.indexOf('</section>', page.indexOf('data-testid="client-projects"')))
+    expect(section).toContain('<Badge v-if="detailClient.active"')
+    expect(section).toContain("p.active ? t('common.active') : t('common.inactive')")
+    expect(section).toContain('class="ml-auto inline-flex size-9')
+  })
+
   it('matches readonly catalog information cards with canonical accessible arrows', () => {
     const page = read('app/pages/organizacion/clientes/[id]/index.vue')
     const section = page.slice(page.indexOf('data-testid="client-projects"'), page.indexOf('</section>', page.indexOf('data-testid="client-projects"')))
@@ -548,7 +563,9 @@ describe('client linked-project cards', () => {
     expect(section).toContain('data-testid="project-card"')
     expect(section).toContain('{{ p.name }}')
     expect(section).toContain('{{ detailClient.name }}')
-    expect(section).toContain('{{ p.code }}')
+    expect(section).not.toContain('{{ p.code }}')
+    expect(section).toContain(':title="detailClient.name"')
+    expect(section).not.toContain(' / ')
     expect(section).toContain('formatDuration(totalsByProject[p.id]?.workMs ?? 0)')
     expect(section).toContain('formatCost(totalsByProject[p.id]?.cost ?? 0)')
     expect(section).toContain("p.active ? t('common.active') : t('common.inactive')")
@@ -669,6 +686,19 @@ describe('client linked-project cards', () => {
 })
 
 describe('canonical client detail', () => {
+  it('uses a localized confirmation dialog for cascade deactivation and guards dismissal while busy', () => {
+    const page = read('app/pages/organizacion/clientes/[id]/index.vue')
+    expect(page).toContain('<Dialog :open="confirmationOpen"')
+    expect(page).toContain('@click="editor.requestArchive(detailClient)"')
+    expect(page).toContain('@click="editor.confirmArchive"')
+    expect(page).toContain('editor.onConfirmationOpenChange')
+    expect(page).toContain('@escape-key-down="preventArchiveDismiss"')
+    expect(page).toContain('@pointer-down-outside="preventArchiveDismiss"')
+    expect(page).toContain("t('clients.archive.confirmProjects')")
+    expect(page).toContain("t('clients.archive.confirmTasks')")
+    expect(page).toContain("t('clients.archive.confirmReactivate')")
+    expect(page).not.toContain('window.confirm')
+  })
   it('navigates from both catalog views without a lateral sheet', () => {
     const catalog = read('app/pages/clients/index.vue')
     expect(catalog).toContain('navigateTo(`/organizacion/clientes/${client.id}`)')
@@ -699,6 +729,39 @@ describe('canonical client detail', () => {
     expect(h.page.error.value).toBe(['denied', 'totals-denied'].includes(scenario))
     expect(h.ensureProjects).toHaveBeenCalledTimes(['totals-denied', 'success'].includes(scenario) ? 1 : 0)
     expect(h.fetchRange).toHaveBeenCalledTimes(scenario === 'success' ? 1 : 0)
+  })
+
+  it('places owner-only client Members immediately after Projects using the shared component', () => {
+    const page = read('app/pages/organizacion/clientes/[id]/index.vue')
+    const projects = page.indexOf('data-testid="client-projects"')
+    const members = page.indexOf('<ProjectMembers v-if="detailClient" :client-id="detailClient.id" />')
+    const sidebar = page.indexOf('<aside data-testid="client-sidebar"')
+    expect(page).toContain("import ProjectMembers from '@/components/projects/ProjectMembers.vue'")
+    expect(members).toBeGreaterThan(projects)
+    expect(members).toBeLessThan(sidebar)
+    expect(page.indexOf('</section>', projects)).toBeLessThan(members)
+  })
+
+  it('wraps Contact and Notes in independent sidebar cards without changing their contents or order', () => {
+    const page = read('app/pages/organizacion/clientes/[id]/index.vue')
+    const sidebar = page.slice(page.indexOf('<aside data-testid="client-sidebar"'))
+    const contactTitle = sidebar.indexOf("t('clients.detail.contactTitle')")
+    const notesTitle = sidebar.indexOf("t('clients.notes')")
+    const contact = sidebar.slice(sidebar.lastIndexOf('<Card>', contactTitle), sidebar.indexOf('</Card>', contactTitle) + '</Card>'.length)
+    const notes = sidebar.slice(sidebar.lastIndexOf('<Card>', notesTitle), sidebar.indexOf('</Card>', notesTitle) + '</Card>'.length)
+    expect(contact).toContain('<CardHeader')
+    expect(contact).toContain('<CardTitle class="text-sm">{{ t(\'clients.detail.contactTitle\') }}</CardTitle>')
+    expect(contact).toContain('<CardContent')
+    for (const content of ['favicon-refresh-button', 'mailto:', 'tel:', 'clients.detail.noWebsite', 'clients.detail.noContactEmail', 'clients.detail.noContactPhone']) expect(contact).toContain(content)
+    expect(contact.match(/<Card>/g)).toHaveLength(1)
+    expect(notes).toContain('<CardHeader')
+    expect(notes).toContain('<CardTitle class="text-sm">{{ t(\'clients.notes\') }}</CardTitle>')
+    expect(notes).toContain('<CardContent')
+    expect(notes).toContain('detailClient.notes')
+    expect(notes).toContain('clients.detail.noNotes')
+    expect(notes.match(/<Card>/g)).toHaveLength(1)
+    expect(sidebar.indexOf('client-actions')).toBeLessThan(sidebar.indexOf("t('clients.detail.contactTitle')"))
+    expect(sidebar.indexOf("t('clients.detail.contactTitle')")).toBeLessThan(sidebar.indexOf("t('clients.notes')"))
   })
 
   it('preserves sections, safe links, consolidated totals and owner-only favicon refresh', () => {

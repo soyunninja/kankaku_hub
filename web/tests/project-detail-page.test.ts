@@ -13,12 +13,15 @@ import { computeAverageCost } from '../app/lib/measurement-quality'
 import { resolvePreset } from '../app/lib/period'
 import { computeAverageCostFromTotal } from '../app/lib/totals-map'
 import { ZERO_TOTALS_ROW } from '../app/lib/totals-map'
+import { isOperationalProject } from '../app/lib/catalog-lifecycle'
 
 const source = readFileSync('app/pages/organizacion/clientes/[id]/proyectos/[projectId]/index.vue', 'utf8')
 class Unavailable extends Error {}
 // Run the actual SFC setup against read-only ports, not a copied controller.
 function setupPage() {
   const route = reactive({ params: { id: 'c1', projectId: 'p1' } })
+  const project = ref({ id: 'p1', client: 'c1', name: 'Project', active: true })
+  const client = ref({ id: 'c1', active: true })
   const fetchRangeTotals = vi.fn().mockResolvedValue(response())
   const fetchTotals = vi.fn().mockResolvedValue(response())
   const fetchRange = vi.fn().mockResolvedValue({ entries: [], truncated: false })
@@ -27,11 +30,13 @@ function setupPage() {
   let unmount = () => {}
   const bindings = {
     computed, reactive, ref, watch: () => {}, onMounted: () => {}, onBeforeUnmount: (fn: () => void) => { unmount = fn },
-    loadTaskSessionCounts: countSessions,
+    loadTaskSessionCounts: countSessions, isOperationalProject,
+    useAuth: () => ({ canWrite: ref(false) }),
+    useProjectEditor: () => ({ saving: ref(false), archiving: ref(false), confirmationOpen: ref(false), archiveTarget: ref(null), close: () => {}, openEdit: () => {}, requestArchive: () => {}, onConfirmationOpenChange: () => {}, cancelArchive: () => {}, confirmArchive: () => {} }),
     useNuxtApp: () => ({ $pb: { collection: () => ({ getList }) } }),
     useRoute: () => route, useI18n: () => ({ t: (key: string) => key }), useHead: () => {}, useFormatters: () => ({ formatCost, formatDuration }),
-    useProjects: () => ({ byId: () => ({ id: 'p1', client: 'c1', name: 'Project' }), ensureLoaded: async () => {} }),
-    useClients: () => ({ byId: () => ({ id: 'c1' }), ensureLoaded: async () => {} }),
+    useProjects: () => ({ byId: () => project.value, ensureLoaded: async () => {} }),
+    useClients: () => ({ byId: () => client.value, ensureLoaded: async () => {} }),
     useTasks: () => ({ byProject: () => [{ id: 't1', title: 'First task', status: 'open' }, { id: 't2', title: '', status: 'done' }], ensureLoaded: async () => {} }),
     useTaskEntries: () => ({ fetchRange }), useTotals: () => ({ fetchRangeTotals, fetchTotals }),
     rankTasks: rankProjects, taskRemainder: projectRemainder, TASK_OTHERS_KEY: PROJECT_OTHERS_KEY,
@@ -42,16 +47,27 @@ function setupPage() {
   const code = ts.transpile(script.replace(/^import .*$/gm, ''), { target: ts.ScriptTarget.ES2022 })
   const card = source.slice(source.indexOf('<article v-for="task'))
   const expressions = [...card.matchAll(/<dd[^>]*>\{\{ ([\s\S]*?) \}\}<\/dd>/g)].map(match => match[1]!.replace(/\bcardsReady\b/g, 'cardsReady.value').replace(/\btaskTotals\b/g, 'taskTotals.value'))
-  const page = new Function(...Object.keys(bindings), `${code}; return { load, metric, loadChart, seriesKeys, seriesLabels, trendPoints, chartError, chartPartial, chartCostUnknown, taskTotals, cardsReady, error,
+  const page = new Function(...Object.keys(bindings), `${code}; return { load, metric, loadChart, seriesKeys, seriesLabels, trendPoints, chartError, chartPartial, chartCostUnknown, taskTotals, cardsReady, error, operational, tasks,
     cardWork: (task) => (${expressions[0]}), cardCost: (task) => (${expressions[1]}),
     sessions: typeof sessionCounts === 'undefined' ? undefined : sessionCounts,
     sessionLabel: typeof taskSessions === 'undefined' ? undefined : taskSessions }`)(...Object.values(bindings))
-  return { page, route, fetchRangeTotals, fetchTotals, fetchRange, getList, countSessions, unmount: () => unmount() }
+  return { page, route, project, client, fetchRangeTotals, fetchTotals, fetchRange, getList, countSessions, unmount: () => unmount() }
 }
 const row = (groupKey: string, workMs = 0, cost = 0) => ({ ...ZERO_TOTALS_ROW, groupKey, workMs, cost })
 const response = (groups: ReturnType<typeof row>[] = []) => ({ total: { ...ZERO_TOTALS_ROW, count: 1 }, groups, totalPages: 1, totalGroups: groups.length })
 
 describe('project task-card status presentation', () => {
+  it('retains historical task cards and navigation while showing inherited inactivity', () => {
+    const h = setupPage()
+    h.client.value.active = false
+    expect(h.page.operational.value).toBe(false)
+    expect(h.page.tasks.value.map(task => task.id)).toEqual(['t1', 't2'])
+    const card = source.slice(source.indexOf('<article v-for="task'), source.indexOf('</article>'))
+    expect(card).toContain('<NuxtLink :to="`/organizacion/clientes/${clientId}/proyectos/${projectId}/tareas/${task.id}`"')
+    expect(card).toContain("t('common.inactive')")
+    expect(card).not.toContain('<NuxtLink v-if="operational"')
+    expect(source).toContain("isOperationalProject(project.value, client.value ? [client.value] : [])")
+  })
   it.each([['doing', 'success'], ['open', 'outline'], ['done', 'outline']])('renders %s with %s without changing its label or wrapping', (status, expected) => {
     // Execute the actual card Badge template, not a copied status conditional.
     const card = source.slice(source.indexOf('<article v-for="task'), source.indexOf('</article>'))
@@ -115,6 +131,48 @@ describe('project task analytics and read-only cards', () => {
     await Promise.resolve()
     await Promise.resolve()
     expect(h.page.sessions?.value?.t1).not.toBe(99)
+  })
+  it('renders project notes as escaped multiline text or a localized empty state in the sidebar', () => {
+    const sidebar = source.split('<aside data-testid="project-sidebar"')[1]?.split('</aside>')[0]
+    expect(sidebar).toBeDefined()
+    expect(sidebar).toContain('<Card data-testid="project-notes">')
+    expect(sidebar).toContain("t('projects.notes')")
+    expect(sidebar).toContain('class="break-words whitespace-pre-wrap text-sm text-muted-foreground">{{ project.notes }}</p>')
+    expect(sidebar).toContain("t('projects.detail.noNotes')")
+    expect(sidebar).not.toContain('v-html')
+    expect(source).toContain('<ProjectMembers :client-id="clientId" :project-id="projectId" />')
+  })
+  it('warns archive confirmations that tasks close, history remains, and reopening is manual', () => {
+    const terms = {
+      en: ['closed', 'retained', 'manually'],
+      es: ['cerrarán', 'conservarán', 'manualmente'],
+      ja: ['クローズ', '保持', '手動'],
+    }
+    for (const [locale, words] of Object.entries(terms)) {
+      const messages = JSON.parse(readFileSync(`i18n/locales/${locale}.json`, 'utf8'))
+      const copies = [
+        `${messages.clients.archive.confirmTasks} ${messages.clients.archive.confirmReactivate}`,
+        messages.projects.archive.confirmTasks,
+      ]
+      for (const copy of copies) {
+        for (const word of words) expect(copy).toContain(word)
+        expect(copy).not.toMatch(/workflow status.*preserved|se conservará.*estado|ワークフロー.*保持/iu)
+      }
+    }
+  })
+  it('places owner-writable edit/archive controls in a right sidebar without moving project content', () => {
+    const main = source.slice(source.indexOf('<main data-testid="project-main"'), source.indexOf('<aside data-testid="project-sidebar"'))
+    expect(source).toContain('lg:grid-cols-[minmax(0,1fr)_19rem]')
+    expect(source).toContain('<aside data-testid="project-sidebar"')
+    expect(source).toContain('v-if="canWrite" data-testid="project-actions"')
+    expect(source).toContain('data-testid="project-edit"')
+    expect(source).toContain('data-testid="project-archive"')
+    expect(main).toContain('<ProjectMembers :client-id="clientId" :project-id="projectId" />')
+    expect(source).toContain('editor.requestArchive(project)')
+    expect(source).toContain('editor.openEdit(project)')
+    expect(source).toContain('project.active ? Archive : ArchiveRestore')
+    expect(source).toContain("t('projects.inactiveParentNotice')")
+    expect(source).toContain('(!project.active && client.active !== true)')
   })
   it('places all-time member cards after Tasks without changing the 30-day task metrics', () => {
     expect(source.indexOf('</section>\n      <ProjectMembers')).toBeGreaterThan(source.indexOf("t('projects.detail.tasksTitle')"))

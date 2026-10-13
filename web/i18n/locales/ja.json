@@ -81,6 +81,15 @@
     "memberTotalsUnavailable": "このPocketBaseインスタンスではメンバーの合計を利用できません。",
     "currentDepartment": "現在の部署",
     "currentMachines": "現在のマシン",
+    "machines": "マシン",
+    "addMachine": "マシンを追加",
+    "assignMachine": "割り当て",
+    "selectFreeMachine": "有効で未割り当てのマシンを選択",
+    "machineName": "マシン名",
+    "unlinkMachine": "紐づけ解除",
+    "unlinkMachineConfirm": "{member} から {machine} の紐づけを解除しますか？過去のエントリーは変更されません。",
+    "machineRequestFailed": "マシンの割り当てを更新できませんでした。もう一度お試しください。",
+    "machineSavedRefreshFailed": "マシンを保存しましたが一覧を更新できませんでした。別の変更を行う前に再読み込みしてください。",
     "noMachines": "現在割り当てられているマシンはありません。",
     "openDetail": "{name}の詳細を開く",
     "memberNotFound": "チームメンバーが見つかりません。",
@@ -329,6 +338,14 @@
     "invalidEmail": "有効なメールアドレスを入力してください。",
     "migrationPending": "連絡先項目は保存されませんでした。データベースのマイグレーションが未適用です（サーバーを再起動してください）。",
     "viewDetail": "詳細を見る",
+    "archive": {
+      "confirmTitle": "{name}をアーカイブしますか？",
+      "confirmProjects": "このクライアントのすべてのプロジェクトが無効になります。",
+      "confirmTasks": "これらのプロジェクトのタスクはすべてクローズされます。履歴、作業時間、トークン記録、メモは保持されます。",
+      "confirmReactivate": "クライアントを再有効化してもタスクは再開されません。プロジェクトとクライアントが有効になった後、手動で再開してください。",
+      "writeFailed": "クライアントをアーカイブできませんでした。もう一度お試しください。",
+      "refreshWarning": "クライアントはアーカイブされましたが、プロジェクト一覧を更新できませんでした。最新の一覧を表示するには再読み込みしてください。"
+    },
     "favicon": {
       "refresh": "アイコンを更新",
       "toast": {
@@ -368,17 +385,30 @@
     "viewLabel": "プロジェクト表示",
     "listView": "リスト",
     "gridView": "グリッド",
+    "activeClientProjects": "アクティブなクライアントのプロジェクト",
+    "inactiveClientProjects": "無効",
+    "inactiveParentNotice": "先にクライアントを再有効化してから、このプロジェクトを手動で再有効化してください。",
     "openDetail": "{name}の詳細を開く",
     "noResults": "条件に一致するプロジェクトはありません。",
     "sortAscending": "{column}を昇順に並べ替え",
     "sortDescending": "{column}を降順に並べ替え",
+    "notes": "メモ",
+    "notesHint": "このプロジェクトに関する任意のメモ（5000文字まで）。",
     "repoPaths": "リポジトリのパス",
     "repoPathsHint": "各マシン上のリポジトリの絶対パスです。kankakuはこのパスを使って、そのディレクトリでセッションを開始した際にプロジェクトを自動選択します。",
     "addPath": "パスを追加",
     "removePath": "パスを削除",
+    "archive": {
+      "confirmTitle": "{name}をアーカイブしますか？",
+      "confirmProject": "このプロジェクトのみ無効になります。親クライアントや他のプロジェクトは変更されません。",
+      "confirmTasks": "このプロジェクトのタスクはすべてクローズされます。履歴、作業時間、トークン記録、メモは保持されます。プロジェクトを再有効化してもタスクは再開されません。プロジェクトとクライアントが有効になった後、手動で再開してください。",
+      "writeFailed": "プロジェクトを更新できませんでした。もう一度お試しください。",
+      "refreshWarning": "プロジェクトは保存されましたが、カタログを更新できませんでした。最新の詳細を表示するには再読み込みしてください。"
+    },
     "empty": "プロジェクトはまだありません。",
     "detail": {
       "notFound": "プロジェクトが見つからないか利用できません",
+      "noNotes": "メモはありません",
       "trend": "推移",
       "tasksTitle": "タスク",
        "period": "過去30日間: {start} – {end}",
@@ -423,7 +453,8 @@
     "status": {
       "open": "未着手",
       "doing": "進行中",
-      "done": "完了"
+      "done": "完了",
+      "closed": "クローズ"
     },
     "empty": "タスクはありません。",
     "cost": "AIコスト",

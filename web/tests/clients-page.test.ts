@@ -12,9 +12,10 @@ const source = readFileSync('app/pages/clients/index.vue', 'utf8')
 function setupFilter() {
   const search = ref('')
   const clients = ref([
+    { id: 'b', name: 'Archived Studio', code: 'old', active: false },
     { id: 'a', name: 'Acme Studio', code: 'acme', website: 'https://example.com', active: true },
-    { id: 'b', name: 'Archived', code: 'old', active: false },
-    { id: 'c', name: 'Unassigned', code: 'unassigned', unassigned: true },
+    { id: 'd', name: 'Studio Legacy', code: 'legacy', active: false },
+    { id: 'c', name: 'Unassigned Studio', code: 'north', unassigned: true, active: true },
   ])
   const body = source.match(/const filteredClients = computed\(\(\) => \{([\s\S]*?)\n\}\)/)?.[1]
   expect(body).toBeTruthy()
@@ -51,15 +52,20 @@ describe('Clients index localized count', () => {
 })
 
 describe('Clients index local search', () => {
-  it.each([' ACME ', 'studio', 'example.com', 'HTTPS://'])('matches name, code or website case-insensitively: %s', (query) => {
+  it.each([
+    [' ACME ', ['a']],
+    ['studio', ['a', 'c', 'b', 'd']],
+    ['example.com', ['a']],
+    ['HTTPS://', ['a']],
+  ])('matches name, code or website case-insensitively: %s', (query, expected) => {
     const { search, filtered } = setupFilter()
     search.value = query
-    expect(filtered.value.map((client: { id: string }) => client.id)).toEqual(['a'])
+    expect(filtered.value.map((client: { id: string }) => client.id)).toEqual(expected)
   })
 
   it('retains archived and protected clients, handles missing websites, and reacts to catalog changes', () => {
     const { search, clients, filtered } = setupFilter()
-    expect(filtered.value).toHaveLength(3)
+    expect(filtered.value).toHaveLength(4)
     search.value = 'old'
     expect(filtered.value[0].id).toBe('b')
     search.value = 'unassigned'
@@ -67,9 +73,18 @@ describe('Clients index local search', () => {
     search.value = 'missing'
     expect(filtered.value).toHaveLength(0)
     clients.value[0]!.name = 'Missing client'
-    expect(filtered.value[0].id).toBe('a')
+    expect(filtered.value[0].id).toBe('b')
     search.value = '   '
-    expect(filtered.value).toHaveLength(3)
+    expect(filtered.value).toHaveLength(4)
+  })
+
+  it('sorts searched clients active-first stably without mutating the catalog', () => {
+    const { search, clients, filtered } = setupFilter()
+    const original = [...clients.value]
+    search.value = 'studio'
+
+    expect(filtered.value.map((client: { id: string }) => client.id)).toEqual(['a', 'c', 'b', 'd'])
+    expect(clients.value).toEqual(original)
   })
 })
 
@@ -84,7 +99,7 @@ describe('Clients shared editor and detail layout', () => {
     expect(detail).toContain('data-testid="client-sidebar"')
     expect(detail).toContain('data-testid="client-actions" class="flex flex-wrap justify-end gap-2"')
     expect(detail).toContain('editor.openEdit(detailClient)')
-    expect(detail).toContain('editor.toggleArchive(detailClient)')
+    expect(detail).toContain('editor.requestArchive(detailClient)')
     const aside = detail.slice(detail.indexOf('<aside'))
     expect(aside.indexOf('common.edit')).toBeLessThan(aside.indexOf('contactTitle'))
     expect(aside.indexOf('contactTitle')).toBeLessThan(aside.indexOf("t('clients.notes')"))
@@ -92,6 +107,17 @@ describe('Clients shared editor and detail layout', () => {
 })
 
 describe('Clients index view contract', () => {
+  it('omits notes indicators from client cards while retaining client identity', () => {
+    const cards = source.slice(source.indexOf('<article v-for="c in filteredClients"'), source.indexOf('</article>') + '</article>'.length)
+    expect(cards).toContain('<ClientAvatar')
+    expect(cards).toContain('c.name')
+    expect(cards).toContain('c.code')
+    expect(cards).toContain('<Lock')
+    expect(cards).not.toContain('StickyNote')
+    expect(cards).not.toContain('c.notes')
+    expect(cards).not.toContain('clients.hasNotes')
+  })
+
   it('omits the empty catalog header only when embedded, preserving the standalone title and creation action', () => {
     expect(source).toContain('<div v-if="!props.embedded" class="flex items-center justify-between gap-4">')
     expect(source).toContain('<h1 class="text-xl font-semibold tracking-tight">')
@@ -112,32 +138,49 @@ describe('Clients index view contract', () => {
     const grid = source.split('<template v-if="view === \'grid\'">')[1]!.split('</template>')[0]!
     const containers = [...grid.matchAll(/<div (?:v-if="loading && clients.length === 0"[^>]*|v-else) class="([^"]+)"/g)]
     expect(containers.map(match => match[1])).toEqual([
-      'grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3',
-      'grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3',
+      'grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 lg:gap-6',
+      'grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 lg:gap-6',
     ])
   })
 
-  it('reflows narrow card content without truncating names, totals or removing controls', () => {
+  it('reflows narrow cards and places the literal code below the name beside the avatar', () => {
     const card = source.split('<article v-for="c in filteredClients"')[1]!.split('</article>')[0]!
     expect(card).toContain('bg-card p-2')
     expect(card).toContain('grid-cols-[auto_1fr]')
-    expect(card).toContain('col-span-2 row-start-2 min-w-0')
+    expect(card.indexOf('<ClientAvatar')).toBeLessThan(card.indexOf('<div class="min-w-0">'))
+    expect(card).not.toContain('col-span-2 row-start-2 min-w-0')
     expect(card).toContain('<span class="min-w-0 [overflow-wrap:anywhere]" :title="c.name">')
-    expect(card).toContain('class="col-start-2 row-start-1 flex-wrap"')
+    expect(card).toContain('{{ c.code }}')
+    expect(card).not.toContain('RowActions')
+    expect(card).not.toContain('common.edit')
+    expect(card).not.toContain('common.archive')
     expect(card).toContain('<dl class="grid min-w-0 grid-cols-1 gap-3 text-sm [overflow-wrap:anywhere] sm:grid-cols-2">')
     expect(card).toContain('mt-auto flex flex-wrap')
     const classes = [...card.matchAll(/class="([^"]+)"/g)].map(match => match[1]).join(' ')
     expect(classes).not.toMatch(/(?:overflow-hidden|line-clamp-|\bhidden\b)/)
-    expect(card).toContain('onClick: () => openEdit(c)')
-    expect(card).toContain('onClick: () => toggleArchive(c)')
+    expect(card).toMatch(/:aria-label="t\('clients.openDetail',[^>]*@click="openDetail\(c\)"/)
   })
 
-  it('uses a standalone detail button and retains guarded writer actions and zero totals', () => {
+  it('provides accessible detail navigation and preserves create and zero-total behavior', () => {
     const card = source.split('<article v-for="c in filteredClients"')[1]!.split('</article>')[0]!
     expect(card).toMatch(/<Button[^>]*:aria-label="t\('clients.openDetail',[^>]*@click="openDetail\(c\)"/)
-    expect(card).not.toContain('<a ')
-    expect(card).toContain('v-if="canWrite"')
-    expect(card.match(/disabled: c.unassigned/g)).toHaveLength(2)
+    const table = source.split('<Card v-else>')[1]!.split('</Card>')[0]!
+    expect(table).toContain('<NuxtLink')
+    expect(table).toContain('@click.stop')
+    expect(table).toContain('<ClientAvatar :client="c"')
+    expect(table).toContain('class="flex min-w-0 items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-focus-indicator"')
+    expect(table).toContain('class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ c.code }}</span>')
+    expect(table).toContain('c.code')
+    expect(table).toMatch(/<TableRow[\s\S]*?class="cursor-pointer"[\s\S]*?@click="openDetail\(c\)"/)
+    expect(table).toContain('<SkeletonRows v-if="loading && clients.length === 0" :rows="4" :cols="4" />')
+    expect(table).not.toContain('RowActions')
+    expect(table).not.toContain('common.edit')
+    expect(table).not.toContain('common.archive')
+    expect(source).toContain('v-if="canWrite && props.embedded"')
+    expect(source).toContain('<ClientEditDialog :editor="editor"')
+    expect(card).not.toContain('RowActions')
+    expect(card).not.toContain('common.edit')
+    expect(card).not.toContain('common.archive')
     expect(card).toContain('totalsByClient[c.id]?.workMs ?? 0')
     expect(card).toContain('totalsByClient[c.id]?.cost ?? 0')
   })

@@ -1,14 +1,18 @@
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { isValidEmail, isValidWebsiteUrl, mapPocketBaseFieldErrors, normalizePhone, normalizeWebsiteUrl } from '@/lib/client-contact'
 import type { ClientRecord } from '@/lib/pocketbase-types'
 
 /** Shared catalog/detail editor. A generation fences responses after dismissal or route changes. */
 export function useClientEditor() {
   const { t } = useI18n()
-  const { canWrite } = useAuth()
-  const { create, update, refreshFavicon } = useClients()
+  const { canWrite, user } = useAuth()
+  const { $pb } = useNuxtApp()
+  const { create, update, setActiveCommitted, refresh: refreshClients, patch: patchClient, refreshFavicon } = useClients()
+  const { refresh: refreshProjects } = useProjects()
   const toast = useToast()
   const dialogOpen = ref(false)
+  const confirmationOpen = ref(false)
+  const archiveTarget = ref<ClientRecord | null>(null)
   const editing = ref<ClientRecord | null>(null)
   const saving = ref(false)
   const archiving = ref(false)
@@ -23,10 +27,23 @@ export function useClientEditor() {
   function close() {
     generation++
     dialogOpen.value = false
+    confirmationOpen.value = false
+    archiveTarget.value = null
     editing.value = null
     saving.value = false
     archiving.value = false
     resetFieldErrors()
+  }
+
+  watch(canWrite, allowed => { if (!allowed) close() }, { flush: 'sync' })
+  watch(() => user.value?.id, (id, previousId) => { if (id !== previousId) close() }, { flush: 'sync' })
+
+  function authScope() {
+    return { ownerId: user.value?.id, token: $pb.authStore.token }
+  }
+
+  function isCurrentAuthScope(scope: ReturnType<typeof authScope>) {
+    return canWrite.value && user.value?.id === scope.ownerId && $pb.authStore.token === scope.token
   }
 
   function openCreate() {
@@ -90,12 +107,69 @@ export function useClientEditor() {
     }
   }
 
-  async function toggleArchive(client: ClientRecord) {
-    if (!canWrite.value || client.unassigned || archiving.value) return
+  function requestArchive(client: ClientRecord) {
+    if (!canWrite.value || client.unassigned || saving.value || archiving.value) return
+    if (client.active) {
+      archiveTarget.value = client
+      confirmationOpen.value = true
+      return
+    }
+    void toggleArchive(client)
+  }
+
+  function cancelArchive() {
+    if (archiving.value) return
+    confirmationOpen.value = false
+    archiveTarget.value = null
+  }
+
+  function onConfirmationOpenChange(open: boolean) {
+    if (open) return
+    cancelArchive()
+  }
+
+  async function confirmArchive() {
+    const client = archiveTarget.value
+    if (!canWrite.value || !client || client.unassigned || !client.active || !confirmationOpen.value || archiving.value) return
     const version = generation
+    const scope = authScope()
     archiving.value = true
     try {
-      await update(client.id, { active: !client.active })
+      const saved = await setActiveCommitted(client.id, false)
+      // The committed response is authoritative even if either catalog read fails.
+      const refreshResults = await Promise.allSettled([refreshClients(), refreshProjects()])
+      // Cache reconciliation is fenced by auth scope, not route generation.
+      if (isCurrentAuthScope(scope)) patchClient(saved)
+      if (version !== generation) return
+      if (!isCurrentAuthScope(scope)) {
+        // A same-owner auth refresh must not leave a retryable confirmation after commit.
+        if (canWrite.value && user.value?.id === scope.ownerId) {
+          confirmationOpen.value = false
+          archiveTarget.value = null
+        }
+        return
+      }
+      confirmationOpen.value = false
+      archiveTarget.value = null
+      if (refreshResults.some(result => result.status === 'rejected')) toast.info(t('clients.archive.refreshWarning'))
+    }
+    catch {
+      if (version === generation) toast.error(t('clients.archive.writeFailed'))
+    }
+    finally {
+      if (version === generation) archiving.value = false
+    }
+  }
+
+  async function toggleArchive(client: ClientRecord) {
+    if (!canWrite.value || client.unassigned || client.active || archiving.value || saving.value) return
+    const version = generation
+    const scope = authScope()
+    archiving.value = true
+    try {
+      const saved = await setActiveCommitted(client.id, true)
+      await Promise.allSettled([refreshClients(), refreshProjects()])
+      if (isCurrentAuthScope(scope)) patchClient(saved)
     }
     catch {
       if (version === generation) toast.error(t('common.error'))
@@ -105,5 +179,5 @@ export function useClientEditor() {
     }
   }
 
-  return { dialogOpen, editing, form, fieldErrors, saving, archiving, close, openCreate, openEdit, onWebsiteBlur, onSubmit, toggleArchive }
+  return { dialogOpen, confirmationOpen, archiveTarget, editing, form, fieldErrors, saving, archiving, close, openCreate, openEdit, onWebsiteBlur, onSubmit, requestArchive, cancelArchive, onConfirmationOpenChange, confirmArchive, toggleArchive }
 }
