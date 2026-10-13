@@ -6,11 +6,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import TeamMemberCard from '@/components/team/TeamMemberCard.vue'
 import DepartmentEditDialog from '@/components/team/DepartmentEditDialog.vue'
 import RowActions, { type RowAction } from '@/components/common/RowActions.vue'
-import type { DepartmentRecord } from '@/lib/pocketbase-types'
+import type { DepartmentRecord, MachineRecord } from '@/lib/pocketbase-types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { BackfillPreview, BackfillResult } from '@/composables/useTeamCatalog'
 import { useDepartmentEditor } from '@/composables/useDepartmentEditor'
 import { mapPocketBaseFieldErrors } from '@/lib/client-contact'
@@ -22,7 +23,7 @@ import { formatCost, formatDuration } from '@/lib/format'
 const { t, locale } = useI18n()
 const { isOwner } = useAuth()
 useHead({ title: computed(() => t('nav.team')) })
-const { departments, members, machines, eligibleMachines, loading, refresh, save, setActive, createMemberWithMachine, previewBackfill, applyBackfill } = useTeamCatalog()
+const { departments, members, machines, eligibleMachines, loading, refresh, save, saveMachine, setMachineActive, registerMachine, setActive, createMemberWithMachine, previewBackfill, applyBackfill } = useTeamCatalog()
 const departmentEditor = useDepartmentEditor({ save, setActive }, t)
 const { fetchTotals } = useTotals()
 const memberTotals = ref<Record<string, TeamMemberTotal> | null>(null)
@@ -34,11 +35,18 @@ const memberForm = reactive({ name: '', department: '', machineId: '' })
 const memberSuccess = ref(false)
 const memberRefreshWarning = ref(false)
 const machineDialog = ref(false)
+const machineDialogError = ref('')
+const editMachineError = ref('')
+const machineSavedRefreshFailed = ref(false)
 const machineForm = reactive({ key: '', name: '' })
 const filteredMembers = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
   return members.value.filter(member => [member.name, departments.value.find(row => row.id === member.department)?.name || '', machines.value.filter(row => row.member === member.id).map(row => row.name || row.key).join(' ')].some(value => value.toLocaleLowerCase().includes(query)))
 })
+function orderInventoryMachines(source: MachineRecord[]) {
+  return [...source.filter(machine => !machine.member), ...source.filter(machine => !!machine.member)]
+}
+const orderedInventoryMachines = computed(() => orderInventoryMachines(machines.value))
 const departmentMemberTotals = computed(() => memberTotalsState.value === 'ready' && memberTotals.value
   ? sumDepartmentMemberTotals(departments.value, members.value, memberTotals.value)
   : null)
@@ -105,20 +113,36 @@ async function submitNewMember() {
   }
   finally { busy.value = false }
 }
+watch(machineDialog, (open) => {
+  if (open) machineDialogError.value = ''
+})
 async function submitMachine() {
-  await perform(async () => {
-    await save('machines', '', { name: machineForm.name.trim(), key: machineForm.key, member: '', active: true })
+  if (!isOwner.value || busy.value) return
+  busy.value = true
+  machineDialogError.value = ''
+  machineSavedRefreshFailed.value = false
+  try {
+    const refreshed = await registerMachine({ key: machineForm.key, name: machineForm.name.trim(), memberId: '' })
     machineDialog.value = false
+    machineSavedRefreshFailed.value = !refreshed
     machineForm.key = ''; machineForm.name = ''
     memberForm.machineId = eligibleMachines.value[0]?.id ?? ''
-  })
+  }
+  catch (failure) {
+    const messages = Object.entries(mapPocketBaseFieldErrors(failure)).map(([field, message]) => `${field}: ${message}`)
+    machineDialogError.value = messages.join(' · ') || t('team.requestFailed')
+  }
+  finally { busy.value = false }
 }
 async function previewHistory(machineId: string) {
   await perform(async () => {
     backfillPreview.value = null
     backfillResult.value = null
     backfillError.value = ''
-    try { backfillPreview.value = await previewBackfill(machineId) }
+    try {
+      backfillPreview.value = await previewBackfill(machineId)
+      editing.value = null
+    }
     catch { backfillError.value = t('team.backfillFailed') }
   })
 }
@@ -163,7 +187,9 @@ async function perform(action: () => Promise<unknown>) {
   catch (failure) {
     const messages = Object.entries(mapPocketBaseFieldErrors(failure))
       .map(([field, message]) => `${field}: ${message}`)
-    error.value = messages.join(' · ') || t('team.requestFailed')
+    const message = messages.join(' · ') || t('team.requestFailed')
+    if (editing.value === 'machines') editMachineError.value = message
+    else error.value = message
   }
   finally { busy.value = false }
 }
@@ -178,7 +204,24 @@ function edit(collection: 'team_members' | 'machines', id = '') {
     ? machines.value.find(row => row.id === id)
     : members.value.find(row => row.id === id)
   Object.assign(draft, { id, name: '', key: '', department: '', member: '', active: true }, record)
+  editMachineError.value = ''
+  machineSavedRefreshFailed.value = false
   editing.value = collection
+}
+async function toggleMachineActive() {
+  if (!isOwner.value || busy.value) return
+  busy.value = true
+  editMachineError.value = ''
+  try {
+    const refreshed = await setMachineActive(draft.id, !draft.active)
+    draft.active = !draft.active
+    machineSavedRefreshFailed.value = !refreshed
+  }
+  catch (failure) {
+    const messages = Object.entries(mapPocketBaseFieldErrors(failure)).map(([field, message]) => `${field}: ${message}`)
+    editMachineError.value = messages.join(' · ') || t('team.requestFailed')
+  }
+  finally { busy.value = false }
 }
 async function submit() {
   const collection = editing.value
@@ -189,7 +232,11 @@ async function submit() {
       ? { name: draft.name.trim(), department: draft.department, active: draft.active }
       // Keep the key verbatim: it must match task_entries.machine exactly.
       : { name: draft.name.trim(), key: draft.key, member: draft.member, active: draft.active }
-    await save(collection, draft.id, fields)
+    if (collection === 'machines') {
+      const refreshed = await saveMachine(draft.id, fields as typeof draft)
+      machineSavedRefreshFailed.value = !refreshed
+    }
+    else await save(collection, draft.id, fields)
     editing.value = null
   })
 }
@@ -234,11 +281,12 @@ async function submit() {
         <Button variant="outline" :disabled="busy" @click="perform(refresh)">{{ t('team.retry') }}</Button>
       </div>
       <p v-if="memberSuccess" role="status" class="rounded-2xl bg-muted p-4 text-sm">{{ t(memberRefreshWarning ? 'team.memberCreatedRefreshFailed' : 'team.memberCreated') }}</p>
+      <p v-if="machineSavedRefreshFailed" role="status" class="rounded-2xl bg-muted p-4 text-sm">{{ t('team.machineSavedRefreshFailed') }}</p>
       <div v-if="memberTotalsState === 'error' || memberTotalsState === 'unavailable'" role="status" class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span>{{ t(memberTotalsState === 'unavailable' ? 'team.memberTotalsUnavailable' : 'team.memberTotalsFailed') }}</span>
         <Button v-if="memberTotalsState === 'error'" size="sm" variant="outline" @click="refreshMemberTotals">{{ t('team.retry') }}</Button>
       </div>
-      <p v-if="backfillError" role="alert" class="text-sm text-destructive">{{ backfillError }}</p>
+      <p v-if="backfillError && editing !== 'machines'" role="alert" class="text-sm text-destructive">{{ backfillError }}</p>
       <Card v-if="backfillResult">
         <CardContent class="flex flex-wrap items-center justify-between gap-3">
           <p>{{ t('team.backfillSuccess', { count: backfillResult.updated_count }) }}</p>
@@ -297,28 +345,32 @@ async function submit() {
           </div>
         </form>
       </section>
-      <form v-if="editing === 'machines'" class="grid gap-3 rounded-2xl bg-muted p-4 sm:grid-cols-2" @submit.prevent="submit">
-        <div class="flex items-center justify-between gap-3 sm:col-span-2">
-          <h2 class="font-semibold">{{ draft.name || draft.key }}</h2>
-          <Button type="button" variant="ghost" size="sm" @click="editing = null">{{ t('common.cancel') }}</Button>
-        </div>
-        <label class="space-y-1 text-sm">{{ t('team.name') }}<Input v-model="draft.name" maxlength="200" :disabled="busy" /></label>
-        <label class="space-y-1 text-sm">
-          {{ t('team.machineKey') }}
-          <Input v-model="draft.key" required maxlength="200" :disabled="busy || !!draft.id" />
-          <span class="block text-xs text-muted-foreground">{{ t('team.machineKeyHint') }}</span>
-        </label>
-        <label class="space-y-1 text-sm sm:col-span-2">
-          {{ t('team.member') }}
-          <Select v-model="draft.member" :options="[{ value: '', label: t('team.unassigned') }, ...members.filter(row => row.active || row.id === draft.member).map(row => ({ value: row.id, label: row.name }))]" :disabled="busy" />
-          <span class="block text-xs text-muted-foreground">{{ t('team.machineHistoryAssignmentHint') }}</span>
-        </label>
-        <div class="flex flex-wrap gap-2 sm:col-span-2">
-          <Button type="submit" :disabled="busy">{{ t('common.save') }}</Button>
-          <Button type="button" variant="outline" :disabled="busy" @click="perform(async () => { await setActive('machines', draft.id, !draft.active); draft.active = !draft.active })">{{ t(draft.active ? 'team.deactivate' : 'team.reactivate') }}</Button>
-          <Button type="button" variant="ghost" :disabled="busy || !draft.member" @click="previewHistory(draft.id)">{{ t('team.backfillPreview') }}</Button>
-        </div>
-      </form>
+      <Dialog :open="editing === 'machines'" @update:open="open => { if (!open && !busy) editing = null }">
+        <DialogContent>
+          <DialogHeader><DialogTitle>{{ t('common.edit') }} · {{ draft.name || draft.key }}</DialogTitle></DialogHeader>
+          <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="submit">
+            <p v-if="editMachineError" role="alert" class="text-sm text-destructive sm:col-span-2">{{ editMachineError }}</p>
+            <p v-if="backfillError" role="alert" class="text-sm text-destructive sm:col-span-2">{{ backfillError }}</p>
+            <label class="space-y-1 text-sm">{{ t('team.name') }}<Input v-model="draft.name" maxlength="200" :disabled="busy" /></label>
+            <label class="space-y-1 text-sm">
+              {{ t('team.machineKey') }}
+              <Input v-model="draft.key" required maxlength="200" :disabled="busy || !!draft.id" />
+              <span class="block text-xs text-muted-foreground">{{ t('team.machineKeyHint') }}</span>
+            </label>
+            <label class="space-y-1 text-sm sm:col-span-2">
+              {{ t('team.member') }}
+              <Select v-model="draft.member" :options="[{ value: '', label: t('team.unassigned') }, ...members.filter(row => row.active || row.id === draft.member).map(row => ({ value: row.id, label: row.name }))]" :disabled="busy" />
+              <span class="block text-xs text-muted-foreground">{{ t('team.machineHistoryAssignmentHint') }}</span>
+            </label>
+            <DialogFooter class="flex-wrap sm:col-span-2">
+              <Button type="submit" :disabled="busy">{{ t('common.save') }}</Button>
+              <Button type="button" variant="outline" :disabled="busy" @click="toggleMachineActive">{{ t(draft.active ? 'team.deactivate' : 'team.reactivate') }}</Button>
+              <Button type="button" variant="ghost" :disabled="busy || !draft.member" @click="previewHistory(draft.id)">{{ t('team.backfillPreview') }}</Button>
+              <Button type="button" variant="outline" :disabled="busy" @click="editing = null">{{ t('common.cancel') }}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <section class="space-y-4">
         <header class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -386,24 +438,62 @@ async function submit() {
         </label>
         <div class="flex flex-wrap gap-2 sm:col-span-2">
           <Button v-if="eligibleMachines.length" type="submit" :disabled="busy || !memberForm.machineId">{{ t('team.createMember') }}</Button>
-          <Button v-else type="button" @click="machineDialog = true">{{ t('team.registerMachine') }}</Button>
+          <Button v-else type="button" @click="machineDialog = true" :disabled="busy">{{ t('team.registerMachine') }}</Button>
           <Button type="button" variant="outline" :disabled="busy" @click="memberDialog = false">{{ t('common.cancel') }}</Button>
         </div>
       </form>
-      <form v-if="machineDialog" class="grid gap-3 rounded-3xl bg-muted p-5 sm:grid-cols-2" @submit.prevent="submitMachine">
-        <h2 class="font-semibold sm:col-span-2">{{ t('team.registerMachine') }}</h2>
-        <label class="space-y-1 text-sm">
-          {{ t('team.machineKey') }}
-          <Input v-model="machineForm.key" required maxlength="200" :disabled="busy" />
-          <span class="block text-xs text-muted-foreground">{{ t('team.machineKeyHint') }}</span>
-        </label>
-        <label class="space-y-1 text-sm">{{ t('team.name') }}<Input v-model="machineForm.name" maxlength="200" :disabled="busy" /></label>
-        <div class="flex gap-2 sm:col-span-2">
-          <Button type="submit" :disabled="busy">{{ t('common.create') }}</Button>
-          <Button type="button" variant="outline" :disabled="busy" @click="machineDialog = false">{{ t('common.cancel') }}</Button>
-        </div>
-      </form>
+      <Dialog :open="machineDialog" @update:open="open => { if (!open && !busy) machineDialog = false }">
+        <DialogContent>
+          <DialogHeader><DialogTitle>{{ t('team.registerMachine') }}</DialogTitle></DialogHeader>
+          <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="submitMachine">
+            <p v-if="machineDialogError" role="alert" class="text-sm text-destructive sm:col-span-2">{{ machineDialogError }}</p>
+            <label class="space-y-1 text-sm">
+              {{ t('team.machineKey') }}
+              <Input v-model="machineForm.key" required maxlength="200" :disabled="busy" />
+              <span class="block text-xs text-muted-foreground">{{ t('team.machineKeyHint') }}</span>
+            </label>
+            <label class="space-y-1 text-sm">{{ t('team.name') }}<Input v-model="machineForm.name" maxlength="200" :disabled="busy" /></label>
+            <DialogFooter class="sm:col-span-2">
+              <Button type="submit" :disabled="busy">{{ t('common.create') }}</Button>
+              <Button type="button" variant="outline" :disabled="busy" @click="machineDialog = false">{{ t('common.cancel') }}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <DepartmentEditDialog :editor="departmentEditor" />
+      <section data-testid="machine-inventory" class="space-y-4">
+        <header class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold">{{ t('team.machines') }}</h2>
+          <Button size="sm" :disabled="busy" @click="machineDialog = true">
+            <Plus aria-hidden="true" class="size-4" />{{ t('team.registerMachine') }}
+          </Button>
+        </header>
+        <div v-if="machines.length" class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          <article v-for="machine in orderedInventoryMachines" :key="machine.id" class="flex min-w-0 flex-col gap-3 rounded-3xl p-5 sm:p-6" :class="machine.member ? 'bg-white text-foreground dark:bg-green-950 dark:text-green-100' : 'bg-orange-100 text-orange-950 dark:bg-orange-950 dark:text-orange-100'">
+            <div class="w-full min-w-0 space-y-3 [overflow-wrap:anywhere]">
+              <div class="flex min-w-0 items-center gap-2">
+                <span :aria-label="t(machine.active ? 'common.active' : 'common.inactive')" :class="machine.active ? 'bg-green-600 dark:bg-green-400' : 'bg-red-600 dark:bg-red-400'" class="size-2.5 shrink-0 rounded-full" />
+                <div class="min-w-0 flex-1">
+                  <h3 class="text-base font-medium [overflow-wrap:anywhere]">{{ machine.name || machine.key }}</h3>
+                  <p v-if="machine.name" class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ machine.key }}</p>
+                </div>
+                <Button size="icon" variant="outline" class="shrink-0" :aria-label="t('common.edit')" :title="t('common.edit')" :disabled="busy" @click="edit('machines', machine.id)"><Pencil aria-hidden="true" class="size-4" /></Button>
+              </div>
+              <dl class="space-y-3 text-sm">
+              <div>
+                <dt class="text-xs text-muted-foreground">{{ t('team.member') }}</dt>
+                <dd>{{ members.find(member => member.id === machine.member)?.name || t('team.unassigned') }}</dd>
+              </div>
+                <div>
+                  <dt class="text-xs text-muted-foreground">{{ t('common.status') }}</dt>
+                  <dd>{{ t(machine.active ? 'common.active' : 'common.inactive') }}</dd>
+                </div>
+              </dl>
+            </div>
+          </article>
+        </div>
+        <EmptyState v-else-if="!loading" :title="t('team.noMachinesRegistered')" />
+      </section>
     </template>
   </div>
 </template>

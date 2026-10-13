@@ -183,15 +183,16 @@ describe('palette guards', () => {
     expect(nav).toContain(':aria-current=')
   })
 
-  it('protects filled-field text, opaque indicators and retained textarea boundaries', () => {
+  it('protects filled-field text, opaque indicators and the shared textarea field contract', () => {
     const block = darkBlock()
     const inputSource = readFileSync(resolve(process.cwd(), 'app/components/ui/input/Input.vue'), 'utf8')
     const buttonSource = readFileSync(resolve(process.cwd(), 'app/components/ui/button/index.ts'), 'utf8')
     expect(inputSource).toContain('placeholder:text-muted-foreground')
     expect(inputSource).toContain('control-size control-field')
     const textareaSource = readFileSync(resolve(process.cwd(), 'app/components/ui/textarea/Textarea.vue'), 'utf8')
-    expect(textareaSource).toContain('dark:bg-input/30')
-    expect(textareaSource).toContain('rounded-md border')
+    expect(textareaSource).toContain('control-field')
+    expect(textareaSource).toContain('rounded-[16px] px-3 py-2')
+    expect(textareaSource).not.toContain('control-size')
     expect(buttonSource).toContain('hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-accent')
     expect(buttonSource).toContain('whitespace-nowrap border-0')
     expect(buttonSource).not.toContain('dark:border-input')
@@ -207,17 +208,11 @@ describe('palette guards', () => {
       for (const fg of ['foreground', 'muted-foreground']) {
         expect(contrastRatio(luminanceOf(readToken(block, fg)), luminanceOf(bg)), `${fg} / ${surface}`).toBeGreaterThanOrEqual(4.5)
       }
-      // color-mix with transparent retains the input color and changes alpha.
-      // Browser painting composites its encoded sRGB over the actual surface,
-      // not the OKLab lightnesses. Quantize after compositing to sampled pixels.
-      const input = readToken(block, 'input')
-      const inputRgb = encodedRgb(input)
-      const bgRgb = encodedRgb(bg)
-      const fill = inputRgb.map((channel, i) => Math.round((channel * 0.3 + bgRgb[i]! * 0.7) * 255) / 255)
-      expect(contrastRatio(pixelLuminance(encodedRgb(readToken(block, 'muted-foreground'))), pixelLuminance(fill)), `retained textarea stroke / ${surface} fill`).toBeGreaterThanOrEqual(3)
-      expect(contrastRatio(pixelLuminance(encodedRgb(readToken(block, 'muted-foreground'))), pixelLuminance(fill)), `placeholder / ${surface} fill`).toBeGreaterThanOrEqual(4.5)
       const hover = encodedRgb(readToken(block, 'accent'))
       expect(contrastRatio(pixelLuminance(encodedRgb(readToken(block, 'accent-foreground'))), pixelLuminance(hover)), `outline hover text / ${surface}`).toBeGreaterThanOrEqual(4.5)
+    }
+    for (const block of [rootBlock(), darkBlock()]) {
+      expect(contrastRatio(luminanceOf(readToken(block, 'muted-foreground')), luminanceOf(readToken(block, 'muted'))), 'textarea placeholder / control-field').toBeGreaterThanOrEqual(4.5)
     }
   })
   it('keeps compact sizes explicit and standalone actions independent', () => {
@@ -239,7 +234,9 @@ describe('palette guards', () => {
       const source = readFileSync(resolve(process.cwd(), `app/components/ui/${widget}.vue`), 'utf8')
       expect(source).toContain('focus-visible:ring-focus-indicator ')
       expect(source).not.toContain('focus-visible:ring-focus-indicator/50')
-      expect(source).toContain(widget.startsWith('switch') ? 'data-[state=unchecked]:bg-muted-foreground' : 'border-muted-foreground')
+      expect(source).toContain(widget.startsWith('switch')
+        ? 'data-[state=unchecked]:bg-muted-foreground'
+        : widget === 'textarea/Textarea' ? 'control-field' : 'border-muted-foreground')
     }
     for (const block of [rootBlock(), darkBlock()]) for (const surface of ['background', 'card', 'popover']) {
       expect(contrastRatio(luminanceOf(readToken(block, 'muted-foreground')), luminanceOf(readToken(block, surface)))).toBeGreaterThanOrEqual(3)

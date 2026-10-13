@@ -25,6 +25,18 @@ describe('project member totals', () => {
     expect(Object.keys(result.members)).toHaveLength(201)
   })
 
+  it('loads client-wide groups without adding an empty project filter and paginates all history', async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(response(1, 2, Array.from({ length: 200 }, (_, i) => row(`m${i}`, i)), 201))
+      .mockResolvedValueOnce(response(2, 2, [row('', 9)], 201))
+    const result = await loadProjectMemberTotals(fetch, { client: 'c1' })
+    expect(fetch.mock.calls.map(([request]) => request)).toEqual([
+      { groupBy: 'member', filters: { client: 'c1' }, page: 1, perPage: 200 },
+      { groupBy: 'member', filters: { client: 'c1' }, page: 2, perPage: 200 },
+    ])
+    expect(Object.keys(result.members)).toHaveLength(200)
+    expect(result.unattributed?.workMs).toBe(9)
+  })
+
   it('accepts complete empty history but does not infer empty history from legacy or partial responses', async () => {
     await expect(loadProjectMemberTotals(vi.fn().mockResolvedValue(response(1, 0, [])), scope)).resolves.toEqual({ members: Object.create(null), unattributed: null })
     await expect(loadProjectMemberTotals(vi.fn().mockResolvedValue({ ...response(1, 0, []), totalPages: undefined }), scope)).rejects.toThrow()

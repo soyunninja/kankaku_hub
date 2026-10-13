@@ -33,7 +33,7 @@ describe('team catalog error display', () => {
   const source = readFileSync('app/pages/team/index.vue', 'utf8')
   // Execute the page's handler with controlled dependencies, without Nuxt mounting.
   const handler = source.match(/async function perform\(action: \(\) => Promise<unknown>\) \{([\s\S]*?)\nonMounted/)![1]
-  const perform = new Function('isOwner', 'busy', 'error', 't', 'mapPocketBaseFieldErrors',
+  const perform = new Function('isOwner', 'busy', 'error', 'editing', 'editMachineError', 't', 'mapPocketBaseFieldErrors',
     `return async function perform(action) {${handler}`)
 
   it.each([
@@ -45,7 +45,7 @@ describe('team catalog error display', () => {
   ])('renders only field messages or a generic fallback for %j', async (failure, expected) => {
     const busy = ref(false)
     const error = ref('previous error')
-    await perform(owner, busy, error, (key: string) => key, mapPocketBaseFieldErrors)(async () => { throw failure })
+    await perform(owner, busy, error, ref(null), ref(''), (key: string) => key, mapPocketBaseFieldErrors)(async () => { throw failure })
     expect(error.value).toBe(expected)
     expect(busy.value).toBe(false)
     expect(source).toContain('role="alert"')
@@ -150,6 +150,33 @@ describe('owner-managed team catalog', () => {
     expect(response).toEqual({ result: { member: { id: 'created' } }, refreshed: false })
     expect(send).toHaveBeenCalledTimes(1)
     expect(create).not.toHaveBeenCalled()
+  })
+
+  it('reports registration write success separately from refresh failure and propagates create failure', async () => {
+    const catalog = useTeamCatalog()
+    getFullList.mockRejectedValueOnce(new Error('offline'))
+    await expect(catalog.registerMachine({ key: ' exact ', name: 'Laptop', memberId: '' })).resolves.toBe(false)
+    expect(create).toHaveBeenCalledWith({ key: ' exact ', name: 'Laptop', member: '', active: true })
+
+    create.mockRejectedValueOnce(new Error('duplicate'))
+    await expect(catalog.registerMachine({ key: 'another', name: '', memberId: '' })).rejects.toThrow('duplicate')
+  })
+
+  it('reports machine edit writes separately from refresh failures', async () => {
+    const catalog = useTeamCatalog()
+    getFullList.mockRejectedValueOnce(new Error('offline'))
+    await expect(catalog.saveMachine('pc', { key: 'immutable', name: 'Laptop', member: '', active: true })).resolves.toBe(false)
+    expect(update).toHaveBeenCalledWith('pc', { name: 'Laptop', member: '', active: true })
+
+    update.mockRejectedValueOnce(new Error('write failed'))
+    await expect(catalog.saveMachine('pc', { key: 'immutable', name: 'Laptop', member: '', active: true })).rejects.toThrow('write failed')
+  })
+
+  it('reports machine status writes separately from refresh failures', async () => {
+    const catalog = useTeamCatalog()
+    getFullList.mockRejectedValueOnce(new Error('offline'))
+    await expect(catalog.setMachineActive('pc', false)).resolves.toBe(false)
+    expect(update).toHaveBeenCalledWith('pc', { active: false })
   })
 
   it('preserves server stale-claim conflicts and does not fall back to REST writes', async () => {

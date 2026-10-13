@@ -22,10 +22,17 @@ const { t, locale } = useI18n()
 function number(value: number) {
   return new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(value)
 }
+function memberCardClasses(layout: 'grid' | 'list', hasMachines: boolean) {
+  const layoutClasses = layout === 'grid'
+    ? 'flex min-w-0 flex-col gap-3 rounded-3xl p-2 sm:gap-5 sm:p-5'
+    : 'rounded-2xl border p-4'
+  const palette = hasMachines ? 'bg-card' : 'bg-orange-100 text-orange-950 dark:bg-orange-950 dark:text-orange-100'
+  return `${layoutClasses} ${palette}`
+}
 </script>
 
 <template>
-  <article :class="layout === 'grid' ? 'flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 sm:gap-5 sm:p-5' : 'rounded-2xl border bg-card p-4'">
+  <article :class="memberCardClasses(layout, machines.length > 0)">
     <div :class="layout === 'grid' ? 'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3' : 'flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'">
       <div :class="layout === 'grid' ? 'col-start-1 row-start-1 min-w-0' : 'min-w-0 space-y-2'">
         <h2 :class="layout === 'grid' ? 'flex items-start gap-1 text-sm font-semibold sm:text-base' : 'font-semibold'">

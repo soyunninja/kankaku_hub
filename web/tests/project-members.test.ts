@@ -5,13 +5,13 @@ import ts from 'typescript'
 import { loadProjectMemberTotals } from '../app/lib/project-member-totals'
 
 const source = readFileSync('app/components/projects/ProjectMembers.vue', 'utf8')
-function harness(owner = true) {
+function harness(owner = true, clientId = 'c1', projectId: string | undefined = 'p1') {
   const isOwner = ref(owner)
   const members = ref([{ id: 'active', name: 'Active member', department: 'd1', active: true }, { id: 'inactive', name: 'Inactive member', department: '', active: false }])
   const departments = ref([{ id: 'd1', name: 'Design' }])
   const fetchTotals = vi.fn()
   const refresh = vi.fn().mockResolvedValue(undefined)
-  const props = { clientId: 'c1', projectId: 'p1' }
+  const props: { clientId: string, projectId?: string } = { clientId, projectId }
   let unmount = () => {}
   const bindings = {
     computed, ref, watch: () => {}, onMounted: () => {}, onBeforeUnmount: (fn: () => void) => { unmount = fn },
@@ -39,6 +39,26 @@ describe('project member cards', () => {
     expect(h.instance.cost({ ...total, entries: 2, cost: 1 })).toBe('$1')
     expect(h.instance.cost({ ...total, entries: 1, cost: 0, costUnknownEntries: 0 })).toBe('$0')
     expect(h.instance.historyPath('inactive')).toBe('/team/member-projects/inactive/p1')
+  })
+
+  it('loads client-wide history without a project route and fences stale client responses', async () => {
+    const h = harness()
+    h.props.projectId = undefined
+    let release!: (response: unknown) => void
+    h.fetchTotals.mockReturnValueOnce(new Promise(resolve => { release = resolve }))
+    const oldRequest = h.instance.load()
+    await Promise.resolve()
+    await Promise.resolve()
+    h.props.clientId = 'c2'
+    h.fetchTotals.mockResolvedValueOnce({ page: 1, totalPages: 1, totalGroups: 1, groups: [{ groupKey: 'active', workMs: 8, cost: 1, entries: 1, costUnknownEntries: 0, costEstimatedEntries: 0 }] })
+    await h.instance.load()
+    release({ page: 1, totalPages: 1, totalGroups: 1, groups: [{ groupKey: 'inactive', workMs: 99, cost: 1, entries: 1, costUnknownEntries: 0, costEstimatedEntries: 0 }] })
+    await oldRequest
+    expect(h.fetchTotals).toHaveBeenCalledWith({ groupBy: 'member', filters: { client: 'c2' }, page: 1, perPage: 200 })
+    expect(h.instance.totals.value.members.active.workMs).toBe(8)
+    expect(h.instance.totals.value.members.inactive).toBeUndefined()
+    expect(h.instance.historyPath('active')).toBe('/team/active')
+    h.unmount()
   })
 
   it('fences an old project response after the project scope changes', async () => {

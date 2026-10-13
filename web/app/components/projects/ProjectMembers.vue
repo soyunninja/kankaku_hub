@@ -5,7 +5,7 @@ import { TotalsRouteUnavailableError } from '@/composables/useTotals'
 import { loadProjectMemberTotals, type ProjectMemberTotal } from '@/lib/project-member-totals'
 import type { TeamMemberRecord } from '@/lib/pocketbase-types'
 
-const props = defineProps<{ clientId: string, projectId: string }>()
+const props = defineProps<{ clientId: string, projectId?: string }>()
 const { t, locale } = useI18n()
 const { isOwner } = useAuth()
 const { departments, members, refresh } = useTeamCatalog()
@@ -26,11 +26,11 @@ async function load() {
   const current = () => version === requestVersion && client === props.clientId && project === props.projectId && owner === isOwner.value
   totals.value = { members: Object.create(null), unattributed: null }
   state.value = 'loading'
-  if (!owner || !client || !project) { state.value = 'error'; return }
+  if (!owner || !client) { state.value = 'error'; return }
   try {
     await refresh()
     if (!current()) return
-    const result = await loadProjectMemberTotals(fetchTotals, { client, project })
+    const result = await loadProjectMemberTotals(fetchTotals, project === undefined ? { client } : { client, project })
     if (!current()) return
     totals.value = result
     state.value = 'ready'
@@ -45,7 +45,7 @@ watch(() => [props.clientId, props.projectId, isOwner.value], load, { flush: 'sy
 onBeforeUnmount(() => { requestVersion++ })
 function duration(total: ProjectMemberTotal) { return formatDuration(total.workMs, locale.value) }
 function cost(total: ProjectMemberTotal) { return total.costUnknownEntries > 0 && total.costUnknownEntries === total.entries ? '—' : formatCost(total.cost) }
-function historyPath(id: string) { return `/team/member-projects/${encodeURIComponent(id)}/${encodeURIComponent(props.projectId)}` }
+function historyPath(id: string) { return props.projectId ? `/team/member-projects/${encodeURIComponent(id)}/${encodeURIComponent(props.projectId)}` : `/team/${encodeURIComponent(id)}` }
 </script>
 
 <template>

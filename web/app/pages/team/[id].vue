@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Archive, ArchiveRestore, ArrowLeft, Pencil } from '@lucide/vue'
+import { Archive, ArchiveRestore, ArrowLeft, Pencil, Plus, Unlink } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,15 @@ const currentMachines = computed(() => machines.value.filter(row => row.member =
 const editing = ref(false)
 const draft = reactive({ name: '', department: '', active: true })
 const saving = ref(false)
+const machineSaving = ref(false)
+const machineDialog = ref(false)
+const unlinkTarget = ref('')
+const unlinkMachine = computed(() => machines.value.find(row => row.id === unlinkTarget.value))
+const machineError = ref('')
+const machineErrorLocation = ref<'card' | 'dialog' | ''>('')
+const machineNotice = ref('')
+const selectedMachine = ref('')
+const machineDraft = reactive({ key: '', name: '' })
 const generation = ref(0)
 async function editMember() {
   if (!isOwner.value || !member.value || saving.value || editing.value) return
@@ -39,6 +48,33 @@ function onEditOpenChange(open: boolean) {
 function preventEditDismiss(event: Event) {
   if (saving.value) event.preventDefault()
 }
+function onMachineDialogOpenChange(open: boolean) {
+  if (machineSaving.value) return
+  machineDialog.value = open
+  if (!open && machineErrorLocation.value === 'dialog') {
+    machineError.value = ''
+    machineErrorLocation.value = ''
+  }
+}
+function preventMachineDismiss(event: Event) {
+  if (machineSaving.value) event.preventDefault()
+}
+function openUnlinkConfirmation(machineId: string) {
+  if (!isOwner.value || !member.value || machineSaving.value) return
+  unlinkTarget.value = machineId
+}
+function closeUnlinkConfirmation() {
+  if (machineSaving.value) return
+  unlinkTarget.value = ''
+}
+function onUnlinkDialogOpenChange(open: boolean) {
+  if (!open) closeUnlinkConfirmation()
+}
+async function confirmUnlinkMachine() {
+  const machineId = unlinkTarget.value
+  if (!machineId || machineSaving.value) return
+  await manageMemberMachine('unlink', machineId)
+}
 async function saveMember() {
   const target = member.value
   if (!isOwner.value || !target || !editing.value || saving.value) return
@@ -54,6 +90,38 @@ async function saveMember() {
     if (request === generation.value && isOwner.value && memberId.value === targetId && member.value?.id === targetId) editError.value = t('team.requestFailed')
   }
   finally { saving.value = false }
+}
+async function manageMemberMachine(action: 'assign' | 'register' | 'unlink', machineId?: string) {
+  const target = member.value
+  if (!isOwner.value || !target || saving.value || editing.value || machineSaving.value) return
+  const targetId = target.id
+  const request = generation.value
+  machineSaving.value = true
+  machineError.value = ''
+  machineErrorLocation.value = ''
+  machineNotice.value = ''
+  try {
+    const catalog = useTeamCatalog()
+    let refreshed = true
+    if (action === 'assign' && machineId) refreshed = await catalog.assignMachine(machineId, targetId)
+    else if (action === 'register') refreshed = await catalog.registerMachine({ key: machineDraft.key.trim(), name: machineDraft.name.trim(), memberId: targetId })
+    else if (action === 'unlink' && machineId) refreshed = await catalog.unlinkMachine(machineId, targetId)
+    if (request === generation.value && isOwner.value && memberId.value === targetId && member.value?.id === targetId) {
+      selectedMachine.value = ''
+      machineDraft.key = ''
+      machineDraft.name = ''
+      if (action !== 'unlink') machineDialog.value = false
+      else unlinkTarget.value = ''
+      if (!refreshed) machineNotice.value = t('team.machineSavedRefreshFailed')
+    }
+  }
+  catch {
+    if (request === generation.value && isOwner.value && memberId.value === targetId && member.value?.id === targetId) {
+      machineError.value = t('team.machineRequestFailed')
+      machineErrorLocation.value = action === 'unlink' ? 'card' : 'dialog'
+    }
+  }
+  finally { machineSaving.value = false }
 }
 async function toggleMemberActive() {
   const target = member.value
@@ -87,6 +155,14 @@ async function load() {
 watch([memberId, isOwner], () => {
   editing.value = false
   editError.value = ''
+  machineError.value = ''
+  machineErrorLocation.value = ''
+  machineNotice.value = ''
+  machineDialog.value = false
+  unlinkTarget.value = ''
+  selectedMachine.value = ''
+  machineDraft.key = ''
+  machineDraft.name = ''
   void load()
 })
 onMounted(() => { void load() })
@@ -123,19 +199,79 @@ useHead({ title: computed(() => member.value?.name || t('team.memberWork')) })
             </Button>
           </div>
           <Card>
-            <CardHeader><CardTitle class="text-sm">{{ t('team.currentMachines') }}</CardTitle></CardHeader>
-            <CardContent class="space-y-2 pt-0">
-              <NuxtLink v-for="machine in currentMachines" :key="machine.id" to="/team" class="block break-words rounded-lg bg-muted px-3 py-2 text-sm hover:underline">
-                {{ machine.name || machine.key }} · {{ machine.key }}<span v-if="!machine.active"> ({{ t('common.inactive') }})</span>
-              </NuxtLink>
+            <CardHeader class="grid-cols-[1fr_auto] grid-rows-[auto] items-center gap-3">
+              <CardTitle class="text-sm">{{ t('team.machines') }}</CardTitle>
+              <Button v-if="isOwner && member" variant="ghost" size="icon" :aria-label="t('team.addMachine')" :title="t('team.addMachine')" :disabled="machineSaving || saving || editing" @click="onMachineDialogOpenChange(true)"><Plus aria-hidden="true" class="size-4" /></Button>
+            </CardHeader>
+            <CardContent class="space-y-3 pt-0">
+              <div v-for="machine in currentMachines" :key="machine.id" class="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+                <NuxtLink to="/team" class="min-w-0 flex-1 break-words hover:underline">
+                  {{ machine.name || machine.key }} · {{ machine.key }}<span v-if="!machine.active"> ({{ t('common.inactive') }})</span>
+                </NuxtLink>
+                <Button variant="outline" size="icon" class="shrink-0" :aria-label="t('team.unlinkMachine')" :title="t('team.unlinkMachine')" :disabled="machineSaving || saving || editing" :aria-busy="machineSaving" @click="openUnlinkConfirmation(machine.id)"><Unlink aria-hidden="true" class="size-4" /></Button>
+              </div>
               <p v-if="!currentMachines.length" class="text-sm text-muted-foreground">{{ t('team.noMachines') }}</p>
+              <p v-if="machineError && machineErrorLocation === 'card'" role="alert" class="text-sm text-destructive">{{ machineError }}</p>
             </CardContent>
           </Card>
+          <p v-if="machineNotice" role="status" class="text-sm text-muted-foreground">{{ machineNotice }}</p>
           <p class="border-t border-border pt-4 text-sm text-muted-foreground">{{ t('team.memberHistory') }}</p>
         </aside>
       </div>
     </template>
     <p v-else-if="!loading" role="alert">{{ t('team.memberNotFound') }}</p>
+    <Dialog v-if="isOwner && member" :open="machineDialog" @update:open="onMachineDialogOpenChange">
+      <DialogContent
+        :show-close-button="!machineSaving"
+        :aria-describedby="undefined"
+        class="sm:max-w-md"
+        @escape-key-down="preventMachineDismiss"
+        @pointer-down-outside="preventMachineDismiss"
+        @interact-outside="preventMachineDismiss"
+      >
+        <DialogHeader><DialogTitle>{{ t('team.addMachine') }} · {{ member.name }}</DialogTitle></DialogHeader>
+        <div class="flex flex-col gap-5">
+          <section data-testid="member-machine-actions" class="space-y-3">
+            <h3 class="text-sm font-medium">{{ t('team.assignMachine') }}</h3>
+            <div class="flex flex-col gap-3 sm:flex-row">
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <Label>{{ t('team.selectFreeMachine') }}</Label>
+                <Select v-model="selectedMachine" :aria-label="t('team.selectFreeMachine')" :options="[{ value: '', label: t('team.selectFreeMachine') }, ...machines.filter(machine => machine.active && !machine.member).map(machine => ({ value: machine.id, label: `${machine.name || machine.key} · ${machine.key}` }))]" :disabled="machineSaving || saving || editing" />
+              </div>
+              <Button class="self-end" variant="outline" :disabled="!selectedMachine || machineSaving || saving || editing" :aria-busy="machineSaving" @click="manageMemberMachine('assign', selectedMachine)">{{ t('team.assignMachine') }}</Button>
+            </div>
+          </section>
+          <div class="border-t" />
+          <form class="flex flex-col gap-4" @submit.prevent="manageMemberMachine('register')">
+            <h3 class="text-sm font-medium">{{ t('team.registerMachine') }}</h3>
+          <div class="flex flex-col gap-1.5">
+            <Label for="machine-key">{{ t('team.machineKey') }}</Label>
+            <Input id="machine-key" v-model="machineDraft.key" required maxlength="200" :disabled="machineSaving || saving || editing" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <Label for="machine-name">{{ t('team.machineName') }}</Label>
+            <Input id="machine-name" v-model="machineDraft.name" required maxlength="200" :disabled="machineSaving || saving || editing" />
+          </div>
+            <p v-if="machineError && machineErrorLocation === 'dialog'" role="alert" class="text-sm text-destructive">{{ machineError }}</p>
+            <DialogFooter>
+              <Button type="button" variant="outline" :disabled="machineSaving" @click="onMachineDialogOpenChange(false)">{{ t('common.cancel') }}</Button>
+              <Button type="submit" :disabled="machineSaving || saving || editing" :aria-busy="machineSaving">{{ t('team.registerMachine') }}</Button>
+            </DialogFooter>
+          </form>
+        </div>
+      </DialogContent>
+    </Dialog>
+    <Dialog v-if="isOwner && member && unlinkMachine" :open="Boolean(unlinkTarget)" @update:open="onUnlinkDialogOpenChange">
+      <DialogContent :show-close-button="!machineSaving" :aria-describedby="undefined" @escape-key-down="preventMachineDismiss" @pointer-down-outside="preventMachineDismiss" @interact-outside="preventMachineDismiss">
+        <DialogHeader><DialogTitle>{{ t('team.unlinkMachine') }}</DialogTitle></DialogHeader>
+        <p>{{ t('team.unlinkMachineConfirm', { machine: `${unlinkMachine.name || unlinkMachine.key} · ${unlinkMachine.key}`, member: member.name }) }}</p>
+        <p v-if="machineError && machineErrorLocation === 'card'" role="alert" class="text-sm text-destructive">{{ machineError }}</p>
+        <DialogFooter>
+          <Button type="button" variant="outline" :disabled="machineSaving" @click="closeUnlinkConfirmation">{{ t('common.cancel') }}</Button>
+          <Button type="button" :disabled="machineSaving" :aria-busy="machineSaving" @click="confirmUnlinkMachine">{{ t('team.unlinkMachine') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <Dialog v-if="isOwner && member" :open="editing" @update:open="onEditOpenChange">
       <DialogContent
         :show-close-button="!saving"

@@ -24,16 +24,18 @@ function validMetric(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
-/** Load complete all-time member aggregates for one project; never publish partial pages. */
-export async function loadProjectMemberTotals(fetchTotals: FetchTotals, scope: { client: string, project: string }): Promise<ProjectMemberTotals> {
-  if (!scope.client || !scope.project) throw new Error('Project member totals require a client and project scope')
+/** Load complete all-time member aggregates for a client or one of its projects; never publish partial pages. */
+export async function loadProjectMemberTotals(fetchTotals: FetchTotals, scope: { client: string, project?: string }): Promise<ProjectMemberTotals> {
+  if (!scope.client) throw new Error('Member totals require a client scope')
+  if (scope.project !== undefined && !scope.project) throw new Error('Project member totals require a project scope')
+  const filters = scope.project === undefined ? { client: scope.client } : { client: scope.client, project: scope.project }
   const members: Record<string, ProjectMemberTotal> = Object.create(null)
   let unattributed: ProjectMemberTotal | null = null
   let totalPages: number | undefined
   let totalGroups: number | undefined
 
   for (let page = 1; ; page++) {
-    const response = await fetchTotals({ groupBy: 'member', filters: { client: scope.client, project: scope.project }, page, perPage: PAGE_SIZE })
+    const response = await fetchTotals({ groupBy: 'member', filters, page, perPage: PAGE_SIZE })
     if (!Number.isSafeInteger(response.page) || response.page !== page
       || !Number.isSafeInteger(response.totalPages) || response.totalPages < 0 || response.totalPages > MAX_PAGES
       || !Number.isSafeInteger(response.totalGroups) || response.totalGroups < 0

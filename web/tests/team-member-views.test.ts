@@ -33,7 +33,7 @@ describe('team member catalog views', () => {
     expect(card).toContain('machine.name || machine.key')
     expect(card).toContain('department')
     expect(card).toContain('member.active')
-    expect(card).toContain('<article :class="layout === \'grid\' ?')
+    expect(card).toContain('<article :class="memberCardClasses(layout, machines.length > 0)"')
     expect(card).toContain("<div v-if=\"layout === 'list'\"")
   })
 
@@ -69,8 +69,23 @@ describe('team member catalog views', () => {
     ])
   })
 
+  it('uses the free-machine palette only for members without assigned machines in both layouts', () => {
+    const declaration = card.match(/function memberCardClasses\(layout: 'grid' \| 'list', hasMachines: boolean\) \{([\s\S]*?)\n\}/)?.[1]
+    expect(declaration, 'member card class helper must be present').toBeTruthy()
+    const memberCardClasses = new Function('layout', 'hasMachines', declaration!) as (layout: 'grid' | 'list', hasMachines: boolean) => string
+    const orange = 'bg-orange-100 text-orange-950 dark:bg-orange-950 dark:text-orange-100'
+    expect(memberCardClasses('grid', false)).toContain(orange)
+    expect(memberCardClasses('list', false)).toContain(orange)
+    expect(memberCardClasses('grid', false)).not.toContain('bg-card')
+    expect(memberCardClasses('list', false)).not.toContain('bg-card')
+    expect(memberCardClasses('grid', true)).toContain('bg-card')
+    expect(memberCardClasses('list', true)).toContain('bg-card')
+    expect(memberCardClasses('grid', true)).not.toContain('bg-orange-100')
+    expect(memberCardClasses('list', true)).not.toContain('bg-orange-100')
+  })
+
   it('matches Clients grid cards while keeping machine and status management in list view', () => {
-    expect(card).toContain("layout === 'grid' ? 'flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 sm:gap-5 sm:p-5' : 'rounded-2xl border bg-card p-4'")
+    expect(card).toContain(':class="memberCardClasses(layout, machines.length > 0)"')
     expect(card).toContain('col-start-2 row-start-1')
     expect(card).toContain('text-sm font-semibold sm:text-base')
     expect(card).toContain('[overflow-wrap:anywhere]')

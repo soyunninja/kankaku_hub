@@ -95,6 +95,50 @@ export function useTeamCatalog() {
   const unassignedMachines = computed(() => machines.value.filter(machine => !machine.member))
   const eligibleMachines = computed(() => machines.value.filter(machine => machine.active && !machine.member))
 
+  async function refreshAfterMachineWrite() {
+    try { await refresh(); return true }
+    catch { return false }
+  }
+
+  async function assignMachine(machineId: string, memberId: string) {
+    requireOwner()
+    await refresh()
+    const machine = machines.value.find(row => row.id === machineId)
+    if (!machine || !machine.active || machine.member) throw new Error('Machine is no longer available')
+    await $pb.collection('machines').update(machineId, { member: memberId })
+    return refreshAfterMachineWrite()
+  }
+
+  async function registerMachine(input: { key: string, name: string, memberId: string }) {
+    requireOwner()
+    await $pb.collection('machines').create({ key: input.key, name: input.name, member: input.memberId, active: true })
+    return refreshAfterMachineWrite()
+  }
+
+  async function saveMachine(id: string, data: TeamFields['machines']) {
+    requireOwner()
+    const payload: Record<string, string | boolean> = { name: data.name, member: data.member, active: data.active }
+    if (!id) Object.assign(payload, { key: data.key })
+    if (id) await $pb.collection('machines').update(id, payload)
+    else await $pb.collection('machines').create(payload)
+    return refreshAfterMachineWrite()
+  }
+
+  async function setMachineActive(id: string, active: boolean) {
+    requireOwner()
+    await $pb.collection('machines').update(id, { active })
+    return refreshAfterMachineWrite()
+  }
+
+  async function unlinkMachine(machineId: string, memberId: string) {
+    requireOwner()
+    await refresh()
+    const machine = machines.value.find(row => row.id === machineId)
+    if (!machine || machine.member !== memberId) throw new Error('Machine is no longer assigned to this member')
+    await $pb.collection('machines').update(machineId, { member: '' })
+    return refreshAfterMachineWrite()
+  }
+
   async function createMemberWithMachine(input: { name: string, department: string, machineId: string }) {
     requireOwner()
     await refresh()
@@ -111,5 +155,5 @@ export function useTeamCatalog() {
     return { result, refreshed }
   }
 
-  return { departments, members, machines, unassignedMachines, eligibleMachines, loading, refresh, save, setActive, createMemberWithMachine, previewBackfill, applyBackfill }
+  return { departments, members, machines, unassignedMachines, eligibleMachines, loading, refresh, save, setActive, createMemberWithMachine, assignMachine, registerMachine, saveMachine, setMachineActive, unlinkMachine, previewBackfill, applyBackfill }
 }
