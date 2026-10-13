@@ -27,6 +27,10 @@ function setupPage() {
   const fetchRange = vi.fn().mockResolvedValue({ entries: [], truncated: false })
   const getList = vi.fn()
   const countSessions = vi.fn().mockResolvedValue({ t1: 3 })
+  const sourceTasks = [
+    { id: 't1', title: 'First task', status: 'open' },
+    { id: 't2', title: '', status: 'done' },
+  ]
   let unmount = () => {}
   const bindings = {
     computed, reactive, ref, watch: () => {}, onMounted: () => {}, onBeforeUnmount: (fn: () => void) => { unmount = fn },
@@ -37,7 +41,7 @@ function setupPage() {
     useRoute: () => route, useI18n: () => ({ t: (key: string) => key }), useHead: () => {}, useFormatters: () => ({ formatCost, formatDuration }),
     useProjects: () => ({ byId: () => project.value, ensureLoaded: async () => {} }),
     useClients: () => ({ byId: () => client.value, ensureLoaded: async () => {} }),
-    useTasks: () => ({ byProject: () => [{ id: 't1', title: 'First task', status: 'open' }, { id: 't2', title: '', status: 'done' }], ensureLoaded: async () => {} }),
+    useTasks: () => ({ byProject: () => sourceTasks, ensureLoaded: async () => {} }),
     useTaskEntries: () => ({ fetchRange }), useTotals: () => ({ fetchRangeTotals, fetchTotals }),
     rankTasks: rankProjects, taskRemainder: projectRemainder, TASK_OTHERS_KEY: PROJECT_OTHERS_KEY,
     sumTaskEntries, buildLocalDayBoundaries, utcInstantToLocalDay, computeAverageCost, resolvePreset,
@@ -51,12 +55,30 @@ function setupPage() {
     cardWork: (task) => (${expressions[0]}), cardCost: (task) => (${expressions[1]}),
     sessions: typeof sessionCounts === 'undefined' ? undefined : sessionCounts,
     sessionLabel: typeof taskSessions === 'undefined' ? undefined : taskSessions }`)(...Object.values(bindings))
-  return { page, route, project, client, fetchRangeTotals, fetchTotals, fetchRange, getList, countSessions, unmount: () => unmount() }
+  return { page, route, project, client, sourceTasks, fetchRangeTotals, fetchTotals, fetchRange, getList, countSessions, unmount: () => unmount() }
 }
 const row = (groupKey: string, workMs = 0, cost = 0) => ({ ...ZERO_TOTALS_ROW, groupKey, workMs, cost })
 const response = (groups: ReturnType<typeof row>[] = []) => ({ total: { ...ZERO_TOTALS_ROW, count: 1 }, groups, totalPages: 1, totalGroups: groups.length })
 
 describe('project task-card status presentation', () => {
+  it('orders task cards by workflow status without mutating the cached project tasks', () => {
+    const h = setupPage()
+    h.sourceTasks.splice(0, h.sourceTasks.length,
+      { id: 'open-1', title: '', status: 'open' },
+      { id: 'closed-1', title: '', status: 'closed' },
+      { id: 'doing-1', title: '', status: 'doing' },
+      { id: 'done-1', title: '', status: 'done' },
+      { id: 'open-2', title: '', status: 'open' },
+      { id: 'doing-2', title: '', status: 'doing' },
+      { id: 'closed-2', title: '', status: 'closed' },
+    )
+    const original = [...h.sourceTasks]
+    expect(h.page.tasks.value.map(task => task.id)).toEqual(['doing-1', 'doing-2', 'open-1', 'open-2', 'closed-1', 'done-1', 'closed-2'])
+    expect(h.sourceTasks).toEqual(original)
+    h.route.params.id = 'another-client'
+    expect(h.page.tasks.value).toEqual([])
+    expect(h.sourceTasks).toEqual(original)
+  })
   it('retains historical task cards and navigation while showing inherited inactivity', () => {
     const h = setupPage()
     h.client.value.active = false

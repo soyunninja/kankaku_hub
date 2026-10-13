@@ -41,7 +41,11 @@ const project = computed(() => projectById(projectId.value))
 const client = computed(() => clientById(clientId.value))
 const validOwner = computed(() => !!client.value && !!project.value && project.value.client === clientId.value)
 const operational = computed(() => isOperationalProject(project.value, client.value ? [client.value] : []))
-const tasks = computed(() => validOwner.value ? tasksByProject(projectId.value) : [])
+const tasks = computed(() => {
+  if (!validOwner.value) return []
+  const priority: Record<string, number> = { doing: 0, open: 1, done: 2, closed: 2 }
+  return [...tasksByProject(projectId.value)].sort((a, b) => (priority[a.status] ?? 3) - (priority[b.status] ?? 3))
+})
 useHead({ title: computed(() => validOwner.value ? project.value?.name : t('projects.title')) })
 
 // Work/cost measurements share this window; total sessions are explicitly all-time.
