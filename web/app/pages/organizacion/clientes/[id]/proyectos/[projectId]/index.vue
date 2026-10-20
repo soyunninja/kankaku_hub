@@ -5,6 +5,7 @@ import ClientName from '@/components/clients/ClientName.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
 import ProjectMembers from '@/components/projects/ProjectMembers.vue'
 import ProjectEditDialog from '@/components/projects/ProjectEditDialog.vue'
+import TaskCreateDialog from '@/components/tasks/TaskCreateDialog.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,7 +33,7 @@ const { byProject: tasksByProject, ensureLoaded: ensureTasks } = useTasks()
 const { fetchRange } = useTaskEntries()
 const { fetchTotals, fetchRangeTotals } = useTotals()
 const { $pb } = useNuxtApp()
-const { canWrite } = useAuth()
+const { canWrite, user, isAuthenticated } = useAuth()
 const editor = useProjectEditor()
 const { saving, archiving, confirmationOpen, archiveTarget } = editor
 watch(() => [route.params.id, route.params.projectId], () => editor.close(true), { flush: 'sync' })
@@ -41,6 +42,20 @@ const project = computed(() => projectById(projectId.value))
 const client = computed(() => clientById(clientId.value))
 const validOwner = computed(() => !!client.value && !!project.value && project.value.client === clientId.value)
 const operational = computed(() => isOperationalProject(project.value, client.value ? [client.value] : []))
+const taskCreateContext = computed(() => ({
+  canWrite: canWrite.value,
+  isAuthenticated: isAuthenticated.value,
+  clientId: clientId.value,
+  clientName: client.value?.name ?? '',
+  clientActive: client.value?.active,
+  projectId: projectId.value,
+  projectName: project.value?.name ?? '',
+  projectClientId: project.value?.client ?? '',
+  projectActive: project.value?.active,
+  userId: user.value?.id ?? '',
+  role: user.value?.role ?? '',
+  token: $pb.authStore.token,
+}))
 const tasks = computed(() => {
   if (!validOwner.value) return []
   const priority: Record<string, number> = { doing: 0, open: 1, done: 2, closed: 2 }
@@ -348,7 +363,10 @@ watch(() => [route.params.id, route.params.projectId], load, { flush: 'sync' })
         </CardContent>
       </Card>
       <section class="space-y-4 pt-4">
-        <h2 class="text-sm font-bold">{{ t('projects.detail.tasksTitle') }}</h2>
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold">{{ t('projects.detail.tasksTitle') }}</h2>
+          <TaskCreateDialog :context="taskCreateContext" />
+        </div>
         <div v-if="tasks.length" class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 lg:gap-6">
           <article v-for="task in tasks" :key="task.id" data-testid="task-card" class="flex min-w-0 flex-col gap-3 rounded-3xl bg-card p-2 sm:gap-5 sm:p-5">
             <div class="min-w-0 space-y-2">

@@ -6,8 +6,8 @@
 | Phase | [phase-3-web](../phases/phase-3-web.md) |
 | Owners repos | kankaku-hub |
 | Related ADRs | [0004](../adr/0004-kankaku-does-not-invent-tasks.md), [0024](../adr/0024-sessions-link-to-tasks-by-explicit-action.md) |
-| Code | `web/app/pages/organizacion/tareas/[id].vue`, `web/app/composables/useTaskDetail.ts`, `web/app/composables/useTaskEditor.ts`, `web/app/components/tasks/TaskEditDialog.vue`, `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/composables/useTotals.ts`, `web/app/lib/totals-map.ts`, `web/app/components/tasks/TaskDetailSheet.vue`, `pocketbase/pb_hooks/totals.pb.js` |
-| Tests | `web/tests/task-detail-page.test.ts`, `web/tests/use-task-detail.test.ts`, `web/e2e/organization-child-details.spec.ts`, `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts`, `web/tests/totals-map.test.ts`, `web/tests/totals-equivalence.test.ts` |
+| Code | `web/app/pages/organizacion/tareas/[id].vue`, `web/app/pages/organizacion/clientes/[id]/proyectos/[projectId]/index.vue`, `web/app/composables/useTaskDetail.ts`, `web/app/composables/useTaskEditor.ts`, `web/app/composables/useTaskCreate.ts`, `web/app/components/tasks/TaskEditDialog.vue`, `web/app/components/tasks/TaskCreateDialog.vue`, `web/app/pages/tasks/index.vue`, `web/app/composables/useTasks.ts`, `web/app/composables/useTotals.ts`, `web/app/lib/totals-map.ts`, `web/app/components/tasks/TaskDetailSheet.vue`, `pocketbase/pb_hooks/totals.pb.js` |
+| Tests | `web/tests/task-detail-page.test.ts`, `web/tests/use-task-detail.test.ts`, `web/tests/task-create-dialog.test.ts`, `web/tests/use-tasks.test.ts`, `web/tests/project-detail-page.test.ts`, `web/e2e/organization-child-details.spec.ts`, `web/e2e/polish.spec.ts`, `web/e2e/session-resume.spec.ts`, `web/e2e/task-status.spec.ts`, `web/tests/totals-map.test.ts`, `web/tests/totals-equivalence.test.ts` |
 
 ## Purpose
 
@@ -113,6 +113,18 @@ the future.
     readable, while task edit/status controls and handlers are unavailable.
     Historical task-entry reassignment SHALL retain its existing write
     permission behavior.
+14. `TASKS-REQ-014` — The project detail Tasks heading SHALL offer an
+    owner-only create action, including when there are no task cards. The
+    dialog SHALL show the route's owning client and project as read-only
+    context, reset optional fields on every open, and create only a trimmed
+    nonblank title with that project and `status: open`; it SHALL NOT send a
+    task client or active field. The client and project must belong together
+    and both explicitly be active. Before a create request, the handler SHALL
+    revalidate owner identity/role, auth token, route ownership and active
+    parents. Pending submits SHALL block duplicate submission, dismissal and
+    dialog reopening/reset. Route/auth/session/dialog changes SHALL fence
+    stale completions, and cache refresh after a committed create SHALL not
+    permit retrying the create or publish into another auth session.
 
 ## Scenarios
 
@@ -183,6 +195,22 @@ the future.
   controls and writes are blocked when either parent is inactive
 - **And** historical task-entry reassignment keeps its original permission
   checks
+
+### Scenario: creating a task from project detail preserves its project scope (`TASKS-REQ-014`)
+
+- **Given** the owner views an active project whose active client is the
+  current route parent
+- **When** the owner opens New task beside Tasks, including for an empty
+  task list, and submits a nonblank title
+- **Then** the dialog shows the client and project without allowing either
+  relation to change, and creates the task with `status: open`, that project,
+  and only the supplied optional description/reference fields
+- **And** changing route or auth/session while the request is pending prevents
+  its stale completion from changing a newer dialog or another account's
+  shared task cache; a committed write with failed cache refresh is not
+  retried
+- **And** viewers, inactive/missing parents, and mismatched ownership cannot
+  open or submit the action
 
 ### Scenario: opening a task shows its sessions with resume commands (`TASKS-REQ-007`, `TASKS-REQ-008`)
 
@@ -276,3 +304,4 @@ None beyond the shared PocketBase connection.
 | `TASKS-REQ-011` | `web/e2e/task-status.spec.ts` ("the detail page status control moves a card...") | covered |
 | `TASKS-REQ-012` | `web/e2e/task-status.spec.ts` ("ArrowLeft/ArrowRight (and [ / ]) move the focused card...", "Enter/Space on a focused card opens...") | covered |
 | `TASKS-REQ-013` | `web/tests/catalog-lifecycle.test.ts`, `web/tests/tasks-page.test.ts`, `web/tests/project-detail-page.test.ts`, `web/tests/task-detail-page.test.ts` | covered |
+| `TASKS-REQ-014` | `web/tests/task-create-dialog.test.ts`, `web/tests/use-tasks.test.ts`, `web/tests/project-detail-page.test.ts` | covered |

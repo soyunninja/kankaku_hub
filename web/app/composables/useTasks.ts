@@ -1,44 +1,87 @@
 import type { TaskRecord, TaskStatus } from '~/lib/pocketbase-types'
 
 // See the matching comment in `useClients.ts` — same race, same fix.
-let inFlight: Promise<void> | null = null
+let inFlight: { scope: string, promise: Promise<void> } | null = null
+const authRevisions = new WeakMap<object, { value: number }>()
+
+type ObservableAuthStore = { token: string, record?: { id?: string, role?: string }, onChange?: (listener: () => void, initial?: boolean) => unknown }
+
+function authRevision(store: ObservableAuthStore) {
+  let revision = authRevisions.get(store)
+  if (!revision) {
+    revision = { value: 0 }
+    authRevisions.set(store, revision)
+    store.onChange?.(() => { revision!.value++ }, false)
+  }
+  return revision.value
+}
 
 export function useTasks() {
   const { $pb } = useNuxtApp()
   const tasks = useState<TaskRecord[]>('tasks:list', () => [])
   const loading = useState<boolean>('tasks:loading', () => false)
   const loaded = useState<boolean>('tasks:loaded', () => false)
+  const refreshSequence = useState<number>('tasks:refresh-sequence', () => 0)
 
-  async function refresh() {
+  function authScope() {
+    const store = $pb.authStore as ObservableAuthStore
+    return `${authRevision(store)}\u0000${store.token}\u0000${store.record?.id ?? ''}\u0000${store.record?.role ?? ''}`
+  }
+
+  async function loadTasks(scope: string, fallback?: TaskRecord) {
+    const request = ++refreshSequence.value
     loading.value = true
     try {
       const items = await $pb.collection('tasks').getFullList<TaskRecord>({ sort: '-updated', perPage: 500 })
-      tasks.value = items
-      loaded.value = true
+      if (request === refreshSequence.value && authScope() === scope) {
+        tasks.value = items
+        loaded.value = true
+      }
+    }
+    catch (error) {
+      if (fallback && request === refreshSequence.value && authScope() === scope) {
+        tasks.value = [fallback, ...tasks.value.filter(task => task.id !== fallback.id)]
+        loaded.value = false // Let ensureLoaded retry the incomplete catalog later.
+        return
+      }
+      throw error
     }
     finally {
-      loading.value = false
+      if (request === refreshSequence.value) loading.value = false
     }
+  }
+
+  async function refresh() {
+    await loadTasks(authScope())
   }
 
   /** FIX (independent review, 2026-09-21): await a shared in-flight
    * `refresh()` instead of racing past it — see `useClients.ts`. */
   async function ensureLoaded() {
     if (loaded.value) return
-    if (!inFlight) inFlight = refresh().finally(() => { inFlight = null })
-    await inFlight
+    const scope = authScope()
+    if (!inFlight || inFlight.scope !== scope) {
+      const promise = refresh().finally(() => { if (inFlight?.promise === promise) inFlight = null })
+      inFlight = { scope, promise }
+    }
+    await inFlight.promise
   }
 
   async function create(data: { title: string, project: string, status: TaskStatus, external_ref?: string, description?: string }) {
+    const scope = authScope()
     const record = await $pb.collection('tasks').create<TaskRecord>(data)
-    // Creation is committed: never hide its ID behind a catalog read failure,
-    // which would make create-and-assign callers retry by creating a duplicate.
+    // A write that committed under an old session must not publish a catalog
+    // into the next account's shared Nuxt state or start another request there.
+    if (authScope() !== scope) return record
+    // Creation is committed: catalog refresh is only cache publication and
+    // must never turn this success into a retryable create failure. loadTasks
+    // still fences both the fallback and successful publication by session and
+    // request sequence; ordinary refresh callers continue to receive errors.
     try {
-      await refresh()
+      await loadTasks(scope, record)
     }
     catch {
-      tasks.value = [record, ...tasks.value.filter(task => task.id !== record.id)]
-      loaded.value = false // Let ensureLoaded retry the incomplete catalog later.
+      // Keep the committed record as the result; a later refresh can repair the cache.
     }
     return record
   }

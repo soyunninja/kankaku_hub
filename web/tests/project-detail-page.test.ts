@@ -27,6 +27,9 @@ function setupPage() {
   const fetchRange = vi.fn().mockResolvedValue({ entries: [], truncated: false })
   const getList = vi.fn()
   const countSessions = vi.fn().mockResolvedValue({ t1: 3 })
+  const authUser = ref({ id: 'owner-1', role: 'owner' })
+  const authToken = ref('test-token')
+  const authenticated = ref(true)
   const sourceTasks = [
     { id: 't1', title: 'First task', status: 'open' },
     { id: 't2', title: '', status: 'done' },
@@ -35,9 +38,9 @@ function setupPage() {
   const bindings = {
     computed, reactive, ref, watch: () => {}, onMounted: () => {}, onBeforeUnmount: (fn: () => void) => { unmount = fn },
     loadTaskSessionCounts: countSessions, isOperationalProject,
-    useAuth: () => ({ canWrite: ref(false) }),
+    useAuth: () => ({ canWrite: ref(true), user: authUser, isAuthenticated: authenticated }),
     useProjectEditor: () => ({ saving: ref(false), archiving: ref(false), confirmationOpen: ref(false), archiveTarget: ref(null), close: () => {}, openEdit: () => {}, requestArchive: () => {}, onConfirmationOpenChange: () => {}, cancelArchive: () => {}, confirmArchive: () => {} }),
-    useNuxtApp: () => ({ $pb: { collection: () => ({ getList }) } }),
+    useNuxtApp: () => ({ $pb: { authStore: { get token() { return authToken.value } }, collection: () => ({ getList }) } }),
     useRoute: () => route, useI18n: () => ({ t: (key: string) => key }), useHead: () => {}, useFormatters: () => ({ formatCost, formatDuration }),
     useProjects: () => ({ byId: () => project.value, ensureLoaded: async () => {} }),
     useClients: () => ({ byId: () => client.value, ensureLoaded: async () => {} }),
@@ -51,16 +54,28 @@ function setupPage() {
   const code = ts.transpile(script.replace(/^import .*$/gm, ''), { target: ts.ScriptTarget.ES2022 })
   const card = source.slice(source.indexOf('<article v-for="task'))
   const expressions = [...card.matchAll(/<dd[^>]*>\{\{ ([\s\S]*?) \}\}<\/dd>/g)].map(match => match[1]!.replace(/\bcardsReady\b/g, 'cardsReady.value').replace(/\btaskTotals\b/g, 'taskTotals.value'))
-  const page = new Function(...Object.keys(bindings), `${code}; return { load, metric, loadChart, seriesKeys, seriesLabels, trendPoints, chartError, chartPartial, chartCostUnknown, taskTotals, cardsReady, error, operational, tasks,
+  const page = new Function(...Object.keys(bindings), `${code}; return { load, metric, loadChart, seriesKeys, seriesLabels, trendPoints, chartError, chartPartial, chartCostUnknown, taskTotals, cardsReady, error, operational, tasks, taskCreateContext,
     cardWork: (task) => (${expressions[0]}), cardCost: (task) => (${expressions[1]}),
     sessions: typeof sessionCounts === 'undefined' ? undefined : sessionCounts,
     sessionLabel: typeof taskSessions === 'undefined' ? undefined : taskSessions }`)(...Object.values(bindings))
-  return { page, route, project, client, sourceTasks, fetchRangeTotals, fetchTotals, fetchRange, getList, countSessions, unmount: () => unmount() }
+  return { page, route, project, client, authUser, authToken, sourceTasks, fetchRangeTotals, fetchTotals, fetchRange, getList, countSessions, unmount: () => unmount() }
 }
 const row = (groupKey: string, workMs = 0, cost = 0) => ({ ...ZERO_TOTALS_ROW, groupKey, workMs, cost })
 const response = (groups: ReturnType<typeof row>[] = []) => ({ total: { ...ZERO_TOTALS_ROW, count: 1 }, groups, totalPages: 1, totalGroups: groups.length })
 
 describe('project task-card status presentation', () => {
+  it('binds task creation to the current route, owner identity, active parents, and auth token', () => {
+    const h = setupPage()
+    expect(h.page.taskCreateContext.value).toMatchObject({
+      clientId: 'c1', projectId: 'p1', projectClientId: 'c1', clientActive: true, projectActive: true,
+      canWrite: true, isAuthenticated: true, userId: 'owner-1', role: 'owner', token: 'test-token',
+    })
+    h.route.params.id = 'c2'
+    h.route.params.projectId = 'p2'
+    h.authUser.value = { id: 'member-2', role: 'member' }
+    h.authToken.value = 'other-token'
+    expect(h.page.taskCreateContext.value).toMatchObject({ clientId: 'c2', projectId: 'p2', userId: 'member-2', role: 'member', token: 'other-token' })
+  })
   it('orders task cards by workflow status without mutating the cached project tasks', () => {
     const h = setupPage()
     h.sourceTasks.splice(0, h.sourceTasks.length,
