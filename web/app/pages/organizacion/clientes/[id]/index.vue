@@ -5,6 +5,7 @@ import ClientAvatar from '@/components/clients/ClientAvatar.vue'
 import ClientEditDialog from '@/components/clients/ClientEditDialog.vue'
 import KpiCard from '@/components/dashboard/KpiCard.vue'
 import ProjectMembers from '@/components/projects/ProjectMembers.vue'
+import ProjectCreateDialog from '@/components/projects/ProjectCreateDialog.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,13 +28,24 @@ const { ensureLoaded, byId, refreshFavicon } = useClients()
 const { ensureLoaded: ensureProjects, byClient: projectsByClient } = useProjects()
 const { fetchRange } = useTaskEntries()
 const { fetchRangeTotals, fetchTotals } = useTotals()
-const { isOwner, canWrite } = useAuth()
+const { isOwner, canWrite, isAuthenticated, user } = useAuth()
+const { $pb } = useNuxtApp()
 const editor = useClientEditor()
 const { saving, archiving, confirmationOpen, archiveTarget } = editor
 watch(() => route.params.id, editor.close, { flush: 'sync' })
 onBeforeUnmount(editor.close)
 const toast = useToast()
 const detailClient = computed(() => byId(String(route.params.id)))
+const projectCreateContext = computed(() => {
+  const client = detailClient.value
+  if (!client) return null
+  const routeClientId = String(route.params.id)
+  return {
+    canWrite: canWrite.value, isAuthenticated: isAuthenticated.value,
+    routeClientId, clientId: client.id, clientName: client.name, clientActive: client.active,
+    userId: user.value?.id ?? '', role: user.value?.role ?? '', token: $pb.authStore.token,
+  }
+})
 const detailProjects = computed(() => detailClient.value ? projectsByClient(detailClient.value.id) : [])
 useHead({ title: computed(() => detailClient.value?.name ?? t('clients.title')) })
 
@@ -395,7 +407,10 @@ async function onRefreshFavicon() {
         </Card>
       </section>
       <section data-testid="client-projects" class="space-y-4 pt-4">
-        <h2 class="text-sm font-bold">{{ t('clients.detail.projectsTitle') }}</h2>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-sm font-bold">{{ t('clients.detail.projectsTitle') }}</h2>
+          <ProjectCreateDialog :context="projectCreateContext" />
+        </div>
         <p v-if="projectsTruncated" role="status" class="rounded-md bg-warning/15 p-2 text-xs text-warning-foreground">
           {{ t('totals.fallbackTruncated', { count: projectsTruncatedEntryCount }) }}
         </p>

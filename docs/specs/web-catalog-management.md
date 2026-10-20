@@ -236,6 +236,20 @@ click away in the detail sheet and in the edit dialog.
 - **When** the header renders
 - **Then** the avatar, name and status badge share one line (the name truncating rather than pushing the badge off-screen or under the sheet's close button), with the client's code on the line below
 
+## Amendment (client-detail project creation)
+
+The client detail Projects heading offers an owner-only project creation
+action, including when the client has no project cards. The dialog is bound
+to that exact active route client (read-only context), never a catalog
+fallback. It requires a trimmed name, normalizes optional code/repository
+paths consistently with the catalog form, limits notes to 5000 characters,
+and explicitly creates the project active. The current route/client, active
+parent, authenticated owner, and token are checked before opening and again
+before the write; the latest parent status is fetched before creation. A
+route/auth scope change closes and resets pending dialog state. Committed
+writes use `useProjects.create` so the shared client-detail catalog receives
+the new project; a post-commit refresh failure does not invite a duplicate.
+
 ## Configuration
 
 None beyond the shared PocketBase connection.

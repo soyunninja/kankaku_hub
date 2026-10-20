@@ -79,6 +79,93 @@ describe('project catalog committed updates', () => {
     expect(projects.value).toEqual([record])
   })
 
+  it('does not publish an A-to-B-to-A stale project read after an auth-store revision', async () => {
+    const projects = ref<ProjectRecord[]>([])
+    let changed!: () => void
+    const authStore = { record: { id: 'owner-a' }, token: 'token-a', onChange: (listener: () => void) => { changed = listener } }
+    let finish!: (items: ProjectRecord[]) => void
+    const getFullList = vi.fn(() => new Promise<ProjectRecord[]>(resolve => { finish = resolve }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { authStore, collection: () => ({ getFullList }) } }))
+    vi.stubGlobal('useState', (_key: string, initial: () => unknown) => _key === 'projects:list' ? projects : ref(initial()))
+    const { useProjects } = await import('../app/composables/useProjects')
+    const catalog = useProjects()
+    const stale = catalog.refresh()
+    authStore.record = { id: 'owner-b' }
+    authStore.token = 'token-b'
+    changed()
+    authStore.record = { id: 'owner-a' }
+    authStore.token = 'token-a'
+    changed()
+    finish([{ id: 'stale', client: 'c1', name: 'Stale', active: true } as ProjectRecord])
+    await stale
+    expect(projects.value).toEqual([])
+  })
+
+  it('keeps create successful when its post-commit read is superseded across composable instances', async () => {
+    const state = new Map<string, ReturnType<typeof ref>>()
+    const getState = (_key: string, initial: () => unknown) => {
+      if (!state.has(_key)) state.set(_key, ref(initial()))
+      return state.get(_key)!
+    }
+    let listenerCount = 0
+    const authStore = { record: { id: 'owner-a' }, token: 'token-a', onChange: () => { listenerCount++ } }
+    const reads: Array<{ resolve: (items: ProjectRecord[]) => void, reject: (error: Error) => void }> = []
+    const getFullList = vi.fn(() => new Promise<ProjectRecord[]>((resolve, reject) => reads.push({ resolve, reject })))
+    const record = { id: 'p1', client: 'c1', name: 'Committed', active: true } as ProjectRecord
+    const create = vi.fn().mockResolvedValue(record)
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { authStore, collection: () => ({ create, getFullList }) } }))
+    vi.stubGlobal('useState', getState)
+    const { useProjects } = await import('../app/composables/useProjects')
+    const first = useProjects()
+    const second = useProjects()
+    const stale = first.refresh()
+    const pendingCreate = second.create({ name: 'Committed', client: 'c1', active: true })
+    expect(listenerCount).toBe(1)
+    await vi.waitFor(() => expect(reads).toHaveLength(2))
+    const newer = first.refresh()
+    expect(reads).toHaveLength(3)
+    reads[2]!.resolve([{ ...record, name: 'Latest catalog' }])
+    await newer
+    reads[1]!.reject(new Error('superseded read failed'))
+    await expect(pendingCreate).resolves.toEqual(record)
+    reads[0]!.resolve([{ ...record, name: 'Old read' }])
+    await stale
+    expect(getState('projects:list', () => []).value).toEqual([{ ...record, name: 'Latest catalog' }])
+    expect(create).toHaveBeenCalledOnce()
+  })
+
+  it('does not publish a post-commit read after auth changes A-to-B-to-A', async () => {
+    const projects = ref<ProjectRecord[]>([])
+    let changed!: () => void
+    const authStore = { record: { id: 'owner-a' }, token: 'token-a', onChange: (listener: () => void) => { changed = listener } }
+    let finishRead!: (items: ProjectRecord[]) => void
+    const record = { id: 'p1', client: 'c1', name: 'Committed', active: true } as ProjectRecord
+    const create = vi.fn().mockResolvedValue(record)
+    const getFullList = vi.fn(() => new Promise<ProjectRecord[]>(resolve => { finishRead = resolve }))
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { authStore, collection: () => ({ create, getFullList }) } }))
+    vi.stubGlobal('useState', (_key: string, initial: () => unknown) => _key === 'projects:list' ? projects : ref(initial()))
+    const { useProjects } = await import('../app/composables/useProjects')
+    const catalog = useProjects()
+    const pending = catalog.create({ name: 'Committed', client: 'c1', active: true })
+    await vi.waitFor(() => expect(finishRead).toBeTypeOf('function'))
+    authStore.record = { id: 'owner-b' }; authStore.token = 'token-b'; changed()
+    authStore.record = { id: 'owner-a' }; authStore.token = 'token-a'; changed()
+    finishRead([])
+    await expect(pending).resolves.toEqual(record)
+    expect(projects.value).toEqual([record])
+  })
+
+  it('does not start a reconciliation read after an actual project create failure', async () => {
+    const authStore = { record: { id: 'owner-a' }, token: 'token-a' }
+    const create = vi.fn().mockRejectedValue(new Error('write failed'))
+    const getFullList = vi.fn()
+    vi.stubGlobal('useNuxtApp', () => ({ $pb: { authStore, collection: () => ({ create, getFullList }) } }))
+    vi.stubGlobal('useState', (_key: string, initial: () => unknown) => ref(initial()))
+    const { useProjects } = await import('../app/composables/useProjects')
+    await expect(useProjects().create({ name: 'Failure', client: 'c1', active: true })).rejects.toThrow('write failed')
+    expect(getFullList).not.toHaveBeenCalled()
+  })
+
   it('patches the server response only while the captured owner and token remain current', async () => {
     const projects = ref<ProjectRecord[]>([{ id: 'p1', client: 'c1', name: 'Old', code: '', active: true, repo_paths: [] } as ProjectRecord])
     const authStore = { record: { id: 'owner-a' }, token: 'token-a' }

@@ -23,12 +23,13 @@ function setup(timeZone?: string) {
   const fetchRange = vi.fn().mockResolvedValue({ entries: [], truncated: false })
   const bindings = {
     ref, computed, useRoute: () => route, useHead: () => {}, onMounted: () => {}, watch: () => {}, onBeforeUnmount: () => {},
+    useNuxtApp: () => ({ $pb: { authStore: { token: '' } } }),
     useClientEditor: () => ({ close: vi.fn(), saving: ref(false), archiving: ref(false) }),
     useI18n: () => ({ t: (key: string) => key }), useFormatters: () => ({}),
     useClients: () => ({ ensureLoaded, byId: (id: string) => id === 'missing' ? undefined : { id, name: 'Client One' }, refreshFavicon: vi.fn() }),
     useProjects: () => ({ ensureLoaded: ensureProjects, byClient: () => [{ id: 'p1', name: 'Project One' }] }),
     useTaskEntries: () => ({ fetchRange }), useTotals: () => ({ fetchRangeTotals, fetchTotals }),
-    useAuth: () => ({ isOwner: false }), useToast: () => ({}),
+    useAuth: () => ({ isOwner: false, canWrite: ref(false), isAuthenticated: ref(false), user: ref(null) }), useToast: () => ({}),
     resolvePreset, sumTaskEntries, groupByProject, totalsByGroupKey, PROJECT_OTHERS_KEY, projectRemainder, rankProjects,
     buildLocalDayBoundaries: (range: { start: string, end: string }) => buildLocalDayBoundaries(range, timeZone),
     utcInstantToLocalDay: (instant: string) => utcInstantToLocalDay(instant, timeZone),
@@ -42,6 +43,13 @@ function setup(timeZone?: string) {
 afterEach(() => vi.useRealTimers())
 
 describe('client analytics', () => {
+  it('renders the scoped project creation action beside the Projects heading regardless of card count', () => {
+    const page = read('app/pages/organizacion/clientes/[id]/index.vue')
+    const section = page.slice(page.indexOf('data-testid="client-projects"'), page.indexOf('v-if="detailProjects.length > 0"'))
+    expect(section).toContain('<ProjectCreateDialog :context="projectCreateContext" />')
+    expect(section).toContain("t('clients.detail.projectsTitle')")
+    expect(page).toContain('routeClientId, clientId: client.id')
+  })
   it('ranks at most five chart-window projects deterministically and adds only the remainder', async () => {
     const h = setup()
     const rows = ['f', 'e', 'd', 'c', 'b', 'a'].map(groupKey => ({ groupKey, workMs: 10, cost: 1 }))
