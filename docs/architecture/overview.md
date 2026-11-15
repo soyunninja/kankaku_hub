@@ -23,7 +23,8 @@ are split.
   [`../specs/security-and-privacy.md`](../specs/security-and-privacy.md).
   The service account can write `task_entries`/`work_records` and read
   `clients`/`projects`/`tasks`, but cannot create/update/delete
-  clients/projects/tasks.
+  clients/projects, nor update/delete tasks. It may create a task, and
+  only with `status: "open"` (`SCHEMA-REQ-021`).
 - **Web → PocketBase**: authenticated as the `role: "owner"` human account
   (or, for local dev, the account created by
   `scripts/create-dev-accounts.sh`). The owner has full catalog write

@@ -29,7 +29,8 @@ surface captured from real requests.
    SHALL each be enforced unique via a SQL unique index, serving as the
    sync idempotency keys.
 4. `SCHEMA-REQ-004` — `clients`/`projects`/`tasks` SHALL be readable by any
-   authenticated user and writable only by `role = 'owner'`.
+   authenticated user and writable only by `role = 'owner'`, with the one
+   `tasks` create exception in `SCHEMA-REQ-021`.
 5. `SCHEMA-REQ-005` — `task_entries`/`work_records` SHALL be readable
    by any authenticated role; only `role = 'owner'` or `role = 'service'`
    may create/update, and only `role = 'owner'` may delete. `viewer` is
@@ -93,15 +94,17 @@ surface captured from real requests.
     owner restarts PocketBase to pick up the current web build.
 17. `SCHEMA-REQ-017` — `pocketbase/pb_hooks/task-auto-doing.pb.js` (rule in
     `pocketbase/pb_hooks/lib/task-status-rule.js`) SHALL be the sole
-    exception to `SCHEMA-REQ-004`'s `tasks` write restriction: it runs
+    exception to `SCHEMA-REQ-004`'s restriction on changing an existing
+    task: it runs
     with app/hook privileges, not through the `tasks` collection's normal
     API rules, after a `task_entries` create or update succeeds, and MAY
     move that entry's linked task from `status: "open"` to
     `status: "doing"` — never to `done`, and never reopening a task that
     is already `done` (see `TASKS-REQ-010`,
     [`web-tasks.md`](web-tasks.md)). Outside this one hook-mediated
-    transition, the `service` role SHALL still be unable to write `tasks`
-    directly through the API.
+    transition, the `service` role SHALL still be unable to update or
+    delete `tasks` directly through the API (creating an open task is
+    covered separately by `SCHEMA-REQ-021`).
 18. `SCHEMA-REQ-018` — `task_entries` SHALL support an optional
     `session_dir` field (migration `1758300016`, text, max 1000, no
     index — pi's non-default session directory, when it used one: `pi
@@ -139,6 +142,15 @@ surface captured from real requests.
     `(legacy_client_label, repo_project)`). See
     [ADR 0027](../adr/0027-totals-computed-server-side.md) and
     [`../contract.md`](../contract.md#post-apikankakutotals).
+21. `SCHEMA-REQ-021` — The `service` role SHALL be able to create a
+    `tasks` row, and only with `status: "open"` (migration
+    `1790183809_tasks_service_create.js`; create rule
+    `@request.auth.role = 'owner' || (@request.auth.role = 'service' &&
+    @request.body.status = 'open')`). This is what kankaku's explicit,
+    user-driven "new task" commands use. The `service` role SHALL remain
+    unable to update or delete a task, and unable to create one in any
+    other status; `viewer` and unauthenticated requests SHALL remain
+    unable to create a task at all.
 
 ## Scenarios
 
@@ -159,6 +171,15 @@ surface captured from real requests.
 - **Given** the request is authenticated as `role: "service"`
 - **When** it attempts `POST /api/collections/clients/records`
 - **Then** the request fails with the generic `400 Failed to create record.` shape (a rule mismatch, not a field-level error)
+
+### Scenario: the service account can create an open task and nothing more (`SCHEMA-REQ-021`)
+
+- **Given** the request is authenticated as `role: "service"`
+- **When** it attempts `POST /api/collections/tasks/records` with `status: "open"`
+- **Then** the request succeeds and returns the created task
+- **And** the same request with `status: "doing"` or `"done"`, or with no `status`, fails with the generic `400 Failed to create record.` shape
+- **And** `PATCH` or `DELETE` on that task as `service` still fails with `404`
+- **And** the same `POST` as `role: "viewer"`, or unauthenticated, fails with `400`
 
 ### Scenario: deleting a task_entries row removes its work_records (`SCHEMA-REQ-006`)
 
@@ -302,3 +323,4 @@ full field tables per collection.
 | `SCHEMA-REQ-018` | migration `1758300016_task_entries_session_dir.js`; resume-command wiring proven by `web/tests/session-resume.test.ts`/`web/tests/session-aggregate.test.ts` (see `web-sessions.md` `SESSIONS-REQ-019`); migrate up/down round-trip not separately exercised by an automated test found in this pass | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-019` | migration `1758300018_task_entries_daily_totals_sentinel.js`; applied and its `viewQuery` inspected on an isolated instance (2026-09-21) | not covered by an automated test found in this pass |
 | `SCHEMA-REQ-020` | `pocketbase/pb_hooks/lib/totals-query.test.js` (33 unit tests: acceptance, unknown-param/injection rejection, oversized/malformed input, whitelist-only SQL); `401`/`400` responses and index usage (`EXPLAIN QUERY PLAN`) verified manually against a 100k-row isolated instance per this feature's final report | covered |
+| `SCHEMA-REQ-021` | migration `1790183809_tasks_service_create.js`; `scripts/tasks-service-create-migration.test.mjs` (`npm run manifest:test`) proves the rule text and its down path; the role behaviour itself (service/viewer/unauthenticated/owner, create/update/delete) verified manually on an isolated instance (2026-11-15) | partially covered — rule behaviour is not exercised by an automated test |

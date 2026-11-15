@@ -253,8 +253,13 @@ cascade hook in a disposable database.
 | `external_ref` | text |
 | `description` | text |
 
-Write access: owner only. The sync client only *reads* this collection
-(to link a `task_entries` row to an existing task, phase 4).
+Write access: owner only, with one exception (migration `1790183809`,
+`SCHEMA-REQ-021`): the service account may **create** a task, and only
+with `status: "open"`. kankaku's explicit "new task" commands send
+`{ title, project, status: "open" }` plus an optional `external_ref`.
+Update and delete stay owner-only. Apart from that, the sync client only
+*reads* this collection (to link a `task_entries` row to an existing
+task, phase 4).
 
 ### Team catalogs (migration `1790183806`)
 
@@ -903,10 +908,14 @@ shown to the owner (`web/app/composables/useTotals.ts`'s
   omitted bool to `false`.
 - The service account (`role: "service"`) can write `task_entries` and
   `work_records` and can list/view `clients`/`projects`/`tasks`, but
-  **cannot** create/update/delete `clients`/`projects`/`tasks` — that
-  returns the generic `{"data":{},"message":"Failed to create
-  record.","status":400}` shape. Don't try to auto-create a missing
-  project from the sync client; surface it to the user instead.
+  **cannot** create/update/delete `clients`/`projects`, nor update/delete
+  `tasks` — a rejected create returns the generic
+  `{"data":{},"message":"Failed to create record.","status":400}` shape.
+  It **can** create a task with `status: "open"` (migration `1790183809`);
+  any other status is rejected with that same `400`. A hub that has not
+  applied that migration rejects every task create the same way. Don't
+  try to auto-create a missing project from the sync client; surface it
+  to the user instead.
 - A `role: "viewer"` account (migration `1758300021`, ADR 0029) is
   read-only everywhere: it can auth and list/view exactly like
   `owner`/`service`, but every create/update/delete — including on

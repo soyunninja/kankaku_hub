@@ -297,7 +297,7 @@ the same way the web does, not from this view.
 | `users` | self only | superuser only | self only | superuser only |
 | `clients` | authenticated | owner | owner | owner |
 | `projects` | authenticated | owner | owner | owner |
-| `tasks` | authenticated | owner | owner | owner |
+| `tasks` | authenticated | owner, or service with `status: "open"` | owner | owner |
 | `task_entries` | authenticated | authenticated | authenticated | owner |
 | `work_records` | authenticated | authenticated | authenticated | owner |
 | `task_entries_daily_totals` | authenticated | — (view) | — (view) | — (view) |

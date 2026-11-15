@@ -9,9 +9,9 @@
 // reopened — see lib/task-status-rule.js for why.
 //
 // This runs with the app's own privileges, so a `service` account (which the
-// API rules forbid from writing `tasks`) can cause this ONE transition and
-// nothing else. That is intended: it is a consequence of recording work, not
-// a general write path into `tasks`.
+// API rules forbid from updating `tasks`; it may only create an open one)
+// can cause this ONE transition and nothing else. That is intended: it is a
+// consequence of recording work, not a general write path into `tasks`.
 //
 // GOJA CONSTRAINT (see favicon.pb.js): a hook handler cannot see this file's
 // top-level scope, so everything it needs is required INSIDE the handler.
