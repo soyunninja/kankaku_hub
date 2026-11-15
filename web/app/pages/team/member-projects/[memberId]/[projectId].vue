@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MemberProjectHistory from '@/components/team/MemberProjectHistory.vue'
-import { dateRangeFromQuery } from '@/components/team/activity'
+import { dateRangeFromQuery } from '@/lib/team-activity'
 import { resolvePreset } from '@/lib/period'
 import { memberWorkReturnDestination } from '@/lib/member-work-navigation'
 

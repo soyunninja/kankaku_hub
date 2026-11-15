@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import type { TaskEntryRecord } from '@/lib/pocketbase-types'
 import type { TotalsResponse } from '@/lib/totals-map'
 import { resolvePreset } from '@/lib/period'
-import { activityFilters, dateRangeFromQuery, entryDestination } from './activity'
+import { activityFilters, dateRangeFromQuery, entryDestination } from '@/lib/team-activity'
 
 const props = defineProps<{ memberId?: string }>()
 const { t } = useI18n()

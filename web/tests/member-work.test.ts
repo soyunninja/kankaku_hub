@@ -1,6 +1,12 @@
 import { expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { activityFilters, dateRangeFromQuery, entryDestination } from '../app/components/team/activity'
+import { existsSync, readFileSync } from 'node:fs'
+import { activityFilters, dateRangeFromQuery, entryDestination } from '../app/lib/team-activity'
+
+it('keeps activity helpers outside Nuxt component discovery', () => {
+  expect(existsSync('app/components/team/activity.ts')).toBe(false)
+  expect(existsSync('app/lib/team-activity.ts')).toBe(true)
+  expect(existsSync('app/components/team/TeamActivity.vue')).toBe(true)
+})
 
 it('restores only a valid scalar bookmarked date pair, otherwise keeping the bounded default', () => {
   const fallback = { start: '2024-03-02', end: '2024-03-31' }

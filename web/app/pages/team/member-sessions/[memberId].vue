@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MemberWorkDetailShell from '@/components/team/MemberWorkDetailShell.vue'
-import { dateRangeFromQuery } from '@/components/team/activity'
+import { dateRangeFromQuery } from '@/lib/team-activity'
 import { resolvePreset } from '@/lib/period'
 import { memberWorkReturnDestination } from '@/lib/member-work-navigation'
 
