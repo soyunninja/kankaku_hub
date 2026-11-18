@@ -343,6 +343,17 @@ keeping them in sync with the script's canonical values is more useful
 than leaving old runs stale. "Sin determinar" is never touched by this
 script and keeps its contact fields empty.
 
+## The public last-activity endpoint (`pocketbase/pb_hooks/last-activity.pb.js`)
+
+`GET /api/kankaku/last-activity` — the only anonymous `/api/kankaku/*`
+route. It answers `200 {"last_activity_at": "<ISO-8601 UTC>" | null}`
+with `Cache-Control: public, max-age=60`: the newest of the latest
+`work_records.started_at` and `settled_at`. Nothing else (prompt, model,
+machine, cost, ids) is returned, and the `work_records` collection rules
+stay auth-only. Public sites such as soyun.ninja use it as a presence
+signal ("coding now" when it is under one hour old). The date logic lives
+in `pocketbase/pb_hooks/lib/last-activity.js`.
+
 ## The totals endpoint (`pocketbase/pb_hooks/totals.pb.js`)
 
 `POST /api/kankaku/totals` — server-side `SUM`/`COUNT`/`MIN`/`MAX` over
